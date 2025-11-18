@@ -1,0 +1,628 @@
+interface StudentData {
+  nome: string;
+  idade: string;
+  altura: string;
+  pesoInicial: string;
+  meta: string;
+  calorias: string;
+  refeicoes: Record<string, {
+    titulo: string;
+    tipo: string;
+    icon: string;
+    itens: Array<{ nome: string; quantidade: string; opcional: boolean }>;
+  }>;
+  treinos: Record<string, Array<{
+    exercicio: string;
+    series: string;
+    descanso: string;
+    observacao: string;
+  }>>;
+  notas: string[];
+}
+
+export const generateHTML = (data: StudentData): string => {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plano - ${data.nome}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #c81d1d;
+      --primary-dark: #a01515;
+      --primary-light: #ff4444;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0a0a0a;
+      --surface: #1a1a1a;
+      --surface-hover: #242424;
+      --text: #ffffff;
+      --text-secondary: #a0a0a0;
+      --border: #2a2a2a;
+      --shadow: rgba(0, 0, 0, 0.4);
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --surface-hover: #f0f0f0;
+      --text: #1a1a1a;
+      --text-secondary: #666666;
+      --border: #e0e0e0;
+      --shadow: rgba(0, 0, 0, 0.1);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      padding: 3rem 2rem;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(200, 29, 29, 0.3);
+      position: relative;
+      color: white;
+    }
+
+    .theme-toggle {
+      position: fixed;
+      top: 2rem;
+      right: 2rem;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .theme-toggle:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: rotate(180deg) scale(1.1);
+    }
+
+    .header h1 {
+      font-size: 2.8rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      animation: fadeInDown 0.6s ease;
+    }
+
+    .header p {
+      font-size: 1.2rem;
+      opacity: 0.95;
+      animation: fadeInUp 0.6s ease;
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin: -3rem auto 0;
+      position: relative;
+      z-index: 10;
+      padding: 0 2rem;
+      max-width: 1400px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      padding: 2rem 1.5rem;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      text-align: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 12px var(--shadow);
+      animation: scaleIn 0.4s ease forwards;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px var(--shadow);
+      border-color: var(--primary);
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border-radius: 12px;
+      font-size: 1.5rem;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .section {
+      margin: 4rem auto;
+      max-width: 1400px;
+      padding: 0 2rem;
+    }
+
+    .section-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: slideIn 0.5s ease;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 2rem;
+      border: 1px solid var(--border);
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px var(--shadow);
+      animation: scaleIn 0.4s ease forwards;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px var(--shadow);
+      border-color: var(--primary);
+    }
+
+    .meal-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .meal-icon {
+      font-size: 3rem;
+    }
+
+    .meal-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .meal-type {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .meal-items {
+      list-style: none;
+    }
+
+    .meal-item {
+      display: flex;
+      align-items: start;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      padding: 0.5rem;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+
+    .meal-item:hover {
+      background: var(--surface-hover);
+    }
+
+    .meal-item-bullet {
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 1.2rem;
+      min-width: 8px;
+    }
+
+    .meal-item-content {
+      flex: 1;
+    }
+
+    .meal-item-name {
+      font-weight: 500;
+    }
+
+    .meal-item-name.optional {
+      color: var(--text-secondary);
+    }
+
+    .meal-item-qty {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-left: 0.5rem;
+    }
+
+    .optional-badge {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-left: 0.5rem;
+      font-style: italic;
+    }
+
+    .workout-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 2rem;
+      border: 1px solid var(--border);
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 12px var(--shadow);
+      animation: scaleIn 0.4s ease forwards;
+      transition: all 0.3s ease;
+    }
+
+    .workout-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px var(--shadow);
+      border-color: var(--primary);
+    }
+
+    .workout-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 1.5rem;
+    }
+
+    .workout-table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow-x: auto;
+      display: block;
+    }
+
+    .workout-table thead {
+      border-bottom: 2px solid var(--border);
+    }
+
+    .workout-table th {
+      text-align: left;
+      padding: 1rem 0.75rem;
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .workout-table tbody {
+      display: table;
+      width: 100%;
+    }
+
+    .workout-table tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+    }
+
+    .workout-table tr:hover {
+      background: var(--surface-hover);
+    }
+
+    .workout-table tr:last-child {
+      border-bottom: none;
+    }
+
+    .workout-table td {
+      padding: 1rem 0.75rem;
+      vertical-align: top;
+    }
+
+    .workout-table td:nth-child(2) {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .workout-table td:nth-child(3),
+    .workout-table td:nth-child(4) {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .notes-list {
+      list-style: none;
+    }
+
+    .notes-item {
+      display: flex;
+      align-items: start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: var(--surface-hover);
+      border-radius: 12px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .notes-icon {
+      font-size: 1.5rem;
+      min-width: 24px;
+    }
+
+    .notes-text {
+      flex: 1;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 2rem;
+      }
+
+      .header p {
+        font-size: 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        margin-top: -2rem;
+      }
+
+      .section-title {
+        font-size: 1.5rem;
+      }
+
+      .cards-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .workout-table {
+        font-size: 0.85rem;
+      }
+
+      .workout-table th,
+      .workout-table td {
+        padding: 0.75rem 0.5rem;
+      }
+    }
+
+    @media print {
+      .theme-toggle {
+        display: none;
+      }
+
+      .card,
+      .workout-card {
+        page-break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+      }
+
+      .section {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body data-theme="light">
+  <button class="theme-toggle" onclick="toggleTheme()" aria-label="Alternar tema">
+    <span class="theme-icon">☀️</span>
+  </button>
+
+  <header class="header">
+    <h1>${data.nome}</h1>
+    <p>Plano de Recomposição Corporal</p>
+  </header>
+
+  <div class="stats-grid">
+    <div class="stat-card" style="animation-delay: 0s;">
+      <div class="stat-icon">👤</div>
+      <div class="stat-label">Idade</div>
+      <div class="stat-value">${data.idade} anos</div>
+    </div>
+    <div class="stat-card" style="animation-delay: 0.1s;">
+      <div class="stat-icon">📏</div>
+      <div class="stat-label">Altura</div>
+      <div class="stat-value">${data.altura}</div>
+    </div>
+    <div class="stat-card" style="animation-delay: 0.2s;">
+      <div class="stat-icon">⚖️</div>
+      <div class="stat-label">Peso Inicial</div>
+      <div class="stat-value">${data.pesoInicial}</div>
+    </div>
+    <div class="stat-card" style="animation-delay: 0.3s;">
+      <div class="stat-icon">🎯</div>
+      <div class="stat-label">Meta</div>
+      <div class="stat-value">${data.meta}</div>
+    </div>
+    <div class="stat-card" style="animation-delay: 0.4s;">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-label">Calorias/dia</div>
+      <div class="stat-value">${data.calorias}</div>
+    </div>
+  </div>
+
+  <section class="section">
+    <h2 class="section-title">📋 Plano Alimentar</h2>
+    <div class="cards-grid">
+      ${Object.entries(data.refeicoes).map(([key, refeicao], idx) => `
+        <div class="card" style="animation-delay: ${idx * 0.1}s;">
+          <div class="meal-header">
+            <div class="meal-icon">${refeicao.icon}</div>
+            <div>
+              <div class="meal-title">${refeicao.titulo}</div>
+              <div class="meal-type">${refeicao.tipo}</div>
+            </div>
+          </div>
+          <ul class="meal-items">
+            ${refeicao.itens.map(item => `
+              <li class="meal-item">
+                <span class="meal-item-bullet">•</span>
+                <div class="meal-item-content">
+                  <span class="meal-item-name ${item.opcional ? 'optional' : ''}">
+                    ${item.nome}
+                  </span>
+                  <span class="meal-item-qty">${item.quantidade}</span>
+                  ${item.opcional ? '<span class="optional-badge">(opcional)</span>' : ''}
+                </div>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `).join('')}
+    </div>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">💪 Treinos</h2>
+    ${Object.entries(data.treinos).map(([key, exercicios], idx) => `
+      <div class="workout-card" style="animation-delay: ${idx * 0.1}s;">
+        <h3 class="workout-title">Treino ${key}</h3>
+        <table class="workout-table">
+          <thead>
+            <tr>
+              <th>Exercício</th>
+              <th>Séries</th>
+              <th>Descanso</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${exercicios.map(ex => `
+              <tr>
+                <td>${ex.exercicio}</td>
+                <td>${ex.series}</td>
+                <td>${ex.descanso}</td>
+                <td>${ex.observacao || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `).join('')}
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">📝 Observações Importantes</h2>
+    <div class="card">
+      <ul class="notes-list">
+        ${data.notas.map(nota => {
+          const parts = nota.split(' ');
+          const icon = parts[0];
+          const text = parts.slice(1).join(' ');
+          return `
+            <li class="notes-item">
+              <span class="notes-icon">${icon}</span>
+              <span class="notes-text">${text}</span>
+            </li>
+          `;
+        }).join('')}
+      </ul>
+    </div>
+  </section>
+
+  <script>
+    function toggleTheme() {
+      const body = document.body;
+      const currentTheme = body.getAttribute('data-theme');
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      body.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      
+      const icon = document.querySelector('.theme-icon');
+      icon.textContent = newTheme === 'light' ? '☀️' : '🌙';
+    }
+
+    // Load saved theme
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.body.setAttribute('data-theme', savedTheme);
+      const icon = document.querySelector('.theme-icon');
+      icon.textContent = savedTheme === 'light' ? '☀️' : '🌙';
+    });
+  </script>
+</body>
+</html>`;
+};

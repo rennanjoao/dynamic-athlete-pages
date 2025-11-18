@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Plus, FileCode } from "lucide-react";
 import { toast } from "sonner";
+import { generateHTML } from "@/utils/htmlGenerator";
 
 interface Refeicao {
   titulo: string;
@@ -76,15 +77,15 @@ const Admin = () => {
     });
   };
 
-  const generateJSON = () => {
+  const generateHTMLFile = () => {
     if (!formData.nome || !formData.idade) {
       toast.error("Preencha pelo menos nome e idade");
       return;
     }
 
-    const json = {
+    const data = {
       nome: formData.nome,
-      idade: parseInt(formData.idade) || 0,
+      idade: formData.idade,
       altura: formData.altura,
       pesoInicial: formData.pesoInicial,
       meta: formData.meta,
@@ -94,15 +95,17 @@ const Admin = () => {
       notas: notas.filter((n) => n.trim() !== ""),
     };
 
-    const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+    const htmlContent = generateHTML(data);
+    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${formData.nome.toLowerCase().replace(/\s/g, "-")}.json`;
+    const fileName = formData.nome.toLowerCase().replace(/\s+/g, "-").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    a.download = `plano-${fileName}.html`;
     a.click();
     URL.revokeObjectURL(url);
 
-    toast.success("JSON gerado com sucesso!");
+    toast.success("HTML gerado com sucesso! Pode ser aberto em qualquer navegador.");
   };
 
   return (
@@ -378,11 +381,14 @@ const Admin = () => {
 
         {/* Generate Button */}
         <div className="flex justify-center">
-          <Button onClick={generateJSON} size="lg" className="min-w-[200px]">
-            <Download className="w-5 h-5 mr-2" />
-            Gerar JSON
+          <Button onClick={generateHTMLFile} size="lg" className="min-w-[200px] gap-2">
+            <FileCode className="w-5 h-5" />
+            Gerar HTML
           </Button>
         </div>
+        <p className="text-center text-sm text-muted-foreground mt-2">
+          O arquivo HTML pode ser aberto diretamente em qualquer navegador, sem instalação
+        </p>
       </div>
     </div>
   );
