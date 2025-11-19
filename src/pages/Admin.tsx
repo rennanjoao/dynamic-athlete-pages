@@ -1,14 +1,17 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Plus, FileCode } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Plus, FileCode, User } from "lucide-react";
 import { toast } from "sonner";
 import { generateHTML } from "@/utils/htmlGenerator";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Refeicao {
   titulo: string;
@@ -25,6 +28,9 @@ interface Exercicio {
 }
 
 const Admin = () => {
+  const { user, isAdmin, subscription, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     nome: "",
     idade: "",
@@ -32,6 +38,7 @@ const Admin = () => {
     pesoInicial: "",
     meta: "",
     calorias: "",
+    cref: "",
   });
 
   const [refeicoes, setRefeicoes] = useState<Record<string, Refeicao>>({
@@ -43,6 +50,80 @@ const Admin = () => {
   });
 
   const [notas, setNotas] = useState<string[]>([""]);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [newTemplate, setNewTemplate] = useState({
+    name: "",
+    description: "",
+    level: "iniciante",
+  });
+
+  // Check authentication and subscription
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (!user) {
+      toast.error("Você precisa estar logado");
+      navigate("/auth");
+      return;
+    }
+
+    if (!subscription?.subscribed) {
+      toast.error("Você precisa de uma assinatura ativa");
+      navigate("/plans");
+      return;
+    }
+
+    // Load templates if admin
+    if (isAdmin) {
+      loadTemplates();
+    }
+  }, [user, subscription, isAdmin, authLoading, navigate]);
+
+  const loadTemplates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('workout_templates')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setTemplates(data || []);
+    } catch (error) {
+      console.error('Error loading templates:', error);
+    }
+  };
+
+  const saveTemplate = async () => {
+    if (!newTemplate.name || !treinos.A || treinos.A.length === 0) {
+      toast.error("Preencha o nome do template e adicione exercícios");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('workout_templates')
+        .insert([{
+          name: newTemplate.name,
+          description: newTemplate.description,
+          level: newTemplate.level,
+          treinos: treinos as any,
+          created_by: user!.id,
+        }]);
+
+      if (error) throw error;
+      toast.success("Template salvo com sucesso!");
+      loadTemplates();
+      setNewTemplate({ name: "", description: "", level: "iniciante" });
+    } catch (error) {
+      console.error('Error saving template:', error);
+      toast.error("Erro ao salvar template");
+    }
+  };
+
+  const loadTemplate = (template: any) => {
+    setTreinos(template.treinos);
+    toast.success(`Template "${template.name}" carregado`);
+  };
 
   const addRefeicao = () => {
     const nextNum = Object.keys(refeicoes).length + 1;
@@ -90,6 +171,7 @@ const Admin = () => {
       pesoInicial: formData.pesoInicial,
       meta: formData.meta,
       calorias: formData.calorias,
+      cref: formData.cref,
       refeicoes,
       treinos,
       notas: notas.filter((n) => n.trim() !== ""),
@@ -108,6 +190,10 @@ const Admin = () => {
     toast.success("HTML gerado com sucesso! Pode ser aberto em qualquer navegador.");
   };
 
+  if (authLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+
   return (
     <div className="min-h-screen pb-12">
       <ThemeToggle />
@@ -117,11 +203,21 @@ const Admin = () => {
           <ArrowLeft className="w-5 h-5" />
           Voltar
         </Link>
-        <h1 className="text-4xl font-bold mb-2">Painel Admin</h1>
-        <p className="text-lg opacity-90">Criar novo plano de aluno</p>
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <User className="w-8 h-8" />
+          <h1 className="text-4xl font-bold">Painel Admin</h1>
+        </div>
+        <p className="text-lg opacity-90">Criar planos personalizados de treino e dieta</p>
       </header>
 
-      <div className="max-w-5xl mx-auto px-6 mt-12 space-y-8">
+      <div className="max-w-5xl mx-auto px-6 mt-12">
+        <Tabs defaultValue="plano" className="space-y-8">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="plano">Criar Plano</TabsTrigger>
+            {isAdmin && <TabsTrigger value="templates">Templates (Admin)</TabsTrigger>}
+          </TabsList>
+
+          <TabsContent value="plano" className="space-y-8">
         {/* Dados Básicos */}
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-6">Dados Básicos</h2>
@@ -179,6 +275,15 @@ const Admin = () => {
                 value={formData.calorias}
                 onChange={(e) => setFormData({ ...formData, calorias: e.target.value })}
                 placeholder="2500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="cref">CREF</Label>
+              <Input
+                id="cref"
+                value={formData.cref}
+                onChange={(e) => setFormData({ ...formData, cref: e.target.value })}
+                placeholder="CREF 123456-G/SP"
               />
             </div>
           </div>
@@ -389,6 +494,61 @@ const Admin = () => {
         <p className="text-center text-sm text-muted-foreground mt-2">
           O arquivo HTML pode ser aberto diretamente em qualquer navegador, sem instalação
         </p>
+          </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="templates" className="space-y-6">
+              <Card className="p-6">
+                <h2 className="text-2xl font-bold mb-6">Gerenciar Templates de Treino</h2>
+                
+                <div className="space-y-4 mb-8">
+                  <h3 className="text-lg font-semibold">Criar Novo Template</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <Input
+                      placeholder="Nome do template"
+                      value={newTemplate.name}
+                      onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+                    />
+                    <Input
+                      placeholder="Nível (iniciante, intermediário, avançado)"
+                      value={newTemplate.level}
+                      onChange={(e) => setNewTemplate({ ...newTemplate, level: e.target.value })}
+                    />
+                  </div>
+                  <Textarea
+                    placeholder="Descrição do template"
+                    value={newTemplate.description}
+                    onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
+                    rows={3}
+                  />
+                  <Button onClick={saveTemplate}>Salvar Template</Button>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Templates Disponíveis</h3>
+                  {templates.length === 0 ? (
+                    <p className="text-muted-foreground">Nenhum template criado ainda.</p>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {templates.map((template) => (
+                        <Card key={template.id} className="p-4">
+                          <h4 className="font-bold text-lg mb-2">{template.name}</h4>
+                          <p className="text-sm text-muted-foreground mb-2">{template.description}</p>
+                          <p className="text-sm mb-4">
+                            <span className="font-semibold">Nível:</span> {template.level}
+                          </p>
+                          <Button onClick={() => loadTemplate(template)} size="sm" variant="outline">
+                            Carregar Template
+                          </Button>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
     </div>
   );
