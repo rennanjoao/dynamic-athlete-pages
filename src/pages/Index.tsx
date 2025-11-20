@@ -5,15 +5,18 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, Plus, Calendar } from "lucide-react";
 import { toast } from "sonner";
+
 interface Aluno {
   id: string;
   nome: string;
   descricao: string;
   dataInicio: string;
 }
+
 const Index = () => {
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const loadAlunos = async () => {
       try {
@@ -28,9 +31,12 @@ const Index = () => {
         setLoading(false);
       }
     };
+
     loadAlunos();
   }, []);
-  return <div className="min-h-screen">
+
+  return (
+    <div className="min-h-screen">
       <ThemeToggle />
 
       {/* Header */}
@@ -54,25 +60,17 @@ const Index = () => {
 
       {/* Lista de Alunos */}
       <section className="max-w-7xl mx-auto px-6 py-12">
-        <h2 className="text-3xl font-bold mb-8 animate-slide-in flex items-center gap-3">  
-
-  
-
-  
-
-  
-
-Veja um Plano Rea
-                                                                    
-                                                                    
-                                                                    
-                                                                    <Users className="w-8 h-8 text-primary" />
+        <h2 className="text-3xl font-bold mb-8 animate-slide-in flex items-center gap-3">
+          <Users className="w-8 h-8 text-primary" />
           Alunos Cadastrados
         </h2>
 
-        {loading ? <div className="flex items-center justify-center py-20">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
-          </div> : alunos.length === 0 ? <Card className="p-12 text-center animate-scale-in">
+          </div>
+        ) : alunos.length === 0 ? (
+          <Card className="p-12 text-center animate-scale-in">
             <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-xl font-semibold mb-2">Nenhum aluno cadastrado</h3>
             <p className="text-muted-foreground mb-6">
@@ -84,10 +82,15 @@ Veja um Plano Rea
                 Criar Primeiro Aluno
               </Button>
             </Link>
-          </Card> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {alunos.map((aluno, idx) => <Card key={aluno.id} className="p-6 card-hover animate-scale-in hover:border-primary/50" style={{
-          animationDelay: `${idx * 0.1}s`
-        }}>
+          </Card>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {alunos.map((aluno, idx) => (
+              <Card
+                key={aluno.id}
+                className="p-6 card-hover animate-scale-in hover:border-primary/50"
+                style={{ animationDelay: `${idx * 0.1}s` }}
+              >
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <Users className="w-6 h-6 text-primary" />
@@ -98,22 +101,22 @@ Veja um Plano Rea
                   </div>
                 </div>
 
-                
+                <h3 className="text-xl font-bold mb-2">{aluno.nome}</h3>
                 <p className="text-muted-foreground mb-4 text-sm">{aluno.descricao}</p>
 
                 <Link to={`/student?id=${aluno.id}`}>
                   <Button className="w-full">Ver Plano Completo</Button>
                 </Link>
-              </Card>)}
-          </div>}
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Info Cards */}
       <section className="max-w-7xl mx-auto px-6 pb-12">
         <div className="grid md:grid-cols-3 gap-6">
-          <Card className="p-6 text-center card-hover animate-fade-in-up" style={{
-          animationDelay: "0.1s"
-        }}>
+          <Card className="p-6 text-center card-hover animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
             <div className="text-4xl mb-3">🎯</div>
             <h3 className="font-bold text-lg mb-2">Planos Personalizados</h3>
             <p className="text-sm text-muted-foreground">
@@ -121,9 +124,7 @@ Veja um Plano Rea
             </p>
           </Card>
 
-          <Card className="p-6 text-center card-hover animate-fade-in-up" style={{
-          animationDelay: "0.2s"
-        }}>
+          <Card className="p-6 text-center card-hover animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
             <div className="text-4xl mb-3">📊</div>
             <h3 className="font-bold text-lg mb-2">Acompanhamento</h3>
             <p className="text-sm text-muted-foreground">
@@ -131,9 +132,7 @@ Veja um Plano Rea
             </p>
           </Card>
 
-          <Card className="p-6 text-center card-hover animate-fade-in-up" style={{
-          animationDelay: "0.3s"
-        }}>
+          <Card className="p-6 text-center card-hover animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
             <div className="text-4xl mb-3">💪</div>
             <h3 className="font-bold text-lg mb-2">Resultados Reais</h3>
             <p className="text-sm text-muted-foreground">
@@ -147,6 +146,8 @@ Veja um Plano Rea
       <footer className="border-t border-border py-8 text-center text-muted-foreground">
         <p className="text-sm">© 2024 Fitness Coach - Sistema de Gestão de Alunos</p>
       </footer>
-    </div>;
+    </div>
+  );
 };
+
 export default Index;
