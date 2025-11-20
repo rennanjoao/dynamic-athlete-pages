@@ -15,6 +15,7 @@ import { TemplateLoadDialog } from "@/components/admin/TemplateLoadDialog";
 import { SupplementsSection, Supplement } from "@/components/admin/SupplementsSection";
 import { validateSupplement, validateExercise, validateWaterAmount } from "@/utils/validation";
 import { WaterJugAnimation } from "@/components/admin/WaterJugAnimation";
+import { workoutTemplates } from "@/data/workoutTemplates";
 
 interface Refeicao {
   titulo: string;
@@ -88,31 +89,37 @@ const Admin = () => {
   };
 
   const applyTrainingType = () => {
-    let newTreinos: Record<string, Exercicio[]> = {};
+    const template = workoutTemplates[trainingType];
     
-    switch (trainingType) {
-      case "ab":
-        newTreinos = { A: [], B: [] };
-        break;
-      case "abc":
-        newTreinos = { A: [], B: [], C: [] };
-        break;
-      case "abcd":
-        newTreinos = { A: [], B: [], C: [], D: [] };
-        break;
-      case "aerobico":
-        newTreinos = { A: [] };
-        break;
+    if (!template) {
+      toast.error("Template não encontrado");
+      return;
     }
+
+    const newTreinos: Record<string, Exercicio[]> = {};
+    
+    // Preencher treinos com os exercícios do template
+    Object.entries(template.workouts).forEach(([name, exercises]) => {
+      // Usar a primeira letra do nome do treino (ex: "Treino A" -> "A")
+      const key = name.replace("Treino ", "");
+      newTreinos[key] = exercises;
+    });
+
+    const previousTreinos = { ...treinos };
     
     if (hasExistingContent()) {
-      const previousTreinos = { ...treinos };
       setTreinos(newTreinos);
       setupUndo(previousTreinos);
-      toast.success(`Estrutura de treino ${trainingType.toUpperCase()} aplicada`);
+      toast.success(`Template ${template.name} aplicado com ${Object.keys(newTreinos).length} treinos`);
     } else {
       setTreinos(newTreinos);
-      toast.success(`Estrutura de treino ${trainingType.toUpperCase()} criada`);
+      toast.success(`Template ${template.name} criado com ${Object.keys(newTreinos).length} treinos`);
+    }
+    
+    // Adicionar observações gerais ao campo de notas se ainda não estiverem lá
+    const hasGeneralNotes = notas.some(note => note.includes("OBSERVAÇÕES IMPORTANTES"));
+    if (!hasGeneralNotes) {
+      setNotas([template.generalNotes, ...notas]);
     }
   };
 
