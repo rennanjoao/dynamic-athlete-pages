@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Card } from "@/components/ui/card";
@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Plus, FileCode, Zap } from "lucide-react";
+import { ArrowLeft, Plus, FileCode, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { generateHTML } from "@/utils/htmlGenerator";
 import { useWorkoutTemplates } from "@/hooks/useWorkoutTemplates";
+import { TemplateLoadDialog } from "@/components/admin/TemplateLoadDialog";
+import { SupplementsSection, Supplement } from "@/components/admin/SupplementsSection";
 
 interface Refeicao {
   titulo: string;
@@ -29,6 +31,9 @@ interface Exercicio {
 const Admin = () => {
   const { templates, loading: templatesLoading } = useWorkoutTemplates();
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previousStateRef = useRef<any>(null);
   
   const [formData, setFormData] = useState({
     nome: "",
@@ -46,6 +51,8 @@ const Admin = () => {
   const [treinos, setTreinos] = useState<Record<string, Exercicio[]>>({
     A: [],
   });
+
+  const [supplements, setSupplements] = useState<Supplement[]>([]);
 
   const [notas, setNotas] = useState<string[]>([""]);
 
@@ -82,6 +89,79 @@ const Admin = () => {
     });
   };
 
+  const hasExistingContent = () => {
+    const hasWorkouts = Object.values(treinos).some(exercises => exercises.length > 0);
+    return hasWorkouts;
+  };
+
+  const createPlaceholders = (templateTreinos: Record<string, Exercicio[]>) => {
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    const templateKeys = Object.keys(templateTreinos);
+    const newTreinos: Record<string, Exercicio[]> = {};
+    
+    templateKeys.forEach(key => {
+      newTreinos[key] = templateTreinos[key];
+    });
+
+    // Se o template tem menos treinos que as letras disponíveis, criar placeholders vazios
+    const remainingLetters = letters.slice(templateKeys.length);
+    remainingLetters.forEach(letter => {
+      newTreinos[letter] = [];
+    });
+
+    return newTreinos;
+  };
+
+  const mergeTemplateWithCurrent = (templateTreinos: Record<string, Exercicio[]>) => {
+    const merged = { ...treinos };
+    
+    Object.entries(templateTreinos).forEach(([key, exercises]) => {
+      if (!merged[key] || merged[key].length === 0) {
+        merged[key] = exercises;
+      } else {
+        // Mesclar apenas se o treino atual estiver vazio
+        const uniqueExercises = exercises.filter(
+          ex => !merged[key].some(existing => existing.exercicio === ex.exercicio)
+        );
+        merged[key] = [...merged[key], ...uniqueExercises];
+      }
+    });
+
+    return merged;
+  };
+
+  const replaceWithTemplate = (templateTreinos: Record<string, Exercicio[]>) => {
+    return createPlaceholders(templateTreinos);
+  };
+
+  const handleUndo = () => {
+    if (previousStateRef.current) {
+      setTreinos(previousStateRef.current);
+      toast.success("Alteração desfeita");
+      previousStateRef.current = null;
+    }
+  };
+
+  const setupUndo = (previousTreinos: Record<string, Exercicio[]>) => {
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+    }
+
+    previousStateRef.current = previousTreinos;
+
+    toast("Treino substituído", {
+      duration: 10000,
+      action: {
+        label: "Desfazer",
+        onClick: handleUndo,
+      },
+    });
+
+    undoTimeoutRef.current = setTimeout(() => {
+      previousStateRef.current = null;
+    }, 10000);
+  };
+
   const loadTemplate = () => {
     if (!selectedTemplate) {
       toast.error("Selecione um template primeiro");
@@ -94,9 +174,66 @@ const Admin = () => {
       return;
     }
 
-    setTreinos(template.treinos);
-    toast.success(`Template "${template.name}" carregado com sucesso!`);
+    if (hasExistingContent()) {
+      setShowTemplateDialog(true);
+    } else {
+      applyTemplate("replace");
+    }
+  };
+
+  const applyTemplate = (mode: "replace" | "merge") => {
+    const template = templates.find(t => t.id === selectedTemplate);
+    if (!template) return;
+
+    const previousTreinos = { ...treinos };
+
+    if (mode === "replace") {
+      const newTreinos = replaceWithTemplate(template.treinos);
+      setTreinos(newTreinos);
+      setupUndo(previousTreinos);
+      toast.success(`Template "${template.name}" aplicado com sucesso!`);
+    } else {
+      const mergedTreinos = mergeTemplateWithCurrent(template.treinos);
+      setTreinos(mergedTreinos);
+      setupUndo(previousTreinos);
+      toast.success(`Template "${template.name}" mesclado com sucesso!`);
+    }
+
     setSelectedTemplate("");
+    setShowTemplateDialog(false);
+  };
+
+  const handleTemplateReplace = () => applyTemplate("replace");
+  const handleTemplateMerge = () => applyTemplate("merge");
+  const handleTemplateCancel = () => {
+    setShowTemplateDialog(false);
+    setSelectedTemplate("");
+  };
+
+  const addSupplement = () => {
+    const newSupplement: Supplement = {
+      id: `supp-${Date.now()}`,
+      nome: "",
+      horario: "",
+      refeicaoAssociada: "nenhuma",
+      relacao: "",
+      observacao: "",
+      essencial: false,
+    };
+    setSupplements([...supplements, newSupplement]);
+  };
+
+  const updateSupplement = (id: string, field: keyof Supplement, value: any) => {
+    setSupplements(
+      supplements.map(supp =>
+        supp.id === id ? { ...supp, [field]: value } : supp
+      )
+    );
+  };
+
+  const removeSupplement = (id: string) => {
+    setSupplements(supplements.filter(supp => supp.id !== id));
+    toast.success("Suplemento removido");
   };
 
   const generateHTMLFile = () => {
@@ -114,6 +251,7 @@ const Admin = () => {
       calorias: formData.calorias,
       refeicoes,
       treinos,
+      supplements,
       notas: notas.filter((n) => n.trim() !== ""),
     };
 
@@ -407,6 +545,14 @@ const Admin = () => {
           </div>
         </Card>
 
+        {/* Suplementos */}
+        <SupplementsSection
+          supplements={supplements}
+          onAdd={addSupplement}
+          onUpdate={updateSupplement}
+          onRemove={removeSupplement}
+        />
+
         {/* Notas */}
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-6">Observações</h2>
@@ -447,6 +593,14 @@ const Admin = () => {
           O arquivo HTML pode ser aberto diretamente em qualquer navegador, sem instalação
         </p>
       </div>
+
+      <TemplateLoadDialog
+        open={showTemplateDialog}
+        onOpenChange={setShowTemplateDialog}
+        onReplace={handleTemplateReplace}
+        onMerge={handleTemplateMerge}
+        onCancel={handleTemplateCancel}
+      />
     </div>
   );
 };

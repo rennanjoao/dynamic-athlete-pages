@@ -17,6 +17,15 @@ interface StudentData {
     descanso: string;
     observacao: string;
   }>>;
+  supplements?: Array<{
+    id: string;
+    nome: string;
+    horario: string;
+    refeicaoAssociada: string;
+    relacao: "antes" | "depois" | "";
+    observacao: string;
+    essencial: boolean;
+  }>;
   notas: string[];
 }
 
@@ -436,6 +445,55 @@ export const generateHTML = (data: StudentData): string => {
       line-height: 1.6;
     }
 
+    .supplement-item {
+      display: flex;
+      align-items: start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: var(--surface-hover);
+      border-radius: 12px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .supplement-badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      background: var(--primary);
+      color: white;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-left: 0.5rem;
+    }
+
+    .supplement-time {
+      font-weight: 600;
+      color: var(--primary);
+      min-width: 60px;
+    }
+
+    .supplement-content {
+      flex: 1;
+    }
+
+    .supplement-name {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .supplement-meal {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .supplement-obs {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
     @media (max-width: 768px) {
       .header h1 {
         font-size: 2rem;
@@ -583,6 +641,49 @@ export const generateHTML = (data: StudentData): string => {
       </div>
     `).join('')}
   </section>
+
+  ${data.supplements && data.supplements.length > 0 ? `
+  <section class="section">
+    <h2 class="section-title">💊 Suplementos e Vitaminas</h2>
+    <div class="card">
+      <ul class="notes-list">
+        ${data.supplements
+          .sort((a, b) => a.horario.localeCompare(b.horario))
+          .map(supp => {
+            const mealMap: Record<string, string> = {
+              'nenhuma': 'Sem associação',
+              'cafe': 'Café da manhã',
+              'lanche-manha': 'Lanche (manhã)',
+              'almoco': 'Almoço',
+              'lanche-tarde': 'Lanche (tarde)',
+              'jantar': 'Jantar',
+              'ceia': 'Ceia',
+              'outra': 'Outra'
+            };
+            const mealText = mealMap[supp.refeicaoAssociada] || 'Sem associação';
+            const relacaoText = supp.relacao ? ` (${supp.relacao})` : '';
+            
+            return `
+              <li class="supplement-item">
+                <span class="supplement-time">${supp.horario}</span>
+                <div class="supplement-content">
+                  <div class="supplement-name">
+                    ${supp.nome}
+                    ${supp.essencial ? '<span class="supplement-badge">ESSENCIAL</span>' : ''}
+                  </div>
+                  ${supp.refeicaoAssociada !== 'nenhuma' ? 
+                    `<div class="supplement-meal">${mealText}${relacaoText}</div>` : 
+                    ''
+                  }
+                  ${supp.observacao ? `<div class="supplement-obs">${supp.observacao}</div>` : ''}
+                </div>
+              </li>
+            `;
+          }).join('')}
+      </ul>
+    </div>
+  </section>
+  ` : ''}
 
   <section class="section">
     <h2 class="section-title">📝 Observações Importantes</h2>
