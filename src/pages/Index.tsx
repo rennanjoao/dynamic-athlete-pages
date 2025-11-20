@@ -54,108 +54,19 @@ const Index = () => {
 
       {/* Lista de Alunos */}
       <section className="max-w-7xl mx-auto px-6 py-12">
-        <h2 className="text-3xl font-bold mb-8 animate-slide-in flex items-center gap-3">
+        <h2 className="text-3xl font-bold mb-8 animate-slide-in flex items-center gap-3">  
 
+  
 
+  
 
+  
 
-
-
-
-
-
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
-   
- 
- 
- 
-Veja um Plano Real
-
-
-
-
-
-
-
-
-
-
-
-        <Users className="w-8 h-8 text-primary" />
+Veja um Plano Rea
+                                                                    
+                                                                    
+                                                                    
+                                                                    <Users className="w-8 h-8 text-primary" />
           Alunos Cadastrados
         </h2>
 
