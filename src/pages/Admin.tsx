@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Plus, FileCode } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Download, Plus, FileCode, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { generateHTML } from "@/utils/htmlGenerator";
+import { useWorkoutTemplates } from "@/hooks/useWorkoutTemplates";
 
 interface Refeicao {
   titulo: string;
@@ -25,6 +27,9 @@ interface Exercicio {
 }
 
 const Admin = () => {
+  const { templates, loading: templatesLoading } = useWorkoutTemplates();
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  
   const [formData, setFormData] = useState({
     nome: "",
     idade: "",
@@ -75,6 +80,23 @@ const Admin = () => {
       ...treinos,
       [treinoKey]: [...treinos[treinoKey], { exercicio: "", series: "", descanso: "", observacao: "" }],
     });
+  };
+
+  const loadTemplate = () => {
+    if (!selectedTemplate) {
+      toast.error("Selecione um template primeiro");
+      return;
+    }
+
+    const template = templates.find(t => t.id === selectedTemplate);
+    if (!template) {
+      toast.error("Template não encontrado");
+      return;
+    }
+
+    setTreinos(template.treinos);
+    toast.success(`Template "${template.name}" carregado com sucesso!`);
+    setSelectedTemplate("");
   };
 
   const generateHTMLFile = () => {
@@ -290,11 +312,46 @@ const Admin = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Treinos</h2>
-            <Button onClick={addTreino} size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Treino
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={addTreino} size="sm" variant="outline">
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Treino
+              </Button>
+            </div>
           </div>
+
+          {/* Template Selector */}
+          <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border">
+            <Label className="text-sm font-medium mb-2 block">Carregar Template Pré-cadastrado</Label>
+            <div className="flex gap-2">
+              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder={templatesLoading ? "Carregando..." : "Selecione um template"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name} - {template.level}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={loadTemplate} 
+                disabled={!selectedTemplate || templatesLoading}
+                className="shrink-0"
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                Carregar
+              </Button>
+            </div>
+            {templates.length === 0 && !templatesLoading && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Nenhum template cadastrado. Entre em contato com o administrador.
+              </p>
+            )}
+          </div>
+
           <div className="space-y-6">
             {Object.entries(treinos).map(([key, exercicios]) => (
               <div key={key} className="border border-border rounded-lg p-4">
