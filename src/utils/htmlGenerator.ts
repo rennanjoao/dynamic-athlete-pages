@@ -1,3 +1,5 @@
+import { sanitizeHTML, sanitizeInput } from './validation';
+
 interface StudentData {
   nome: string;
   idade: string;
@@ -29,7 +31,59 @@ interface StudentData {
   notas: string[];
 }
 
-export const generateHTML = (data: StudentData): string => {
+// Sanitize all data before generating HTML
+const sanitizeData = (data: StudentData): StudentData => {
+  return {
+    ...data,
+    nome: sanitizeInput(data.nome, 100),
+    idade: sanitizeInput(data.idade, 10),
+    altura: sanitizeInput(data.altura, 20),
+    pesoInicial: sanitizeInput(data.pesoInicial, 20),
+    meta: sanitizeInput(data.meta, 50),
+    calorias: sanitizeInput(data.calorias, 20),
+    refeicoes: Object.fromEntries(
+      Object.entries(data.refeicoes).map(([key, ref]) => [
+        key,
+        {
+          titulo: sanitizeInput(ref.titulo, 100),
+          tipo: sanitizeInput(ref.tipo, 100),
+          icon: sanitizeInput(ref.icon, 10),
+          itens: ref.itens.map(item => ({
+            nome: sanitizeInput(item.nome, 200),
+            quantidade: sanitizeInput(item.quantidade, 50),
+            opcional: Boolean(item.opcional),
+          })),
+        },
+      ])
+    ),
+    treinos: Object.fromEntries(
+      Object.entries(data.treinos).map(([key, exercises]) => [
+        key,
+        exercises.map(ex => ({
+          exercicio: sanitizeInput(ex.exercicio, 200),
+          series: sanitizeInput(ex.series, 50),
+          descanso: sanitizeInput(ex.descanso, 50),
+          observacao: sanitizeInput(ex.observacao, 500),
+        })),
+      ])
+    ),
+    supplements: data.supplements?.map(supp => ({
+      ...supp,
+      nome: sanitizeInput(supp.nome, 200),
+      horario: sanitizeInput(supp.horario, 10),
+      observacao: sanitizeInput(supp.observacao, 500),
+    })),
+    notas: data.notas.map(nota => sanitizeInput(nota, 1000)),
+  };
+}
+
+export const generateHTML = (inputData: StudentData): string => {
+  const data = sanitizeData(inputData);
+  const dataJSON = JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/'/g, '\\u0027');
+  
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -705,12 +759,94 @@ export const generateHTML = (data: StudentData): string => {
   </section>
 
   <script>
+    // Store original data for reference
+    const originalData = ${dataJSON};
+    let planData = JSON.parse(JSON.stringify(originalData));
+    
+    // Version control
+    let history = [];
+    let historyIndex = -1;
+    const MAX_HISTORY = 50;
+
+    function saveState() {
+      // Remove future states if we're not at the end
+      if (historyIndex < history.length - 1) {
+        history = history.slice(0, historyIndex + 1);
+      }
+      
+      // Add current state
+      history.push(JSON.parse(JSON.stringify(planData)));
+      
+      // Limit history size
+      if (history.length > MAX_HISTORY) {
+        history.shift();
+      } else {
+        historyIndex++;
+      }
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('planData_${data.nome.replace(/[^a-zA-Z0-9]/g, '_')}', JSON.stringify(planData));
+        localStorage.setItem('planHistory_${data.nome.replace(/[^a-zA-Z0-9]/g, '_')}', JSON.stringify(history));
+      } catch (e) {
+        console.warn('Could not save to localStorage:', e);
+      }
+    }
+
+    function undo() {
+      if (historyIndex > 0) {
+        historyIndex--;
+        planData = JSON.parse(JSON.stringify(history[historyIndex]));
+        renderPlan();
+        showToast('Alteração desfeita');
+      }
+    }
+
+    function redo() {
+      if (historyIndex < history.length - 1) {
+        historyIndex++;
+        planData = JSON.parse(JSON.stringify(history[historyIndex]));
+        renderPlan();
+        showToast('Alteração refeita');
+      }
+    }
+
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position: fixed; bottom: 2rem; right: 2rem; background: var(--primary); color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px var(--shadow); z-index: 10000; animation: slideIn 0.3s ease;';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    function renderPlan() {
+      // This would re-render the entire plan - for now, just reload
+      location.reload();
+    }
+
+    // Initialize
+    saveState();
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
+    });
+
     function toggleTheme() {
       const body = document.body;
       const currentTheme = body.getAttribute('data-theme');
       const newTheme = currentTheme === 'light' ? 'dark' : 'light';
       body.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
+      localStorage.setItem('theme_${data.nome.replace(/[^a-zA-Z0-9]/g, '_')}', newTheme);
       
       const icon = document.querySelector('.theme-icon');
       icon.textContent = newTheme === 'light' ? '☀️' : '🌙';
@@ -718,10 +854,79 @@ export const generateHTML = (data: StudentData): string => {
 
     // Load saved theme
     window.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme') || 'light';
+      const savedTheme = localStorage.getItem('theme_${data.nome.replace(/[^a-zA-Z0-9]/g, '_')}') || 'light';
       document.body.setAttribute('data-theme', savedTheme);
       const icon = document.querySelector('.theme-icon');
       icon.textContent = savedTheme === 'light' ? '☀️' : '🌙';
+
+      // Try to load saved data
+      try {
+        const saved = localStorage.getItem('planData_${data.nome.replace(/[^a-zA-Z0-9]/g, '_')}');
+        const savedHistory = localStorage.getItem('planHistory_${data.nome.replace(/[^a-zA-Z0-9]/g, '_')}');
+        
+        if (saved) {
+          planData = JSON.parse(saved);
+        }
+        
+        if (savedHistory) {
+          history = JSON.parse(savedHistory);
+          historyIndex = history.length - 1;
+        }
+      } catch (e) {
+        console.warn('Could not load from localStorage:', e);
+      }
+    });
+
+    // Export data function
+    function exportData() {
+      const dataStr = JSON.stringify(planData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'plano-${data.nome.toLowerCase().replace(/\\s+/g, '-')}-data.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Dados exportados com sucesso!');
+    }
+
+    // Import data function
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const imported = JSON.parse(e.target.result);
+            planData = imported;
+            saveState();
+            renderPlan();
+            showToast('Dados importados com sucesso!');
+          } catch (err) {
+            showToast('Erro ao importar dados: arquivo inválido');
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    // Add control buttons
+    window.addEventListener('DOMContentLoaded', () => {
+      const controls = document.createElement('div');
+      controls.style.cssText = 'position: fixed; bottom: 2rem; left: 2rem; display: flex; gap: 0.5rem; z-index: 1000;';
+      controls.innerHTML = \`
+        <button onclick="undo()" style="padding: 0.75rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--text); font-weight: 600; transition: all 0.3s;" title="Desfazer (Ctrl+Z)">↶ Desfazer</button>
+        <button onclick="redo()" style="padding: 0.75rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--text); font-weight: 600; transition: all 0.3s;" title="Refazer (Ctrl+Y)">↷ Refazer</button>
+        <button onclick="exportData()" style="padding: 0.75rem 1rem; background: var(--primary); border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: 600; transition: all 0.3s;">💾 Exportar</button>
+        <button onclick="importData()" style="padding: 0.75rem 1rem; background: var(--primary); border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: 600; transition: all 0.3s;">📂 Importar</button>
+      \`;
+      document.body.appendChild(controls);
     });
   </script>
 </body>

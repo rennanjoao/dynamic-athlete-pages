@@ -13,6 +13,7 @@ import { generateHTML } from "@/utils/htmlGenerator";
 import { useWorkoutTemplates } from "@/hooks/useWorkoutTemplates";
 import { TemplateLoadDialog } from "@/components/admin/TemplateLoadDialog";
 import { SupplementsSection, Supplement } from "@/components/admin/SupplementsSection";
+import { validateSupplement, validateExercise } from "@/utils/validation";
 
 interface Refeicao {
   titulo: string;
@@ -242,6 +243,36 @@ const Admin = () => {
       return;
     }
 
+    // Validate supplements
+    const supplementErrors: string[] = [];
+    supplements.forEach((supp, idx) => {
+      const validation = validateSupplement(supp);
+      if (!validation.valid) {
+        supplementErrors.push(`Suplemento ${idx + 1}: ${validation.errors.join(', ')}`);
+      }
+    });
+
+    if (supplementErrors.length > 0) {
+      toast.error(`Erros de validação:\n${supplementErrors.join('\n')}`);
+      return;
+    }
+
+    // Validate exercises
+    const exerciseErrors: string[] = [];
+    Object.entries(treinos).forEach(([key, exercises]) => {
+      exercises.forEach((ex, idx) => {
+        const validation = validateExercise(ex);
+        if (!validation.valid) {
+          exerciseErrors.push(`Treino ${key}, exercício ${idx + 1}: ${validation.errors.join(', ')}`);
+        }
+      });
+    });
+
+    if (exerciseErrors.length > 0) {
+      toast.error(`Erros de validação:\n${exerciseErrors.join('\n')}`);
+      return;
+    }
+
     const data = {
       nome: formData.nome,
       idade: formData.idade,
@@ -265,7 +296,7 @@ const Admin = () => {
     a.click();
     URL.revokeObjectURL(url);
 
-    toast.success("HTML gerado com sucesso! Pode ser aberto em qualquer navegador.");
+    toast.success("HTML gerado com sucesso! Arquivo editável e seguro.");
   };
 
   return (
