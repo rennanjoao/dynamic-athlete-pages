@@ -13,7 +13,8 @@ import { generateHTML } from "@/utils/htmlGenerator";
 import { useWorkoutTemplates } from "@/hooks/useWorkoutTemplates";
 import { TemplateLoadDialog } from "@/components/admin/TemplateLoadDialog";
 import { SupplementsSection, Supplement } from "@/components/admin/SupplementsSection";
-import { validateSupplement, validateExercise } from "@/utils/validation";
+import { validateSupplement, validateExercise, validateWaterAmount } from "@/utils/validation";
+import { WaterJugAnimation } from "@/components/admin/WaterJugAnimation";
 
 interface Refeicao {
   titulo: string;
@@ -43,7 +44,10 @@ const Admin = () => {
     pesoInicial: "",
     meta: "",
     calorias: "",
+    waterAmountLiters: "2.5",
   });
+
+  const [trainingType, setTrainingType] = useState<"ab" | "abc" | "abcd" | "aerobico">("ab");
 
   const [refeicoes, setRefeicoes] = useState<Record<string, Refeicao>>({
     "1": { titulo: "Refeição 1", tipo: "Café da Manhã", icon: "☕", itens: [] },
@@ -80,6 +84,35 @@ const Admin = () => {
     const nextLetter = letters[Object.keys(treinos).length];
     if (nextLetter) {
       setTreinos({ ...treinos, [nextLetter]: [] });
+    }
+  };
+
+  const applyTrainingType = () => {
+    let newTreinos: Record<string, Exercicio[]> = {};
+    
+    switch (trainingType) {
+      case "ab":
+        newTreinos = { A: [], B: [] };
+        break;
+      case "abc":
+        newTreinos = { A: [], B: [], C: [] };
+        break;
+      case "abcd":
+        newTreinos = { A: [], B: [], C: [], D: [] };
+        break;
+      case "aerobico":
+        newTreinos = { A: [] };
+        break;
+    }
+    
+    if (hasExistingContent()) {
+      const previousTreinos = { ...treinos };
+      setTreinos(newTreinos);
+      setupUndo(previousTreinos);
+      toast.success(`Estrutura de treino ${trainingType.toUpperCase()} aplicada`);
+    } else {
+      setTreinos(newTreinos);
+      toast.success(`Estrutura de treino ${trainingType.toUpperCase()} criada`);
     }
   };
 
@@ -243,6 +276,14 @@ const Admin = () => {
       return;
     }
 
+    // Validate water amount
+    const waterAmount = parseFloat(formData.waterAmountLiters);
+    const waterValidation = validateWaterAmount(waterAmount);
+    if (!waterValidation.valid) {
+      toast.error(`Erro de validação de água: ${waterValidation.errors.join(', ')}`);
+      return;
+    }
+
     // Validate supplements
     const supplementErrors: string[] = [];
     supplements.forEach((supp, idx) => {
@@ -280,6 +321,8 @@ const Admin = () => {
       pesoInicial: formData.pesoInicial,
       meta: formData.meta,
       calorias: formData.calorias,
+      waterAmountLiters: waterAmount,
+      trainingType,
       refeicoes,
       treinos,
       supplements,
@@ -370,6 +413,31 @@ const Admin = () => {
                 value={formData.calorias}
                 onChange={(e) => setFormData({ ...formData, calorias: e.target.value })}
                 placeholder="2500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="waterAmount">Quantidade de água (L)</Label>
+              <Input
+                id="waterAmount"
+                type="number"
+                step="0.1"
+                min="0"
+                max="10"
+                value={formData.waterAmountLiters}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value);
+                  if (value > 10) {
+                    toast.error("Valor inválido — máximo 10 L");
+                    return;
+                  }
+                  setFormData({ ...formData, waterAmountLiters: e.target.value });
+                }}
+                placeholder="Ex.: 2.5"
+              />
+            </div>
+            <div className="flex items-end justify-center">
+              <WaterJugAnimation 
+                waterAmountLiters={parseFloat(formData.waterAmountLiters) || 0} 
               />
             </div>
           </div>
@@ -487,6 +555,34 @@ const Admin = () => {
                 Adicionar Treino
               </Button>
             </div>
+          </div>
+
+          {/* Training Type Selector */}
+          <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border">
+            <Label className="text-sm font-medium mb-2 block">Tipo de Treino</Label>
+            <div className="flex gap-2">
+              <Select value={trainingType} onValueChange={(value: "ab" | "abc" | "abcd" | "aerobico") => setTrainingType(value)}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ab">AB - 2 treinos por semana</SelectItem>
+                  <SelectItem value="abc">ABC - 3 treinos por semana</SelectItem>
+                  <SelectItem value="abcd">ABCD - 4 treinos por semana</SelectItem>
+                  <SelectItem value="aerobico">Aeróbico - 1 treino</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={applyTrainingType} 
+                variant="secondary"
+                className="shrink-0"
+              >
+                Aplicar Estrutura
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Selecione o tipo de treino e clique em "Aplicar Estrutura" para criar os slots necessários.
+            </p>
           </div>
 
           {/* Template Selector */}

@@ -7,6 +7,8 @@ interface StudentData {
   pesoInicial: string;
   meta: string;
   calorias: string;
+  waterAmountLiters?: number;
+  trainingType?: string;
   refeicoes: Record<string, {
     titulo: string;
     tipo: string;
@@ -41,6 +43,8 @@ const sanitizeData = (data: StudentData): StudentData => {
     pesoInicial: sanitizeInput(data.pesoInicial, 20),
     meta: sanitizeInput(data.meta, 50),
     calorias: sanitizeInput(data.calorias, 20),
+    waterAmountLiters: data.waterAmountLiters,
+    trainingType: data.trainingType ? sanitizeInput(data.trainingType, 20) : undefined,
     refeicoes: Object.fromEntries(
       Object.entries(data.refeicoes).map(([key, ref]) => [
         key,
@@ -548,6 +552,47 @@ export const generateHTML = (inputData: StudentData): string => {
       font-style: italic;
     }
 
+    .water-jug-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px;
+      max-width: 160px;
+      margin: 0 auto;
+    }
+
+    .water-jug-svg {
+      width: 100%;
+      height: auto;
+      max-width: 128px;
+    }
+
+    .water-fill {
+      transition: all 1s ease-out;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .water-fill {
+        transition: none;
+      }
+    }
+
+    .water-info {
+      text-align: center;
+    }
+
+    .water-amount {
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--text);
+    }
+
+    .water-percentage {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
     @media (max-width: 768px) {
       .header h1 {
         font-size: 2rem;
@@ -634,6 +679,27 @@ export const generateHTML = (inputData: StudentData): string => {
       <div class="stat-label">Calorias/dia</div>
       <div class="stat-value">${data.calorias}</div>
     </div>
+    ${data.waterAmountLiters !== undefined ? `
+    <div class="stat-card" style="animation-delay: 0.5s;">
+      <div class="water-jug-container">
+        <svg viewBox="0 0 100 150" class="water-jug-svg" role="img" aria-label="Galão de água com ${data.waterAmountLiters.toFixed(1)} litros">
+          <title>Galão de água de 10 litros</title>
+          <desc>Indicador visual mostrando ${data.waterAmountLiters.toFixed(1)} litros de 10 litros</desc>
+          <path d="M 30 20 L 30 10 L 70 10 L 70 20 L 75 20 L 75 145 L 25 145 L 25 20 Z" fill="none" stroke="currentColor" stroke-width="2" opacity="0.6"/>
+          <path d="M 75 40 Q 85 50 85 65 Q 85 80 75 90" fill="none" stroke="currentColor" stroke-width="2" opacity="0.6"/>
+          <rect x="27" y="${145 - (Math.min(data.waterAmountLiters / 10, 1) * 125)}" width="46" height="${Math.min(data.waterAmountLiters / 10, 1) * 125}" class="water-fill" fill="var(--primary)" opacity="0.6"/>
+          ${[0, 2, 4, 6, 8, 10].map(mark => `
+            <line x1="20" y1="${145 - (mark / 10) * 125}" x2="25" y2="${145 - (mark / 10) * 125}" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+            <text x="15" y="${145 - (mark / 10) * 125 + 3}" font-size="8" text-anchor="end" fill="currentColor" opacity="0.6">${mark}</text>
+          `).join('')}
+        </svg>
+        <div class="water-info">
+          <p class="water-amount">${data.waterAmountLiters.toFixed(1)} L</p>
+          <p class="water-percentage">${(Math.min(data.waterAmountLiters / 10, 1) * 100).toFixed(0)}% de 10 L</p>
+        </div>
+      </div>
+    </div>
+    ` : ''}
   </div>
 
   <section class="section">
