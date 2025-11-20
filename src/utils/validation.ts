@@ -79,3 +79,21 @@ export const validateSupplement = (supplement: {
 
   return { valid: errors.length === 0, errors };
 };
+
+export const validateWaterAmount = (amount: number): { valid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (isNaN(amount)) {
+    errors.push('Quantidade de água inválida');
+  }
+
+  if (amount < 0) {
+    errors.push('Quantidade de água não pode ser negativa');
+  }
+
+  if (amount > 10) {
+    errors.push('Valor inválido — máximo 10 L');
+  }
+
+  return { valid: errors.length === 0, errors };
+};
