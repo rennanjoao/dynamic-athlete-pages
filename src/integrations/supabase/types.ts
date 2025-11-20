@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      diet_progress: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          date: string
+          id: string
+          meal_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          meal_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          meal_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      performance_logs: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          meals_completed: number
+          total_meals: number
+          total_workouts: number
+          user_id: string
+          workouts_completed: number
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          meals_completed?: number
+          total_meals?: number
+          total_workouts?: number
+          user_id: string
+          workouts_completed?: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          meals_completed?: number
+          total_meals?: number
+          total_workouts?: number
+          user_id?: string
+          workouts_completed?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -98,6 +164,36 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      workout_progress: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+          workout_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          workout_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          workout_id?: string
         }
         Relationships: []
       }
