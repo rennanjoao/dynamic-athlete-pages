@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { generateHTML } from "@/utils/htmlGenerator";
 import { useWorkoutTemplates } from "@/hooks/useWorkoutTemplates";
 import { TemplateLoadDialog } from "@/components/admin/TemplateLoadDialog";
+import { ProfessionalRegistrationDialog } from "@/components/admin/ProfessionalRegistrationDialog";
 import { SupplementsSection, Supplement } from "@/components/admin/SupplementsSection";
 import { validateSupplement, validateExercise, validateWaterAmount } from "@/utils/validation";
 import { WaterJugAnimation } from "@/components/admin/WaterJugAnimation";
@@ -61,6 +62,13 @@ const Admin = () => {
   const [supplements, setSupplements] = useState<Supplement[]>([]);
 
   const [notas, setNotas] = useState<string[]>([""]);
+
+  const [showProfessionalDialog, setShowProfessionalDialog] = useState(false);
+  const [professionalData, setProfessionalData] = useState<{
+    type: "educador" | "nutricionista" | null;
+    registry: string;
+    registryMasked: string;
+  } | null>(null);
 
   const addRefeicao = () => {
     const nextNum = Object.keys(refeicoes).length + 1;
@@ -329,6 +337,7 @@ const Admin = () => {
       treinos,
       supplements,
       notas: notas.filter((n) => n.trim() !== ""),
+      professionalInfo: professionalData,
     };
 
     const htmlContent = generateHTML(data);
@@ -559,6 +568,34 @@ const Admin = () => {
             </div>
           </div>
 
+          {/* Professional Registration */}
+          <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border">
+            <Label className="text-sm font-medium mb-2 block">Registro Profissional</Label>
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                {professionalData?.type ? (
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {professionalData.type === "educador" ? "Educador Físico" : "Nutricionista"}
+                    </p>
+                    <p className="text-xs">
+                      Registro: {professionalData.registryMasked || "Não informado"}
+                    </p>
+                  </div>
+                ) : (
+                  <p>Nenhum registro informado</p>
+                )}
+              </div>
+              <Button
+                onClick={() => setShowProfessionalDialog(true)}
+                variant="outline"
+                size="sm"
+              >
+                {professionalData?.type ? "Editar" : "Adicionar"} Registro
+              </Button>
+            </div>
+          </div>
+
           {/* Training Type Selector */}
           <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border">
             <Label className="text-sm font-medium mb-2 block">Treino pré-cadastrado</Label>
@@ -697,6 +734,19 @@ const Admin = () => {
         onReplace={handleTemplateReplace}
         onMerge={handleTemplateMerge}
         onCancel={handleTemplateCancel}
+      />
+
+      <ProfessionalRegistrationDialog
+        open={showProfessionalDialog}
+        onOpenChange={setShowProfessionalDialog}
+        onConfirm={(data) => {
+          setProfessionalData(data);
+          toast.success(
+            data.type 
+              ? "Registro profissional salvo com sucesso!" 
+              : "Continuando sem registro profissional."
+          );
+        }}
       />
     </div>
   );
