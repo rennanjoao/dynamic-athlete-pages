@@ -105,22 +105,17 @@ const Admin = () => {
       newTreinos[key] = exercises;
     });
 
-    const previousTreinos = { ...treinos };
-    
-    if (hasExistingContent()) {
-      setTreinos(newTreinos);
-      setupUndo(previousTreinos);
-      toast.success(`Template ${template.name} aplicado com ${Object.keys(newTreinos).length} treinos`);
-    } else {
-      setTreinos(newTreinos);
-      toast.success(`Template ${template.name} criado com ${Object.keys(newTreinos).length} treinos`);
-    }
+    // MERGE: Add new workouts to existing ones instead of replacing
+    const mergedTreinos = { ...treinos, ...newTreinos };
+    setTreinos(mergedTreinos);
     
     // Adicionar observações gerais ao campo de notas se ainda não estiverem lá
     const hasGeneralNotes = notas.some(note => note.includes("OBSERVAÇÕES IMPORTANTES"));
     if (!hasGeneralNotes) {
       setNotas([template.generalNotes, ...notas]);
     }
+
+    toast.success(`Treino ${template.name} adicionado com sucesso!`);
   };
 
   const addExercicio = (treinoKey: string) => {
@@ -566,7 +561,7 @@ const Admin = () => {
 
           {/* Training Type Selector */}
           <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border">
-            <Label className="text-sm font-medium mb-2 block">Tipo de Treino</Label>
+            <Label className="text-sm font-medium mb-2 block">Treino pré-cadastrado</Label>
             <div className="flex gap-2">
               <Select value={trainingType} onValueChange={(value: "ab" | "abc" | "abcd" | "aerobico") => setTrainingType(value)}>
                 <SelectTrigger className="flex-1">
@@ -584,44 +579,12 @@ const Admin = () => {
                 variant="secondary"
                 className="shrink-0"
               >
-                Aplicar Estrutura
+                Adicionar Treino
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Selecione o tipo de treino e clique em "Aplicar Estrutura" para criar os slots necessários.
+              Selecione o treino e clique em "Adicionar Treino" para mesclar com os treinos existentes.
             </p>
-          </div>
-
-          {/* Template Selector */}
-          <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border">
-            <Label className="text-sm font-medium mb-2 block">Carregar Template Pré-cadastrado</Label>
-            <div className="flex gap-2">
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder={templatesLoading ? "Carregando..." : "Selecione um template"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name} - {template.level}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button 
-                onClick={loadTemplate} 
-                disabled={!selectedTemplate || templatesLoading}
-                className="shrink-0"
-              >
-                <Zap className="w-4 h-4 mr-2" />
-                Carregar
-              </Button>
-            </div>
-            {templates.length === 0 && !templatesLoading && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Nenhum template cadastrado. Entre em contato com o administrador.
-              </p>
-            )}
           </div>
 
           <div className="space-y-6">
