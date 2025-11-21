@@ -31,6 +31,11 @@ interface StudentData {
     essencial: boolean;
   }>;
   notas: string[];
+  professionalInfo?: {
+    type: "educador" | "nutricionista" | null;
+    registry: string;
+    registryMasked: string;
+  } | null;
 }
 
 // Sanitize all data before generating HTML
@@ -78,6 +83,11 @@ const sanitizeData = (data: StudentData): StudentData => {
       observacao: sanitizeInput(supp.observacao, 500),
     })),
     notas: data.notas.map(nota => sanitizeInput(nota, 1000)),
+    professionalInfo: data.professionalInfo ? {
+      type: data.professionalInfo.type,
+      registry: sanitizeInput(data.professionalInfo.registry, 30),
+      registryMasked: sanitizeInput(data.professionalInfo.registryMasked, 30),
+    } : null,
   };
 }
 
@@ -701,6 +711,34 @@ export const generateHTML = (inputData: StudentData): string => {
     </div>
     ` : ''}
   </div>
+
+  ${data.professionalInfo ? `
+  <section class="section">
+    <div class="card" style="max-width: 600px; margin: 0 auto;">
+      <div style="text-align: center; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">
+          Este plano foi elaborado por um profissional
+        </h3>
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+          <p style="font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 0.5rem;">
+            ${data.professionalInfo.type === "educador" ? "Educador Físico" : "Nutricionista"}
+          </p>
+          <p style="color: var(--text-secondary); font-size: 0.95rem;">
+            Registro: ${data.professionalInfo.registryMasked}
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+  ` : `
+  <section class="section">
+    <div class="card" style="max-width: 600px; margin: 0 auto; text-align: center;">
+      <p style="color: var(--text-secondary); font-size: 0.95rem; font-style: italic;">
+        Sem registro profissional informado
+      </p>
+    </div>
+  </section>
+  `}
 
   <section class="section">
     <h2 class="section-title">📋 Plano Alimentar</h2>
