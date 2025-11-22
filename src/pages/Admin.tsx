@@ -74,6 +74,8 @@ const Admin = () => {
 
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const addRefeicao = () => {
@@ -377,12 +379,16 @@ const Admin = () => {
 
     try {
       const htmlContent = generateHTML(data);
+      const subject = emailSubject || `Seu Plano de Treino Personalizado - ${formData.nome}`;
+      const customMessage = emailMessage || `Olá ${formData.nome}!\n\nSegue em anexo seu plano de treino personalizado. Qualquer dúvida, estou à disposição!\n\nBons treinos! 💪`;
 
       const { data: result, error } = await supabase.functions.invoke("send-plan-email", {
         body: {
           toEmail: recipientEmail,
           studentName: formData.nome,
           htmlContent,
+          subject,
+          customMessage,
         },
       });
 
@@ -391,6 +397,8 @@ const Admin = () => {
       toast.success(`Plano enviado com sucesso para ${recipientEmail}!`);
       setShowEmailDialog(false);
       setRecipientEmail("");
+      setEmailSubject("");
+      setEmailMessage("");
     } catch (error: any) {
       console.error("Erro ao enviar email:", error);
       toast.error(error.message || "Erro ao enviar email. Tente novamente.");
@@ -853,19 +861,43 @@ Para mais detalhes, solicite o plano completo em HTML! 📧`;
           <DialogHeader>
             <DialogTitle>Enviar Plano por Email</DialogTitle>
             <DialogDescription>
-              Digite o email do aluno para enviar o plano de treino completo
+              Personalize a mensagem antes de enviar o plano ao aluno
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="email">Email do destinatário</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="aluno@exemplo.com"
-              value={recipientEmail}
-              onChange={(e) => setRecipientEmail(e.target.value)}
-              className="mt-2"
-            />
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="email">Email do destinatário *</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="aluno@exemplo.com"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="subject">Assunto do Email</Label>
+              <Input
+                id="subject"
+                type="text"
+                placeholder={`Seu Plano de Treino Personalizado - ${formData.nome || '[Nome]'}`}
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label htmlFor="message">Mensagem Personalizada (opcional)</Label>
+              <Textarea
+                id="message"
+                placeholder="Olá! Segue seu plano de treino personalizado..."
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+                className="mt-2"
+                rows={4}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button 

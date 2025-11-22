@@ -51,14 +51,8 @@ const Index = () => {
           </p>
           
           <div className="flex gap-4 justify-center">
-            <Link to="/student-area">
-              <Button variant="secondary" size="lg" className="animate-fade-in">
-                <Users className="mr-2 h-5 w-5" />
-                Área do Aluno
-              </Button>
-            </Link>
             <Link to="/admin">
-              <Button variant="outline" size="lg" className="text-white border-white hover:bg-white hover:text-primary animate-fade-in">
+              <Button variant="secondary" size="lg" className="animate-fade-in">
                 <Plus className="mr-2 h-5 w-5" />
                 Área do Treinador
               </Button>

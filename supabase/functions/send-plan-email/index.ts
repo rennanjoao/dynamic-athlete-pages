@@ -18,7 +18,7 @@ serve(async (req) => {
     }
 
     const resend = new Resend(RESEND_API_KEY);
-    const { toEmail, studentName, htmlContent } = await req.json();
+    const { toEmail, studentName, htmlContent, subject, customMessage } = await req.json();
 
     if (!toEmail || !studentName || !htmlContent) {
       return new Response(
@@ -30,13 +30,25 @@ serve(async (req) => {
       );
     }
 
+    const emailSubject = subject || `Seu Plano de Treino Personalizado - ${studentName}`;
+    const messagePrefix = customMessage 
+      ? `<div style="padding: 20px; background: #f5f5f5; border-radius: 8px; margin-bottom: 20px;">
+           <p style="white-space: pre-wrap; font-family: Arial, sans-serif; line-height: 1.6;">${customMessage}</p>
+         </div>`
+      : "";
+
+    const fullHtmlContent = `
+      ${messagePrefix}
+      ${htmlContent}
+    `;
+
     console.log(`Enviando plano de treino para: ${toEmail}`);
 
     const emailResponse = await resend.emails.send({
       from: "Plano de Treino <onboarding@resend.dev>",
       to: [toEmail],
-      subject: `Seu Plano de Treino Personalizado - ${studentName}`,
-      html: htmlContent,
+      subject: emailSubject,
+      html: fullHtmlContent,
     });
 
     console.log("Email enviado com sucesso:", emailResponse);
