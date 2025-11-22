@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar3D } from "@/components/student/Avatar3D";
-import StudentAvatar3D from "@/components/student/StudentAvatar3D";
+import SimpleAvatar3D from "@/components/student/SimpleAvatar3D";
 import { MeasurementsForm } from "@/components/student/MeasurementsForm";
 import { SkinfoldForm } from "@/components/student/SkinfoldForm";
 import { AvatarCustomization } from "@/components/student/AvatarCustomization";
@@ -225,14 +225,15 @@ const StudentArea = () => {
 
           <TabsContent value="avatar3d">
             <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Avatar 3D Interativo</h2>
+              <h2 className="text-2xl font-bold mb-4">Avatar 3D com Tênis Nike</h2>
               <p className="text-muted-foreground mb-6">
-                Personalize seu avatar 3D em tempo real. Arraste para girar, use a roda do mouse para zoom.
+                Personalize seu avatar 3D e seus tênis Nike em tempo real. Arraste para girar, use a roda do mouse para zoom.
               </p>
-              <StudentAvatar3D
-                initialShirt={customization?.clothing_color || "#1565c0"}
-                initialShorts="#3949ab"
-                initialHairScale={1.0}
+              <SimpleAvatar3D
+                initialShirtColor={customization?.clothing_color || "#1565c0"}
+                initialShortsColor="#3949ab"
+                initialShoeColor={customization?.shoe_color || "#000000"}
+                initialShoeAccentColor={customization?.shoe_accent_color || "#FF0000"}
               />
             </Card>
           </TabsContent>
