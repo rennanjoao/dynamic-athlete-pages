@@ -163,6 +163,13 @@ const StudentArea = () => {
     water_bottle_color: "#4A90E2",
   };
 
+  const handleAvatarGenerated = async (imageUrl: string) => {
+    // Save the avatar URL to the profile
+    await createOrUpdateProfile({
+      avatar_url: imageUrl,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
@@ -187,6 +194,8 @@ const StudentArea = () => {
           gender={profile?.gender || "male"}
           customization={defaultCustomization}
           latestMeasurement={latestMeasurement}
+          avatarUrl={profile?.avatar_url}
+          onAvatarGenerated={handleAvatarGenerated}
         />
 
         {/* Progress Chart */}
