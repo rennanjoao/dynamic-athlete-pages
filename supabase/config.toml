@@ -2,3 +2,6 @@ project_id = "nleqkimtokqkifwxdenx"
 
 [functions.generate-avatar]
 verify_jwt = false
+
+[functions.send-plan-email]
+verify_jwt = false

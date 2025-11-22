@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, FileCode, Zap } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ArrowLeft, Plus, FileCode, Mail, MessageCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { generateHTML } from "@/utils/htmlGenerator";
 import { useWorkoutTemplates } from "@/hooks/useWorkoutTemplates";
@@ -17,6 +18,7 @@ import { SupplementsSection, Supplement } from "@/components/admin/SupplementsSe
 import { validateSupplement, validateExercise, validateWaterAmount } from "@/utils/validation";
 import { WaterJugAnimation } from "@/components/admin/WaterJugAnimation";
 import { workoutTemplates } from "@/data/workoutTemplates";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Refeicao {
   titulo: string;
@@ -69,6 +71,10 @@ const Admin = () => {
     registry: string;
     registryMasked: string;
   } | null>(null);
+
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const addRefeicao = () => {
     const nextNum = Object.keys(refeicoes).length + 1;
@@ -280,10 +286,10 @@ const Admin = () => {
     toast.success("Suplemento removido");
   };
 
-  const generateHTMLFile = () => {
+  const validatePlan = () => {
     if (!formData.nome || !formData.idade) {
       toast.error("Preencha pelo menos nome e idade");
-      return;
+      return null;
     }
 
     // Validate water amount
@@ -291,7 +297,7 @@ const Admin = () => {
     const waterValidation = validateWaterAmount(waterAmount);
     if (!waterValidation.valid) {
       toast.error(`Erro de validação de água: ${waterValidation.errors.join(', ')}`);
-      return;
+      return null;
     }
 
     // Validate supplements
@@ -305,7 +311,7 @@ const Admin = () => {
 
     if (supplementErrors.length > 0) {
       toast.error(`Erros de validação:\n${supplementErrors.join('\n')}`);
-      return;
+      return null;
     }
 
     // Validate exercises
@@ -321,10 +327,10 @@ const Admin = () => {
 
     if (exerciseErrors.length > 0) {
       toast.error(`Erros de validação:\n${exerciseErrors.join('\n')}`);
-      return;
+      return null;
     }
 
-    const data = {
+    return {
       nome: formData.nome,
       idade: formData.idade,
       altura: formData.altura,
@@ -339,6 +345,11 @@ const Admin = () => {
       notas: notas.filter((n) => n.trim() !== ""),
       professionalInfo: professionalData,
     };
+  };
+
+  const generateHTMLFile = () => {
+    const data = validatePlan();
+    if (!data) return;
 
     const htmlContent = generateHTML(data);
     const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
@@ -351,6 +362,73 @@ const Admin = () => {
     URL.revokeObjectURL(url);
 
     toast.success("HTML gerado com sucesso! Arquivo editável e seguro.");
+  };
+
+  const handleSendEmail = async () => {
+    if (!recipientEmail || !recipientEmail.includes("@")) {
+      toast.error("Digite um email válido");
+      return;
+    }
+
+    const data = validatePlan();
+    if (!data) return;
+
+    setIsSendingEmail(true);
+
+    try {
+      const htmlContent = generateHTML(data);
+
+      const { data: result, error } = await supabase.functions.invoke("send-plan-email", {
+        body: {
+          toEmail: recipientEmail,
+          studentName: formData.nome,
+          htmlContent,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success(`Plano enviado com sucesso para ${recipientEmail}!`);
+      setShowEmailDialog(false);
+      setRecipientEmail("");
+    } catch (error: any) {
+      console.error("Erro ao enviar email:", error);
+      toast.error(error.message || "Erro ao enviar email. Tente novamente.");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    const data = validatePlan();
+    if (!data) return;
+
+    const message = `🏋️ *Plano de Treino - ${formData.nome}*
+
+📊 *Dados:*
+Idade: ${formData.idade} anos
+${formData.altura ? `Altura: ${formData.altura}` : ""}
+${formData.pesoInicial ? `Peso Inicial: ${formData.pesoInicial}` : ""}
+${formData.meta ? `Meta: ${formData.meta}` : ""}
+${formData.calorias ? `Calorias/dia: ${formData.calorias}` : ""}
+
+💪 *Treinos:*
+${Object.entries(treinos).map(([key, exercises]) => 
+  `*Treino ${key}:* ${exercises.length} exercícios`
+).join("\n")}
+
+🍽️ *Refeições:*
+${Object.values(refeicoes).map(ref => 
+  `${ref.icon} ${ref.titulo}: ${ref.itens.length} itens`
+).join("\n")}
+
+Para mais detalhes, solicite o plano completo em HTML! 📧`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, "_blank");
+    toast.success("WhatsApp aberto com o resumo do plano!");
   };
 
   return (
@@ -716,16 +794,37 @@ const Admin = () => {
           </Button>
         </Card>
 
-        {/* Generate Button */}
-        <div className="flex justify-center">
-          <Button onClick={generateHTMLFile} size="lg" className="min-w-[200px] gap-2">
-            <FileCode className="w-5 h-5" />
-            Gerar HTML
-          </Button>
-        </div>
-        <p className="text-center text-sm text-muted-foreground mt-2">
-          O arquivo HTML pode ser aberto diretamente em qualquer navegador, sem instalação
-        </p>
+        {/* Action Buttons */}
+        <Card className="p-6">
+          <h2 className="text-2xl font-bold mb-4 text-center">Gerar e Compartilhar Plano</h2>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button onClick={generateHTMLFile} size="lg" variant="default" className="gap-2">
+              <Download className="w-5 h-5" />
+              Baixar HTML
+            </Button>
+            <Button 
+              onClick={() => setShowEmailDialog(true)} 
+              size="lg" 
+              variant="secondary" 
+              className="gap-2"
+            >
+              <Mail className="w-5 h-5" />
+              Enviar por Email
+            </Button>
+            <Button 
+              onClick={handleSendWhatsApp} 
+              size="lg" 
+              variant="outline" 
+              className="gap-2"
+            >
+              <MessageCircle className="w-5 h-5" />
+              Compartilhar WhatsApp
+            </Button>
+          </div>
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            Baixe o arquivo HTML ou compartilhe o plano diretamente com o aluno
+          </p>
+        </Card>
       </div>
 
       <TemplateLoadDialog
@@ -748,6 +847,43 @@ const Admin = () => {
           );
         }}
       />
+
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar Plano por Email</DialogTitle>
+            <DialogDescription>
+              Digite o email do aluno para enviar o plano de treino completo
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="email">Email do destinatário</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="aluno@exemplo.com"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEmailDialog(false)}
+              disabled={isSendingEmail}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSendEmail}
+              disabled={isSendingEmail}
+            >
+              {isSendingEmail ? "Enviando..." : "Enviar Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
