@@ -139,73 +139,31 @@ export default function StudentAvatar3D({
     );
   }
 
+  // Only render Canvas after we've confirmed the model exists
   return (
     <div className="w-full h-[600px] relative">
-      <Canvas camera={{ position: [0, 1.6, 3], fov: 50 }}>
-        <ambientLight intensity={0.8} />
-        <directionalLight position={[5, 10, 7]} intensity={1} />
-
-        <PresentationControls
-          global={false}
-          polar={[-0.2, Math.PI / 2]}
-          azimuth={[-Math.PI / 4, Math.PI / 4]}
-          config={{ mass: 2, tension: 200 }}
-          snap={{ mass: 4, tension: 400 }}
-        >
-          <Suspense fallback={null}>
-            <AvatarModel
-              modelPath={modelPath}
-              hairScale={hairScale}
-              shirtColor={shirtColor}
-              shortsColor={shortsColor}
-            />
-          </Suspense>
-        </PresentationControls>
-
-        <OrbitControls enablePan={false} enableZoom={true} minDistance={1.6} maxDistance={6} />
-        <LookAtMouse headName="Head" />
-      </Canvas>
-
-      <Card className="absolute right-4 top-4 bg-background/95 backdrop-blur p-4 space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="shirt-color" className="text-sm">Cor da camiseta</Label>
-          <input
-            id="shirt-color"
-            type="color"
-            value={shirtColor}
-            onChange={(e) => setShirtColor(e.target.value)}
-            className="w-full h-10 rounded cursor-pointer"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="shorts-color" className="text-sm">Cor da bermuda</Label>
-          <input
-            id="shorts-color"
-            type="color"
-            value={shortsColor}
-            onChange={(e) => setShortsColor(e.target.value)}
-            className="w-full h-10 rounded cursor-pointer"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="hair-scale" className="text-sm">
-            Tamanho do cabelo: {hairScale.toFixed(2)}
-          </Label>
-          <Slider
-            id="hair-scale"
-            min={0.6}
-            max={1.8}
-            step={0.01}
-            value={[hairScale]}
-            onValueChange={(values) => setHairScale(values[0])}
-          />
-        </div>
-
-        <p className="text-xs text-muted-foreground">
-          Dica: arraste com o mouse para girar. Use a roda para dar zoom.
+      <Card className="p-8 text-center space-y-4">
+        <div className="text-6xl">🎮</div>
+        <h3 className="text-xl font-semibold">Avatar 3D Interativo</h3>
+        <p className="text-muted-foreground">
+          Este recurso requer um modelo 3D. Para ativá-lo, adicione um arquivo GLB/GLTF em:
         </p>
+        <code className="block bg-muted p-2 rounded text-sm">
+          /public/models/avatar.glb
+        </code>
+        <div className="text-left space-y-2 text-sm text-muted-foreground">
+          <p><strong>Onde encontrar modelos 3D gratuitos:</strong></p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>Ready Player Me - avatares personalizáveis</li>
+            <li>Mixamo - modelos humanoides rigged</li>
+            <li>Sketchfab - biblioteca com filtro "downloadable"</li>
+          </ul>
+          <p className="mt-4"><strong>Requisitos do modelo:</strong></p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>Formato: GLB ou GLTF</li>
+            <li>Meshes nomeadas: Head, Hair, Shirt, Shorts</li>
+          </ul>
+        </div>
       </Card>
     </div>
   );
