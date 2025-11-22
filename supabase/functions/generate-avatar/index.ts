@@ -42,7 +42,7 @@ serve(async (req) => {
       ? "wearing black athletic leggings and a sports top, holding a water bottle"
       : "wearing black athletic shorts and a tank top, holding a water bottle";
 
-    const prompt = `Ultra-realistic 3D rendered full body portrait of a ${bodyType} ${genderDesc} with ${skinTone} and ${hairDesc}, ${clothingDesc}, standing in a confident fitness pose. Professional 3D character model with detailed textures, studio lighting, white background. Photorealistic CGI quality, highly detailed, 8K resolution. Athletic physique, modern fitness wear, professional studio photography style.`;
+    const prompt = `Ultra-realistic 3D rendered full body portrait of a ${bodyType} ${genderDesc} with ${skinTone} and ${hairDesc}, ${clothingDesc}, standing in a confident fitness pose. Professional 3D character model with detailed textures, studio lighting, isolated on pure white background or transparent background. Photorealistic CGI quality, highly detailed, 8K resolution. Athletic physique, modern fitness wear, clean white/transparent backdrop, professional studio photography style.`;
 
     console.log("Generating avatar with prompt:", prompt);
 
