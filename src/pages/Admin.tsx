@@ -16,7 +16,7 @@ import { TemplateLoadDialog } from "@/components/admin/TemplateLoadDialog";
 import { ProfessionalRegistrationDialog } from "@/components/admin/ProfessionalRegistrationDialog";
 import { SupplementsSection, Supplement } from "@/components/admin/SupplementsSection";
 import { validateSupplement, validateExercise, validateWaterAmount } from "@/utils/validation";
-import { WaterJugAnimation } from "@/components/admin/WaterJugAnimation";
+import { WaterJug3D } from "@/components/admin/WaterJug3D";
 import { workoutTemplates } from "@/data/workoutTemplates";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -532,8 +532,8 @@ Para mais detalhes, solicite o plano completo em HTML! 📧`;
                 placeholder="Ex.: 2.5"
               />
             </div>
-            <div className="flex items-end justify-center">
-              <WaterJugAnimation 
+            <div className="flex items-end justify-center md:col-span-2">
+              <WaterJug3D 
                 waterAmountLiters={parseFloat(formData.waterAmountLiters) || 0} 
               />
             </div>
