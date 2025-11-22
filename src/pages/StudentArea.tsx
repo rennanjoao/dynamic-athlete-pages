@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar3D } from "@/components/student/Avatar3D";
+import StudentAvatar3D from "@/components/student/StudentAvatar3D";
 import { MeasurementsForm } from "@/components/student/MeasurementsForm";
 import { SkinfoldForm } from "@/components/student/SkinfoldForm";
 import { AvatarCustomization } from "@/components/student/AvatarCustomization";
@@ -203,10 +204,11 @@ const StudentArea = () => {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="measurements" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="measurements">Modo Amador</TabsTrigger>
             <TabsTrigger value="professional">Modo Profissional</TabsTrigger>
             <TabsTrigger value="customization">Personalizar Avatar</TabsTrigger>
+            <TabsTrigger value="avatar3d">Avatar 3D</TabsTrigger>
           </TabsList>
           
           <TabsContent value="measurements">
@@ -219,6 +221,20 @@ const StudentArea = () => {
           
           <TabsContent value="customization">
             <AvatarCustomization />
+          </TabsContent>
+
+          <TabsContent value="avatar3d">
+            <Card className="p-6">
+              <h2 className="text-2xl font-bold mb-4">Avatar 3D Interativo</h2>
+              <p className="text-muted-foreground mb-6">
+                Personalize seu avatar 3D em tempo real. Arraste para girar, use a roda do mouse para zoom.
+              </p>
+              <StudentAvatar3D
+                initialShirt={customization?.clothing_color || "#1565c0"}
+                initialShorts="#3949ab"
+                initialHairScale={1.0}
+              />
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
