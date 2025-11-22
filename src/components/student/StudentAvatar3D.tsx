@@ -95,12 +95,31 @@ export default function StudentAvatar3D({
   const [shortsColor, setShortsColor] = useState(initialShorts);
   const [hairScale, setHairScale] = useState(initialHairScale);
   const [modelError, setModelError] = useState(false);
+  const [modelLoading, setModelLoading] = useState(true);
 
   useEffect(() => {
     // Check if model file exists
+    setModelLoading(true);
     fetch(modelPath, { method: 'HEAD' })
-      .catch(() => setModelError(true));
+      .then(response => {
+        if (!response.ok) {
+          setModelError(true);
+        }
+        setModelLoading(false);
+      })
+      .catch(() => {
+        setModelError(true);
+        setModelLoading(false);
+      });
   }, [modelPath]);
+
+  if (modelLoading) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-muted-foreground">Verificando modelo 3D...</p>
+      </Card>
+    );
+  }
 
   if (modelError) {
     return (
