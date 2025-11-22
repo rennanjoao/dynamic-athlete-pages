@@ -49,12 +49,21 @@ const Index = () => {
           <p className="text-xl opacity-95 mb-6">
             Sistema de Gestão de Treinos e Dietas Personalizados
           </p>
-          <Link to="/admin">
-            <Button variant="secondary" size="lg" className="gap-2">
-              <Plus className="w-5 h-5" />
-              Criar Novo Aluno
-            </Button>
-          </Link>
+          
+          <div className="flex gap-4 justify-center">
+            <Link to="/student-area">
+              <Button variant="secondary" size="lg" className="animate-fade-in">
+                <Users className="mr-2 h-5 w-5" />
+                Área do Aluno
+              </Button>
+            </Link>
+            <Link to="/admin">
+              <Button variant="outline" size="lg" className="text-white border-white hover:bg-white hover:text-primary animate-fade-in">
+                <Plus className="mr-2 h-5 w-5" />
+                Área do Treinador
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 

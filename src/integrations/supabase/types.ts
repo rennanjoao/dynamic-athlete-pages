@@ -14,6 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      avatar_customization: {
+        Row: {
+          clothing_color: string
+          eye_color: string
+          hair_color: string
+          hair_style: string
+          id: string
+          nail_color: string | null
+          shoe_accent_color: string
+          shoe_color: string
+          skin_color: string
+          updated_at: string
+          user_id: string
+          water_bottle_color: string
+        }
+        Insert: {
+          clothing_color?: string
+          eye_color?: string
+          hair_color?: string
+          hair_style?: string
+          id?: string
+          nail_color?: string | null
+          shoe_accent_color?: string
+          shoe_color?: string
+          skin_color?: string
+          updated_at?: string
+          user_id: string
+          water_bottle_color?: string
+        }
+        Update: {
+          clothing_color?: string
+          eye_color?: string
+          hair_color?: string
+          hair_style?: string
+          id?: string
+          nail_color?: string | null
+          shoe_accent_color?: string
+          shoe_color?: string
+          skin_color?: string
+          updated_at?: string
+          user_id?: string
+          water_bottle_color?: string
+        }
+        Relationships: []
+      }
+      body_measurements: {
+        Row: {
+          arm: number | null
+          back: number | null
+          body_fat_percentage: number | null
+          calf: number | null
+          chest: number | null
+          created_at: string
+          forearm: number | null
+          hip: number | null
+          id: string
+          measurement_date: string
+          thigh: number | null
+          user_id: string
+          waist: number | null
+          weight: number | null
+        }
+        Insert: {
+          arm?: number | null
+          back?: number | null
+          body_fat_percentage?: number | null
+          calf?: number | null
+          chest?: number | null
+          created_at?: string
+          forearm?: number | null
+          hip?: number | null
+          id?: string
+          measurement_date?: string
+          thigh?: number | null
+          user_id: string
+          waist?: number | null
+          weight?: number | null
+        }
+        Update: {
+          arm?: number | null
+          back?: number | null
+          body_fat_percentage?: number | null
+          calf?: number | null
+          chest?: number | null
+          created_at?: string
+          forearm?: number | null
+          hip?: number | null
+          id?: string
+          measurement_date?: string
+          thigh?: number | null
+          user_id?: string
+          waist?: number | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
       diet_progress: {
         Row: {
           completed: boolean
@@ -101,6 +197,99 @@ export type Database = {
           created_at?: string
           cref?: string | null
           full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      skinfold_measurements: {
+        Row: {
+          abdominal: number | null
+          biceps: number | null
+          body_fat_percentage: number | null
+          calf: number | null
+          chest: number | null
+          created_at: string
+          id: string
+          measurement_date: string
+          midaxillary: number | null
+          protocol_used: string | null
+          subscapular: number | null
+          suprailiac: number | null
+          thigh: number | null
+          triceps: number | null
+          user_id: string
+          weight: number | null
+        }
+        Insert: {
+          abdominal?: number | null
+          biceps?: number | null
+          body_fat_percentage?: number | null
+          calf?: number | null
+          chest?: number | null
+          created_at?: string
+          id?: string
+          measurement_date?: string
+          midaxillary?: number | null
+          protocol_used?: string | null
+          subscapular?: number | null
+          suprailiac?: number | null
+          thigh?: number | null
+          triceps?: number | null
+          user_id: string
+          weight?: number | null
+        }
+        Update: {
+          abdominal?: number | null
+          biceps?: number | null
+          body_fat_percentage?: number | null
+          calf?: number | null
+          chest?: number | null
+          created_at?: string
+          id?: string
+          measurement_date?: string
+          midaxillary?: number | null
+          protocol_used?: string | null
+          subscapular?: number | null
+          suprailiac?: number | null
+          thigh?: number | null
+          triceps?: number | null
+          user_id?: string
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      student_profiles: {
+        Row: {
+          avatar_url: string | null
+          birth_date: string | null
+          created_at: string
+          full_name: string
+          gender: string
+          height: number | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          birth_date?: string | null
+          created_at?: string
+          full_name: string
+          gender: string
+          height?: number | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          birth_date?: string | null
+          created_at?: string
+          full_name?: string
+          gender?: string
+          height?: number | null
           id?: string
           updated_at?: string
           user_id?: string
