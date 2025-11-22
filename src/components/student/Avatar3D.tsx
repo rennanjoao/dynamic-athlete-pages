@@ -1,38 +1,69 @@
 import { useEffect, useState } from "react";
 import { AvatarCustomization } from "@/hooks/useStudentProfile";
 import { BodyMeasurement } from "@/hooks/useMeasurements";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Loader2, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 interface Avatar3DProps {
   gender: "male" | "female";
   customization: AvatarCustomization;
   latestMeasurement?: BodyMeasurement;
+  avatarUrl?: string | null;
+  onAvatarGenerated?: (url: string) => void;
 }
 
-export const Avatar3D = ({ gender, customization, latestMeasurement }: Avatar3DProps) => {
-  const [bodyShape, setBodyShape] = useState({
-    shoulderWidth: 100,
-    waistWidth: 80,
-    hipWidth: 95,
-    armThickness: 15,
-    legThickness: 20,
-  });
+export const Avatar3D = ({ 
+  gender, 
+  customization, 
+  latestMeasurement, 
+  avatarUrl,
+  onAvatarGenerated 
+}: Avatar3DProps) => {
+  const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(avatarUrl || null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
-    if (latestMeasurement) {
-      // Adjust body shape based on measurements
-      const waist = latestMeasurement.waist || 80;
-      const hip = latestMeasurement.hip || 95;
-      const arm = latestMeasurement.arm || 30;
-      
-      setBodyShape({
-        shoulderWidth: gender === "male" ? 100 : 90,
-        waistWidth: waist * 0.8, // Scale for SVG
-        hipWidth: hip * 0.75,
-        armThickness: arm * 0.4,
-        legThickness: (latestMeasurement.thigh || 50) * 0.35,
-      });
+    if (avatarUrl) {
+      setGeneratedAvatar(avatarUrl);
     }
-  }, [latestMeasurement, gender]);
+  }, [avatarUrl]);
+
+  const generateAvatar = async () => {
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-avatar", {
+        body: {
+          gender,
+          skinColor: customization.skin_color,
+          hairColor: customization.hair_color,
+          bodyFat: latestMeasurement?.body_fat_percentage || 20,
+          weight: latestMeasurement?.weight || 70,
+          customization,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (data.imageUrl) {
+        setGeneratedAvatar(data.imageUrl);
+        if (onAvatarGenerated) {
+          onAvatarGenerated(data.imageUrl);
+        }
+        toast.success("Avatar 3D realista gerado com sucesso!");
+      }
+    } catch (error: any) {
+      console.error("Error generating avatar:", error);
+      toast.error(error.message || "Erro ao gerar avatar. Tente novamente.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const getMotivationalMessage = () => {
     const bodyFat = latestMeasurement?.body_fat_percentage;
@@ -46,122 +77,77 @@ export const Avatar3D = ({ gender, customization, latestMeasurement }: Avatar3DP
 
   return (
     <div className="flex flex-col items-center gap-4 p-6 bg-gradient-to-b from-background to-muted rounded-lg">
-      {/* Avatar SVG */}
-      <svg
-        viewBox="0 0 200 400"
-        className="w-full max-w-xs h-auto"
-        style={{ filter: "drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))" }}
-      >
-        {/* Head */}
-        <ellipse
-          cx="100"
-          cy="50"
-          rx="30"
-          ry="35"
-          fill={customization.skin_color}
-          stroke="hsl(var(--border))"
-          strokeWidth="2"
-        />
-        
-        {/* Eyes */}
-        <circle cx="90" cy="45" r="4" fill={customization.eye_color} />
-        <circle cx="110" cy="45" r="4" fill={customization.eye_color} />
-        
-        {/* Hair */}
-        <path
-          d={gender === "male" 
-            ? "M 70 35 Q 100 20 130 35" 
-            : "M 65 30 Q 100 15 135 30 L 135 60 Q 100 65 65 60 Z"
-          }
-          fill={customization.hair_color}
-        />
-        
-        {/* Torso */}
-        <path
-          d={`M ${100 - bodyShape.shoulderWidth / 2} 85 
-              L ${100 - bodyShape.waistWidth / 2} 200
-              Q 100 210 ${100 + bodyShape.waistWidth / 2} 200
-              L ${100 + bodyShape.shoulderWidth / 2} 85
-              Q 100 75 ${100 - bodyShape.shoulderWidth / 2} 85 Z`}
-          fill={customization.clothing_color}
-        />
-        
-        {/* Arms */}
-        <rect
-          x={100 - bodyShape.shoulderWidth / 2 - bodyShape.armThickness}
-          y="85"
-          width={bodyShape.armThickness}
-          height="100"
-          rx="8"
-          fill={customization.skin_color}
-        />
-        <rect
-          x={100 + bodyShape.shoulderWidth / 2}
-          y="85"
-          width={bodyShape.armThickness}
-          height="100"
-          rx="8"
-          fill={customization.skin_color}
-        />
-        
-        {/* Legs */}
-        <rect
-          x={100 - bodyShape.legThickness - 5}
-          y="200"
-          width={bodyShape.legThickness}
-          height="150"
-          rx="10"
-          fill={customization.clothing_color === "#000000" ? "#2C2C2C" : customization.clothing_color}
-        />
-        <rect
-          x={100 + 5}
-          y="200"
-          width={bodyShape.legThickness}
-          height="150"
-          rx="10"
-          fill={customization.clothing_color === "#000000" ? "#2C2C2C" : customization.clothing_color}
-        />
-        
-        {/* Shoes */}
-        <ellipse
-          cx={100 - bodyShape.legThickness / 2 - 5}
-          cy="360"
-          rx={bodyShape.legThickness}
-          ry="12"
-          fill={customization.shoe_color}
-          stroke={customization.shoe_accent_color}
-          strokeWidth="2"
-        />
-        <ellipse
-          cx={100 + bodyShape.legThickness / 2 + 5}
-          cy="360"
-          rx={bodyShape.legThickness}
-          ry="12"
-          fill={customization.shoe_color}
-          stroke={customization.shoe_accent_color}
-          strokeWidth="2"
-        />
-        
-        {/* Water Bottle */}
-        <rect
-          x={100 + bodyShape.shoulderWidth / 2 + bodyShape.armThickness + 5}
-          y="140"
-          width="15"
-          height="40"
-          rx="3"
-          fill={customization.water_bottle_color}
-          opacity="0.8"
-        />
-      </svg>
+      {/* Avatar Display */}
+      {generatedAvatar ? (
+        <div className="relative w-full max-w-md">
+          <img
+            src={generatedAvatar}
+            alt="Avatar 3D Realista"
+            className="w-full h-auto rounded-lg shadow-2xl"
+            style={{ maxHeight: "600px", objectFit: "contain" }}
+          />
+          <Button
+            onClick={generateAvatar}
+            disabled={isGenerating}
+            variant="outline"
+            size="sm"
+            className="absolute top-4 right-4 bg-background/80 backdrop-blur"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Regenerar
+              </>
+            )}
+          </Button>
+        </div>
+      ) : (
+        <div className="w-full max-w-md space-y-4">
+          <div className="aspect-[2/3] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
+            <div className="text-center p-6">
+              <div className="text-6xl mb-4">🧍</div>
+              <p className="text-muted-foreground mb-4">
+                Seu avatar 3D realista ainda não foi gerado
+              </p>
+              <p className="text-sm text-muted-foreground mb-6">
+                Será criado um modelo 3D ultra-realista baseado nas suas características e medidas corporais usando IA
+              </p>
+              <Button
+                onClick={generateAvatar}
+                disabled={isGenerating}
+                size="lg"
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Gerando Avatar 3D...
+                  </>
+                ) : (
+                  "Gerar Avatar 3D Realista"
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-4">
+                ⚡ A geração pode levar alguns segundos
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats and Feedback */}
-      <div className="text-center space-y-2">
+      <div className="text-center space-y-2 w-full">
         <p className="text-lg font-semibold text-foreground">
           {getMotivationalMessage()}
         </p>
         
         {latestMeasurement?.body_fat_percentage && (
-          <div className="flex items-center justify-center gap-4 text-sm">
+          <div className="flex items-center justify-center gap-4 text-sm flex-wrap">
             <div className="bg-primary/10 px-4 py-2 rounded-lg">
               <span className="text-muted-foreground">% Gordura</span>
               <p className="text-2xl font-bold text-primary">
@@ -174,6 +160,15 @@ export const Avatar3D = ({ gender, customization, latestMeasurement }: Avatar3DP
                 <span className="text-muted-foreground">Peso</span>
                 <p className="text-2xl font-bold text-primary">
                   {latestMeasurement.weight.toFixed(1)} kg
+                </p>
+              </div>
+            )}
+
+            {latestMeasurement.waist && (
+              <div className="bg-primary/10 px-4 py-2 rounded-lg">
+                <span className="text-muted-foreground">Cintura</span>
+                <p className="text-2xl font-bold text-primary">
+                  {latestMeasurement.waist.toFixed(1)} cm
                 </p>
               </div>
             )}
