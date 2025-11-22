@@ -76,14 +76,14 @@ export const Avatar3D = ({
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 p-6 bg-gradient-to-b from-background to-muted rounded-lg">
+    <div className="flex flex-col items-center gap-4 p-6">
       {/* Avatar Display */}
       {generatedAvatar ? (
         <div className="relative w-full max-w-md">
           <img
             src={generatedAvatar}
             alt="Avatar 3D Realista"
-            className="w-full h-auto rounded-lg shadow-2xl"
+            className="w-full h-auto drop-shadow-2xl"
             style={{ maxHeight: "600px", objectFit: "contain" }}
           />
           <Button
@@ -108,7 +108,7 @@ export const Avatar3D = ({
         </div>
       ) : (
         <div className="w-full max-w-md space-y-4">
-          <div className="aspect-[2/3] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
+          <div className="aspect-[2/3] bg-background/50 rounded-lg flex items-center justify-center border-2 border-dashed border-border/50">
             <div className="text-center p-6">
               <div className="text-6xl mb-4">🧍</div>
               <p className="text-muted-foreground mb-4">
