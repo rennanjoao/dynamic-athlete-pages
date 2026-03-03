@@ -6,8 +6,10 @@ import { HoverBlock } from "@/components/fitness/HoverBlock";
 import { WorkoutCard } from "@/components/fitness/WorkoutCard";
 import { DietCard } from "@/components/fitness/DietCard";
 import { PerformanceChart } from "@/components/fitness/PerformanceChart";
+import { FitnessChatBot } from "@/components/fitness/FitnessChatBot";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Dumbbell, UtensilsCrossed, Activity } from "lucide-react";
+import { motion } from "framer-motion";
 
 const SAMPLE_WORKOUTS = [
   {
@@ -52,103 +54,88 @@ const SAMPLE_MEALS = [
 export default function Fitness() {
   const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
-  const { workoutProgress, dietProgress, performanceLogs, loading, toggleWorkout, toggleDiet } = useFitnessProgress(
-    user?.id
-  );
+  const { workoutProgress, dietProgress, performanceLogs, loading, toggleWorkout, toggleDiet } = useFitnessProgress(user?.id);
 
   useEffect(() => {
-    // Check authentication
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate("/");
-      } else {
-        setUser(session.user);
-      }
+      if (!session) navigate("/");
+      else setUser(session.user);
     });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        navigate("/");
-      } else {
-        setUser(session.user);
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) navigate("/");
+      else setUser(session.user);
     });
-
     return () => subscription.unsubscribe();
   }, [navigate]);
 
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+        <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 bg-background">
+    <div className="min-h-screen bg-background">
       <ThemeToggle />
-      
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="animate-fade-in-down">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Painel Fitness</h1>
-          <p className="text-muted-foreground">Acompanhe seu progresso diário</p>
-        </div>
 
-        {/* Quick Access Blocks */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in-up">
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-10">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+          <h1 className="text-3xl font-bold text-foreground mb-1">Painel Fitness</h1>
+          <p className="text-muted-foreground text-sm">Acompanhe seu progresso diário</p>
+        </motion.div>
+
+        {/* Quick Access */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <HoverBlock title="Treinos" img="/treino.jpg" />
           <HoverBlock title="Dietas" img="/dieta.jpg" />
           <HoverBlock title="Aeróbicos" img="/aerobico.jpg" />
         </div>
 
-        {/* Workouts Section */}
-        <div className="space-y-4 animate-fade-in-up">
+        {/* Workouts */}
+        <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <Dumbbell className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold text-foreground">Treinos do Dia</h2>
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Dumbbell className="w-5 h-5 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground">Treinos do Dia</h2>
           </div>
           <div className="grid gap-4">
             {SAMPLE_WORKOUTS.map((workout) => (
-              <WorkoutCard
-                key={workout.id}
-                workout={workout}
-                completed={workoutProgress[workout.id] || false}
-                onToggle={toggleWorkout}
-              />
+              <WorkoutCard key={workout.id} workout={workout} completed={workoutProgress[workout.id] || false} onToggle={toggleWorkout} />
             ))}
           </div>
         </div>
 
-        {/* Diet Section */}
-        <div className="space-y-4 animate-fade-in-up">
+        {/* Diet */}
+        <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <UtensilsCrossed className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold text-foreground">Plano Alimentar</h2>
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <UtensilsCrossed className="w-5 h-5 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground">Plano Alimentar</h2>
           </div>
           <div className="grid gap-4">
             {SAMPLE_MEALS.map((meal) => (
-              <DietCard
-                key={meal.id}
-                meal={meal}
-                completed={dietProgress[meal.id] || false}
-                onToggle={toggleDiet}
-              />
+              <DietCard key={meal.id} meal={meal} completed={dietProgress[meal.id] || false} onToggle={toggleDiet} />
             ))}
           </div>
         </div>
 
-        {/* Performance Chart */}
-        <div className="animate-fade-in-up">
+        {/* Performance */}
+        <div>
           <div className="flex items-center gap-3 mb-6">
-            <Activity className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold text-foreground">Performance</h2>
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground">Performance</h2>
           </div>
           <PerformanceChart data={performanceLogs} />
         </div>
       </div>
+
+      <FitnessChatBot />
     </div>
   );
 }
