@@ -1,5 +1,4 @@
-import { Card } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface PerformanceLog {
   date: string;
@@ -22,49 +21,60 @@ export const PerformanceChart = ({ data }: PerformanceChartProps) => {
 
   if (chartData.length === 0) {
     return (
-      <Card className="p-8 shadow-sm">
-        <h2 className="text-2xl font-bold mb-4 text-foreground">Performance dos Últimos 14 Dias</h2>
+      <div className="glass rounded-2xl p-8">
+        <h2 className="text-xl font-bold mb-4 text-foreground">Performance dos Últimos 14 Dias</h2>
         <p className="text-muted-foreground text-center py-8">
-          Nenhum dado de performance disponível ainda. Complete treinos e refeições para ver seu progresso!
+          Nenhum dado de performance disponível ainda.
         </p>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="p-8 shadow-sm">
-      <h2 className="text-2xl font-bold mb-6 text-foreground">Performance dos Últimos 14 Dias</h2>
+    <div className="glass rounded-2xl p-8">
+      <h2 className="text-xl font-bold mb-6 text-foreground">Performance dos Últimos 14 Dias</h2>
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
-          <YAxis stroke="hsl(var(--muted-foreground))" domain={[0, 100]} />
+        <AreaChart data={chartData}>
+          <defs>
+            <linearGradient id="gradientTreinos" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(350, 89%, 50%)" stopOpacity={0.4} />
+              <stop offset="100%" stopColor="hsl(350, 89%, 50%)" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="gradientDieta" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(350, 100%, 60%)" stopOpacity={0.3} />
+              <stop offset="100%" stopColor="hsl(350, 100%, 60%)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+          <YAxis stroke="hsl(var(--muted-foreground))" domain={[0, 100]} fontSize={12} />
           <Tooltip
             contentStyle={{
               backgroundColor: "hsl(var(--card))",
               border: "1px solid hsl(var(--border))",
-              borderRadius: "var(--radius)",
+              borderRadius: "12px",
+              backdropFilter: "blur(16px)",
             }}
           />
           <Legend />
-          <Line
+          <Area
             type="monotone"
             dataKey="treinos"
             name="Treinos (%)"
             stroke="hsl(var(--primary))"
+            fill="url(#gradientTreinos)"
             strokeWidth={2}
-            dot={{ fill: "hsl(var(--primary))" }}
           />
-          <Line
+          <Area
             type="monotone"
             dataKey="dieta"
             name="Dieta (%)"
             stroke="hsl(var(--primary-light))"
+            fill="url(#gradientDieta)"
             strokeWidth={2}
-            dot={{ fill: "hsl(var(--primary-light))" }}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
-    </Card>
+    </div>
   );
 };
