@@ -2,12 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  MessageCircle, X, Send, Sparkles, Zap,
-  Droplets, Moon, Apple, Dumbbell, Heart, Brain,
-  TrendingUp, Users, Activity
+  MessageCircle, X, Send, Brain, Zap,
+  Droplets, Moon, TrendingUp, Heart,
+  Users, Activity, Dumbbell
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -15,48 +17,14 @@ interface Message {
   content: string;
 }
 
-const KNOWLEDGE_BASE: Record<string, string> = {
-  // Site features
-  "treino|exercicio|musculação|academia": `💪 **Treinos Inteligentes**\n\nNosso sistema oferece:\n- **10+ templates esportivos**: Bodybuilding, Powerlifting, CrossFit, BJJ, Calistenia, Corrida, Triathlon, Natação, Ciclismo e Fisioterapia\n- Controle de **RPE, cadência, séries e descanso**\n- Periodização personalizada\n- Checklist interativo de exercícios\n\n👉 Acesse pela **Área do Atleta** ou **Painel Fitness** para começar!`,
-
-  "dieta|nutrição|alimentação|comida|macro|caloria": `🍎 **Nutrição & Plano Alimentar**\n\nRecursos disponíveis:\n- Plano alimentar completo com **macronutrientes**\n- Controle de refeições diárias com checklist\n- Suplementação com horários otimizados\n- Ajuste de macros para **cutting, bulking ou recomposição**\n\n💡 **Dica**: Consuma 1.6-2.2g de proteína por kg de peso corporal para maximizar a síntese proteica muscular.`,
-
-  "agua|hidratação|beber|líquido": `💧 **Hidratação — O Pilar Esquecido**\n\nA hidratação adequada impacta diretamente:\n- **Performance**: -2% de desidratação = -20% de rendimento\n- **Recuperação muscular**: Água transporta nutrientes às fibras\n- **Cognição**: Desidratação reduz foco e tempo de reação\n\n📊 **Meta diária**: 35-40ml por kg de peso corporal\n- Ex: 80kg → 2.8 a 3.2 litros/dia\n- Em treino intenso: adicionar 500-750ml por hora de exercício\n\n🔥 **Sinais de desidratação**: Urina escura, fadiga, dor de cabeça, cãibras.`,
-
-  "sono|dormir|descanso|recuperação|sleep": `🌙 **Sono — O Maior Anabólico Natural**\n\nDurante o sono profundo:\n- Liberação de **GH (Hormônio do Crescimento)** — pico às 22h-2h\n- **Reparação das fibras musculares** micro-lesionadas no treino\n- Consolidação da **memória motora** (técnica de exercícios)\n- Regulação do **cortisol** (hormônio do estresse)\n\n📊 **Recomendação**: 7-9 horas por noite\n\n💡 **Dicas para melhorar o sono**:\n- Evite telas 1h antes de dormir\n- Quarto escuro e fresco (18-20°C)\n- Magnésio e ZMA podem auxiliar\n- Horário fixo de dormir/acordar`,
-
-  "resultado|progresso|evolução|meta|objetivo": `📈 **Resultados & Acompanhamento**\n\nA plataforma oferece:\n- **Gráficos de evolução** de peso, medidas e % de gordura\n- Avaliação por **dobras cutâneas** (Jackson-Pollock 3/7 dobras)\n- **Avatar 3D** que reflete sua composição corporal\n- Histórico completo de todas as medições\n\n⏱️ **Expectativas realistas**:\n- Hipertrofia: 0.5-1kg de massa magra/mês (iniciantes)\n- Emagrecimento saudável: 0.5-1kg/semana\n- Ganho de força: 5-10% por mês (iniciantes)`,
-
-  "avatar|3d|personalização": `🎮 **Avatar 3D Personalizado**\n\nCrie seu avatar único:\n- Personalização de **pele, cabelo, olhos**\n- Roupas e **tênis Nike** customizáveis\n- Garrafa d'água de academia\n- Avatar reflete suas medidas corporais reais\n\n👉 Acesse na **Área do Atleta** > aba "Avatar 3D"`,
-
-  "suplemento|whey|creatina|cafeína": `💊 **Suplementação Inteligente**\n\nSuplementos com evidência científica:\n- **Creatina**: 3-5g/dia — força e volume muscular\n- **Whey Protein**: 20-40g pós-treino\n- **Cafeína**: 3-6mg/kg — performance e foco\n- **Vitamina D**: Se exposição solar insuficiente\n- **Ômega 3**: Anti-inflamatório e saúde cardiovascular\n\n⚠️ Suplementos complementam, não substituem uma boa alimentação!`,
-
-  "saude|saúde|bem-estar|prevenção": `❤️ **Saúde & Performance**\n\nOs 4 pilares da alta performance:\n\n1. 🏋️ **Treino**: Estímulo progressivo e periodizado\n2. 🍎 **Nutrição**: Combustível adequado para o corpo\n3. 💧 **Hidratação**: Base de todas as funções metabólicas\n4. 🌙 **Sono**: Onde a recuperação acontece\n\n💡 Negligenciar qualquer pilar compromete todos os outros. A plataforma te ajuda a monitorar cada um deles!`,
-
-  "como funciona|o que faz|funcionalidade|recurso|feature": `🚀 **O que o Elite Athlete Hub oferece:**\n\n1. **🏋️ Painel Fitness** — Treinos do dia, dieta e performance\n2. **📊 Área do Atleta** — Medidas, dobras cutâneas, avatar 3D\n3. **👨‍💼 Área do Treinador** — Gestão de alunos e planos\n4. **🤖 Coach IA** — Assistente inteligente de performance\n5. **📱 HTML Offline** — Plano exportável para usar na academia\n\n👉 Comece pela **Área do Atleta** para configurar seu perfil!`,
-
-  "treinador|personal|professor|admin": `👨‍💼 **Área do Treinador**\n\nFerramentas para profissionais:\n- Cadastro e gestão de múltiplos alunos\n- Montagem de treinos com 10+ templates esportivos\n- Planos alimentares e suplementação\n- Controle de hidratação com garrafa animada\n- Exportação de planos em HTML offline\n- Envio de planos por e-mail\n\n👉 Acesse pelo botão **"Área do Treinador"** na página inicial`,
-};
-
-const findAnswer = (question: string): string => {
-  const q = question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  
-  for (const [keywords, answer] of Object.entries(KNOWLEDGE_BASE)) {
-    const keys = keywords.split("|");
-    if (keys.some(k => q.includes(k.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))) {
-      return answer;
-    }
-  }
-  
-  return `🤔 Boa pergunta! Aqui estão algumas coisas que posso te ajudar:\n\n- **Treinos** — Como funcionam os templates e protocolos\n- **Nutrição** — Dicas de dieta e suplementação\n- **Hidratação** — Por que beber água é essencial\n- **Sono** — O maior anabólico natural\n- **Resultados** — O que esperar e como acompanhar\n- **Avatar 3D** — Personalização do seu personagem\n\n💡 Tente perguntar sobre algum desses temas!`;
-};
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/info-chat`;
 
 const QUICK_ACTIONS = [
-  { label: "O que posso fazer aqui?", prompt: "como funciona o site", icon: Sparkles },
-  { label: "Dicas de Hidratação", prompt: "hidratação", icon: Droplets },
-  { label: "Importância do Sono", prompt: "sono e recuperação", icon: Moon },
-  { label: "Resultados Esperados", prompt: "que resultados posso ter", icon: TrendingUp },
-  { label: "Saúde & Performance", prompt: "saúde e bem-estar", icon: Heart },
+  { label: "O que posso fazer aqui?", prompt: "O que posso fazer nesta plataforma? Me explique todas as funcionalidades.", icon: Zap },
+  { label: "Dicas de Hidratação", prompt: "Me dê dicas completas sobre hidratação e por que ela é importante para performance.", icon: Droplets },
+  { label: "Importância do Sono", prompt: "Explique a importância do sono para resultados na academia e saúde.", icon: Moon },
+  { label: "Resultados Esperados", prompt: "Quais resultados posso esperar com treino e dieta bem feitos?", icon: TrendingUp },
+  { label: "Saúde & Performance", prompt: "Quais são os pilares da saúde e alta performance esportiva?", icon: Heart },
 ];
 
 const NAV_LINKS = [
@@ -68,13 +36,14 @@ const NAV_LINKS = [
 const INITIAL_MESSAGE: Message = {
   id: "welcome",
   role: "assistant",
-  content: "Olá! 👋 Sou o **Guia da Plataforma**. Posso te contar tudo sobre o Elite Athlete Hub, dar dicas de **saúde, hidratação e sono**, e te direcionar para a área certa!\n\nUse os atalhos abaixo ou me pergunte qualquer coisa! 🚀",
+  content: "Olá! 👋 Sou o **Guia Elite** da plataforma. Posso te contar tudo sobre o que fazemos aqui, dar dicas de **saúde, hidratação, sono e nutrição**, e te direcionar para a área certa!\n\nUse os atalhos abaixo ou me pergunte qualquer coisa! 🚀",
 };
 
 export const InfoChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -84,36 +53,90 @@ export const InfoChatBot = () => {
     }
   }, [messages]);
 
-  const handleSend = (text?: string) => {
-    const msg = text || input.trim();
-    if (!msg) return;
+  const streamChat = async (allMessages: { role: string; content: string }[]) => {
+    const resp = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ messages: allMessages }),
+    });
 
-    const userMsg: Message = { id: Date.now().toString(), role: "user", content: msg };
-    const answer = findAnswer(msg);
-    const assistantMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: answer };
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: "Erro de conexão" }));
+      if (resp.status === 429) toast.error("Limite de requisições excedido. Aguarde.");
+      else if (resp.status === 402) toast.error("Créditos de IA esgotados.");
+      else toast.error(err.error || "Erro ao conectar com IA");
+      throw new Error(err.error);
+    }
 
-    setMessages(prev => [...prev, userMsg, assistantMsg]);
-    setInput("");
+    if (!resp.body) throw new Error("No stream body");
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let textBuffer = "";
+    let assistantSoFar = "";
+    let streamDone = false;
+
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      textBuffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") continue;
+        if (!line.startsWith("data: ")) continue;
+
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") { streamDone = true; break; }
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) {
+            assistantSoFar += content;
+            setMessages(prev => {
+              const last = prev[prev.length - 1];
+              if (last?.role === "assistant" && last.id !== "welcome") {
+                return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+              }
+              return [...prev, { id: Date.now().toString(), role: "assistant", content: assistantSoFar }];
+            });
+          }
+        } catch {
+          textBuffer = line + "\n" + textBuffer;
+          break;
+        }
+      }
+    }
   };
 
-  const renderContent = (content: string) => {
-    return content.split("\n").map((line, i) => {
-      let processed = line
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/`(.*?)`/g, '<code class="bg-primary/10 px-1 rounded text-primary text-xs">$1</code>');
-      
-      if (line.startsWith("- ")) {
-        processed = `<span class="flex gap-1.5 items-start"><span class="text-primary mt-0.5">•</span><span>${processed.slice(2)}</span></span>`;
-      }
+  const handleSend = async (text?: string) => {
+    const msg = text || input.trim();
+    if (!msg || isLoading) return;
 
-      return (
-        <span
-          key={i}
-          className={`block ${line === "" ? "h-2" : ""}`}
-          dangerouslySetInnerHTML={{ __html: processed }}
-        />
-      );
-    });
+    const userMsg: Message = { id: Date.now().toString(), role: "user", content: msg };
+    setMessages(prev => [...prev, userMsg]);
+    setInput("");
+    setIsLoading(true);
+
+    const history = [...messages.filter(m => m.id !== "welcome"), userMsg].map(m => ({
+      role: m.role, content: m.content,
+    }));
+
+    try {
+      await streamChat(history);
+    } catch {
+      // error already toasted
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -153,10 +176,10 @@ export const InfoChatBot = () => {
                   <Brain className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <p className="font-bold text-sm text-foreground">Guia da Plataforma</p>
+                  <p className="font-bold text-sm text-foreground">Guia Elite AI</p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Informativo • Dicas de Saúde
+                    Online • IA Ativa
                   </p>
                 </div>
               </div>
@@ -177,7 +200,9 @@ export const InfoChatBot = () => {
                     }`}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="space-y-0.5">{renderContent(msg.content)}</div>
+                      <div className="prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-li:my-0 max-w-none">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
                     ) : (
                       msg.content
                     )}
@@ -185,7 +210,17 @@ export const InfoChatBot = () => {
                 </div>
               ))}
 
-              {/* Quick Actions */}
+              {isLoading && messages[messages.length - 1]?.role === "user" && (
+                <div className="flex justify-start">
+                  <div className="bg-secondary/60 px-4 py-3 rounded-2xl rounded-bl-md flex gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Actions & Nav */}
               {messages.length <= 1 && (
                 <div className="space-y-3 pt-2">
                   <div className="flex flex-wrap gap-2">
@@ -201,7 +236,6 @@ export const InfoChatBot = () => {
                     ))}
                   </div>
 
-                  {/* Navigation Links */}
                   <div className="border-t border-border/20 pt-3 mt-3">
                     <p className="text-xs text-muted-foreground mb-2 font-medium">🔗 Acesso Rápido:</p>
                     <div className="space-y-1.5">
@@ -235,14 +269,15 @@ export const InfoChatBot = () => {
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Pergunte sobre o site, saúde, treinos..."
+                  placeholder="Pergunte qualquer coisa..."
                   className="rounded-xl bg-secondary/30 border-border/20 text-sm"
+                  disabled={isLoading}
                 />
                 <Button
                   type="submit"
                   size="icon"
                   className="rounded-xl shrink-0 glow-primary"
-                  disabled={!input.trim()}
+                  disabled={!input.trim() || isLoading}
                 >
                   <Send className="w-4 h-4" />
                 </Button>
