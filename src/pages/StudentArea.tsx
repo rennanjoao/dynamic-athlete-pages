@@ -5,12 +5,10 @@ import { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar3D } from "@/components/student/Avatar3D";
-import SimpleAvatar3D from "@/components/student/SimpleAvatar3D";
 import { MeasurementsForm } from "@/components/student/MeasurementsForm";
 import { SkinfoldForm } from "@/components/student/SkinfoldForm";
-import { AvatarCustomization } from "@/components/student/AvatarCustomization";
 import { ProgressChart } from "@/components/student/ProgressChart";
+import { TrainerAlert } from "@/components/student/TrainerAlert";
 import { useStudentProfile } from "@/hooks/useStudentProfile";
 import { useMeasurements } from "@/hooks/useMeasurements";
 import { Card } from "@/components/ui/card";
@@ -23,7 +21,7 @@ import { toast } from "sonner";
 const StudentArea = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
-  const { profile, customization, loading: profileLoading, createOrUpdateProfile } = useStudentProfile();
+  const { profile, loading: profileLoading, createOrUpdateProfile } = useStudentProfile();
   const { bodyMeasurements, loading: measurementsLoading } = useMeasurements();
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -89,7 +87,7 @@ const StudentArea = () => {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-2xl mx-auto">
-          <Card className="p-6">
+          <Card className="p-6 glass-strong">
             <div className="flex items-center gap-2 mb-6">
               <UserIcon className="w-6 h-6 text-primary" />
               <h1 className="text-3xl font-bold text-foreground">Complete seu Perfil</h1>
@@ -141,7 +139,7 @@ const StudentArea = () => {
                 />
               </div>
 
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full glow-primary-strong">
                 Criar Perfil
               </Button>
             </form>
@@ -151,29 +149,9 @@ const StudentArea = () => {
     );
   }
 
-  const latestMeasurement = bodyMeasurements[0];
-  const defaultCustomization = customization || {
-    skin_color: "#f5d0b0",
-    eye_color: "#8B4513",
-    hair_color: "#2C1810",
-    hair_style: "short",
-    clothing_color: "#000000",
-    nail_color: null,
-    shoe_color: "#FFFFFF",
-    shoe_accent_color: "#FF0000",
-    water_bottle_color: "#4A90E2",
-  };
-
-  const handleAvatarGenerated = async (imageUrl: string) => {
-    // Save the avatar URL to the profile
-    await createOrUpdateProfile({
-      avatar_url: imageUrl,
-    });
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border">
+      <header className="border-b border-border glass-strong">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Área do Aluno</h1>
           <div className="flex items-center gap-4">
@@ -190,25 +168,17 @@ const StudentArea = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Avatar Section */}
-        <Avatar3D
-          gender={profile?.gender || "male"}
-          customization={defaultCustomization}
-          latestMeasurement={latestMeasurement}
-          avatarUrl={profile?.avatar_url}
-          onAvatarGenerated={handleAvatarGenerated}
-        />
+        {/* Trainer Alert */}
+        <TrainerAlert />
 
         {/* Progress Chart */}
         <ProgressChart />
 
-        {/* Tabs for different sections */}
+        {/* Tabs for data sections */}
         <Tabs defaultValue="measurements" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="measurements">Modo Amador</TabsTrigger>
             <TabsTrigger value="professional">Modo Profissional</TabsTrigger>
-            <TabsTrigger value="customization">Personalizar Avatar</TabsTrigger>
-            <TabsTrigger value="avatar3d">Avatar 3D</TabsTrigger>
           </TabsList>
           
           <TabsContent value="measurements">
@@ -217,25 +187,6 @@ const StudentArea = () => {
           
           <TabsContent value="professional">
             <SkinfoldForm />
-          </TabsContent>
-          
-          <TabsContent value="customization">
-            <AvatarCustomization />
-          </TabsContent>
-
-          <TabsContent value="avatar3d">
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Avatar 3D com Tênis Nike</h2>
-              <p className="text-muted-foreground mb-6">
-                Personalize seu avatar 3D e seus tênis Nike em tempo real. Arraste para girar, use a roda do mouse para zoom.
-              </p>
-              <SimpleAvatar3D
-                initialShirtColor={customization?.clothing_color || "#1565c0"}
-                initialShortsColor="#3949ab"
-                initialShoeColor={customization?.shoe_color || "#000000"}
-                initialShoeAccentColor={customization?.shoe_accent_color || "#FF0000"}
-              />
-            </Card>
           </TabsContent>
         </Tabs>
       </main>
