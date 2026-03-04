@@ -110,6 +110,42 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_alerts: {
+        Row: {
+          created_at: string
+          frequency: string
+          id: string
+          is_active: boolean | null
+          message: string
+          student_id: string
+          target_date: string | null
+          trainer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          message: string
+          student_id: string
+          target_date?: string | null
+          trainer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          message?: string
+          student_id?: string
+          target_date?: string | null
+          trainer_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       diet_progress: {
         Row: {
           completed: boolean
