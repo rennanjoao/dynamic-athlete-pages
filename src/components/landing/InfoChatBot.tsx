@@ -30,7 +30,7 @@ const QUICK_ACTIONS = [
 const NAV_LINKS = [
   { label: "Área do Atleta", path: "/auth", icon: Users, description: "Perfil, medidas e avatar 3D" },
   { label: "Painel Fitness", path: "/fitness", icon: Activity, description: "Treinos, dieta e performance" },
-  { label: "Área do Treinador", path: "/admin", icon: Dumbbell, description: "Gestão de alunos e planos" },
+  { label: "Área do Treinador", path: "/admin-login", icon: Dumbbell, description: "Gestão de alunos e planos" },
 ];
 
 const INITIAL_MESSAGE: Message = {

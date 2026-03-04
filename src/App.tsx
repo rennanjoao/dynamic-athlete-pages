@@ -6,10 +6,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Student from "./pages/Student";
 import Admin from "./pages/Admin";
+import AdminLogin from "./pages/AdminLogin";
 import Fitness from "./pages/Fitness";
 import StudentArea from "./pages/StudentArea";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import { AdminGuard } from "./components/admin/AdminGuard";
 
 const queryClient = new QueryClient();
 
@@ -22,7 +24,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/student" element={<Student />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
+          <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/fitness" element={<Fitness />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/student-area" element={<StudentArea />} />
