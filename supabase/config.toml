@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.send-plan-email]
 verify_jwt = false
+
+[functions.fitness-chat]
+verify_jwt = false

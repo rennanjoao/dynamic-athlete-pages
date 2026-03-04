@@ -1,28 +1,49 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MessageCircle, X, Send, Bot, User, Sparkles } from "lucide-react";
+import { MessageCircle, X, Send, Sparkles, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
 }
+
+interface AthleteContext {
+  name?: string;
+  goal?: string;
+  weight?: number;
+  bodyFat?: number;
+  protocol?: string;
+  trainingVolume?: string;
+}
+
+interface FitnessChatBotProps {
+  athleteContext?: AthleteContext;
+}
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fitness-chat`;
+
+const QUICK_ACTIONS = [
+  { label: "Ajustar Macros", prompt: "Me ajude a ajustar meus macronutrientes para cutting com base no meu perfil." },
+  { label: "Relatório Evolução", prompt: "Gere um relatório resumido da minha evolução com base nas minhas medidas." },
+  { label: "Técnica Agachamento", prompt: "Explique a técnica correta do agachamento com barra, incluindo cadência e RPE ideal." },
+];
 
 const INITIAL_MESSAGE: Message = {
   id: "welcome",
   role: "assistant",
-  content: "Olá! 👋 Sou seu assistente fitness. Posso te ajudar com dúvidas sobre treinos, dieta, suplementação e suas métricas de performance. Como posso ajudar?",
-  timestamp: new Date(),
+  content: "Fala, atleta! 💪 Sou seu **Elite Performance Coach**. Posso te ajudar com treinos, nutrição, suplementação e análise de performance. Use os atalhos abaixo ou me pergunte qualquer coisa!",
 };
 
-export const FitnessChatBot = () => {
+export const FitnessChatBot = ({ athleteContext }: FitnessChatBotProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,36 +52,94 @@ export const FitnessChatBot = () => {
     }
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const streamChat = async (allMessages: { role: string; content: string }[]) => {
+    const resp = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ messages: allMessages, athleteContext }),
+    });
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
-      timestamp: new Date(),
-    };
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: "Erro de conexão" }));
+      if (resp.status === 429) toast.error("Limite de requisições excedido. Aguarde.");
+      else if (resp.status === 402) toast.error("Créditos de IA esgotados.");
+      else toast.error(err.error || "Erro ao conectar com IA");
+      throw new Error(err.error);
+    }
 
-    setMessages((prev) => [...prev, userMsg]);
+    if (!resp.body) throw new Error("No stream body");
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let textBuffer = "";
+    let assistantSoFar = "";
+    let streamDone = false;
+
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      textBuffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") continue;
+        if (!line.startsWith("data: ")) continue;
+
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") { streamDone = true; break; }
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) {
+            assistantSoFar += content;
+            setMessages(prev => {
+              const last = prev[prev.length - 1];
+              if (last?.role === "assistant" && last.id !== "welcome") {
+                return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+              }
+              return [...prev, { id: Date.now().toString(), role: "assistant", content: assistantSoFar }];
+            });
+          }
+        } catch {
+          textBuffer = line + "\n" + textBuffer;
+          break;
+        }
+      }
+    }
+  };
+
+  const handleSend = async (text?: string) => {
+    const msg = text || input.trim();
+    if (!msg) return;
+
+    const userMsg: Message = { id: Date.now().toString(), role: "user", content: msg };
+    setMessages(prev => [...prev, userMsg]);
     setInput("");
-    setIsTyping(true);
+    setIsLoading(true);
 
-    // Simulate bot response (replace with actual AI call later)
-    setTimeout(() => {
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: getBotResponse(userMsg.content),
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, botMsg]);
-      setIsTyping(false);
-    }, 1200);
+    const history = [...messages.filter(m => m.id !== "welcome"), userMsg].map(m => ({
+      role: m.role, content: m.content,
+    }));
+
+    try {
+      await streamChat(history);
+    } catch {
+      // error already toasted
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <>
-      {/* FAB Button */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
@@ -71,7 +150,7 @@ export const FitnessChatBot = () => {
           >
             <Button
               onClick={() => setIsOpen(true)}
-              className="w-14 h-14 rounded-full glow-primary shadow-2xl"
+              className="w-14 h-14 rounded-full glow-primary shadow-2xl animate-glow-pulse"
               size="icon"
             >
               <MessageCircle className="w-6 h-6" />
@@ -80,7 +159,6 @@ export const FitnessChatBot = () => {
         )}
       </AnimatePresence>
 
-      {/* Chat Window */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -88,17 +166,20 @@ export const FitnessChatBot = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] h-[520px] flex flex-col glass-strong rounded-2xl overflow-hidden shadow-2xl"
+            className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-3rem)] h-[560px] flex flex-col glass-strong rounded-2xl overflow-hidden shadow-2xl border border-border/20"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border/30">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border/20 bg-card/80">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-primary" />
+                <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center glow-primary">
+                  <Sparkles className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <p className="font-semibold text-sm text-foreground">Fitness AI</p>
-                  <p className="text-xs text-muted-foreground">Assistente de performance</p>
+                  <p className="font-bold text-sm text-foreground">Elite Coach AI</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Online • IA Ativa
+                  </p>
                 </div>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="rounded-xl w-8 h-8">
@@ -111,44 +192,69 @@ export const FitnessChatBot = () => {
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                    className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                       msg.role === "user"
-                        ? "gradient-primary text-white rounded-br-md"
+                        ? "gradient-primary text-primary-foreground rounded-br-md"
                         : "bg-secondary/60 text-foreground rounded-bl-md"
                     }`}
                   >
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-li:my-0 max-w-none">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               ))}
 
-              {isTyping && (
+              {isLoading && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex justify-start">
                   <div className="bg-secondary/60 px-4 py-3 rounded-2xl rounded-bl-md flex gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
+                </div>
+              )}
+
+              {/* Quick Actions */}
+              {messages.length <= 1 && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {QUICK_ACTIONS.map((action) => (
+                    <button
+                      key={action.label}
+                      onClick={() => handleSend(action.prompt)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/20"
+                    >
+                      <Zap className="w-3 h-3" />
+                      {action.label}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
 
             {/* Input */}
-            <div className="p-3 border-t border-border/30">
+            <div className="p-3 border-t border-border/20">
               <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSend();
-                }}
+                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
                 className="flex gap-2"
               >
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Pergunte algo..."
-                  className="rounded-xl bg-secondary/30 border-border/30 text-sm"
+                  placeholder="Pergunte ao Coach..."
+                  className="rounded-xl bg-secondary/30 border-border/20 text-sm"
+                  disabled={isLoading}
                 />
-                <Button type="submit" size="icon" className="rounded-xl shrink-0" disabled={!input.trim()}>
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="rounded-xl shrink-0 glow-primary"
+                  disabled={!input.trim() || isLoading}
+                >
                   <Send className="w-4 h-4" />
                 </Button>
               </form>
@@ -159,20 +265,3 @@ export const FitnessChatBot = () => {
     </>
   );
 };
-
-function getBotResponse(input: string): string {
-  const lower = input.toLowerCase();
-  if (lower.includes("treino") || lower.includes("exercício")) {
-    return "Para otimizar seus treinos, foque em progressão de carga semanal, controle de cadência (2s excêntrica / 1s concêntrica) e mantenha o descanso entre 60-90s. Qual modalidade você pratica?";
-  }
-  if (lower.includes("dieta") || lower.includes("comida") || lower.includes("alimentação")) {
-    return "Uma boa estratégia nutricional é dividir suas refeições em 4-6 porções ao dia, priorizando proteínas (1.6-2.2g/kg) e carboidratos complexos. Posso detalhar mais!";
-  }
-  if (lower.includes("suplemento") || lower.includes("creatina") || lower.includes("whey")) {
-    return "Os suplementos mais evidenciados cientificamente são: Creatina (5g/dia), Whey Protein (pós-treino), Cafeína (3-6mg/kg pré-treino) e Vitamina D. Quer saber sobre algum específico?";
-  }
-  if (lower.includes("peso") || lower.includes("emagrecer") || lower.includes("gordura")) {
-    return "Para perda de gordura, o deficit calórico é fundamental (300-500kcal abaixo do gasto). Combine treino de força com cardio moderado. Acompanhe suas medidas semanalmente!";
-  }
-  return "Entendi! Posso te ajudar com informações sobre treinos, dieta, suplementação e acompanhamento de performance. Seja mais específico para eu dar a melhor orientação! 💪";
-}
