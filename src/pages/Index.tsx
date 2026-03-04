@@ -103,7 +103,7 @@ const Index = () => {
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
-              <Link to="/admin">
+              <Link to="/admin-login">
                 <Button variant="outline" size="lg" className="gap-2 rounded-xl px-8 h-12 text-base border-border/50 hover:bg-primary/10 hover:border-primary/30">
                   <Plus className="w-5 h-5" />
                   Área do Treinador
@@ -194,7 +194,7 @@ const Index = () => {
             </div>
             <h3 className="text-xl font-bold text-foreground mb-2">Nenhum atleta cadastrado</h3>
             <p className="text-muted-foreground mb-8">Comece criando o primeiro plano personalizado</p>
-            <Link to="/admin">
+            <Link to="/admin-login">
               <Button className="gap-2 rounded-xl px-8">
                 <Plus className="w-5 h-5" />
                 Criar Primeiro Atleta
