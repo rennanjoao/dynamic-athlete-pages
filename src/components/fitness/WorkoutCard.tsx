@@ -16,7 +16,7 @@ interface WorkoutCardProps {
 
 export const WorkoutCard = ({ workout, completed, onToggle }: WorkoutCardProps) => {
   return (
-    <Card className="p-6 shadow-sm card-hover">
+    <Card className="p-6 shadow-sm card-hover glass-strong">
       <div className="flex justify-between items-start gap-4">
         <div className="flex-1">
           <h3 className="text-xl font-semibold text-foreground mb-3">{workout.nome}</h3>

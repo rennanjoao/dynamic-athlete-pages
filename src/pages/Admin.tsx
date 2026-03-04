@@ -16,6 +16,7 @@ import { TemplateLoadDialog } from "@/components/admin/TemplateLoadDialog";
 import { ProfessionalRegistrationDialog } from "@/components/admin/ProfessionalRegistrationDialog";
 import { SupplementsSection, Supplement } from "@/components/admin/SupplementsSection";
 import { TrainerManagement } from "@/components/admin/TrainerManagement";
+import { AlertManager } from "@/components/admin/AlertManager";
 import { validateSupplement, validateExercise, validateWaterAmount } from "@/utils/validation";
 import { WaterBottle2D } from "@/components/admin/WaterBottle2D";
 import { workoutTemplates } from "@/data/workoutTemplates";
@@ -456,6 +457,9 @@ Para mais detalhes, solicite o plano completo em HTML! 📧`;
       <div className="max-w-5xl mx-auto px-6 mt-12 space-y-8">
         {/* Gestão de Treinadores */}
         <TrainerManagement />
+
+        {/* Automação de Alertas */}
+        <AlertManager />
 
         {/* Dados Básicos */}
         <Card className="p-6">
