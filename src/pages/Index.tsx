@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Users, Plus, Calendar, Activity, Dumbbell, UtensilsCrossed, ArrowRight, Zap, Shield, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { InfoChatBot } from "@/components/landing/InfoChatBot";
 
 interface Aluno {
   id: string;
@@ -92,6 +93,13 @@ const Index = () => {
                 <Button size="lg" className="gap-2 rounded-xl px-8 h-12 text-base glow-primary">
                   <Users className="w-5 h-5" />
                   Área do Atleta
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link to="/fitness">
+                <Button size="lg" className="gap-2 rounded-xl px-8 h-12 text-base bg-secondary hover:bg-secondary/80 text-foreground">
+                  <Activity className="w-5 h-5" />
+                  Painel Fitness
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
@@ -241,6 +249,8 @@ const Index = () => {
       <footer className="border-t border-border/50 py-8 text-center">
         <p className="text-xs text-muted-foreground">© 2024 Elite Athlete Hub — Performance Management Platform</p>
       </footer>
+
+      <InfoChatBot />
     </div>
   );
 };
