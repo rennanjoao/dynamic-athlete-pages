@@ -40,7 +40,7 @@ const Admin = () => {
   const { templates, loading: templatesLoading } = useWorkoutTemplates();
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousStateRef = useRef<any>(null);
   
   const [formData, setFormData] = useState({
