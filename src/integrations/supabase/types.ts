@@ -110,6 +110,51 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_plans: {
+        Row: {
+          calories: number
+          carbs_g: number
+          coach_id: string
+          created_at: string
+          fat_g: number
+          goal: string
+          id: string
+          notes: string | null
+          protein_g: number
+          student_id: string
+          updated_at: string
+          water_l: number
+        }
+        Insert: {
+          calories?: number
+          carbs_g?: number
+          coach_id: string
+          created_at?: string
+          fat_g?: number
+          goal?: string
+          id?: string
+          notes?: string | null
+          protein_g?: number
+          student_id: string
+          updated_at?: string
+          water_l?: number
+        }
+        Update: {
+          calories?: number
+          carbs_g?: number
+          coach_id?: string
+          created_at?: string
+          fat_g?: number
+          goal?: string
+          id?: string
+          notes?: string | null
+          protein_g?: number
+          student_id?: string
+          updated_at?: string
+          water_l?: number
+        }
+        Relationships: []
+      }
       daily_alerts: {
         Row: {
           created_at: string
@@ -457,7 +502,30 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      student_alert_view: {
+        Row: {
+          alert_level: string | null
+          full_name: string | null
+          last_meal_at: string | null
+          last_workout_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          alert_level?: never
+          full_name?: string | null
+          last_meal_at?: never
+          last_workout_at?: never
+          user_id?: string | null
+        }
+        Update: {
+          alert_level?: never
+          full_name?: string | null
+          last_meal_at?: never
+          last_workout_at?: never
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
@@ -469,7 +537,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "coach"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -597,7 +665,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "coach"],
     },
   },
 } as const
