@@ -36,7 +36,7 @@ export const AdminGuard = ({ children, requiredRole = "admin" }: Props) => {
         .select("role")
         .eq("user_id", session.user.id);
 
-      const userRoles = roles?.map((r) => r.role) ?? [];
+      const userRoles = (roles?.map((r) => r.role) ?? []) as string[];
       const hasAccess =
         userRoles.includes("admin") ||
         (requiredRole === "coach" && userRoles.includes("coach"));
