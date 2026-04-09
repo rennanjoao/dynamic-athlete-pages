@@ -1,53 +1,65 @@
-import { useState, useEffect } from "react";
+/**
+ * AdminGuard.tsx — Guard de rota com suporte a roles múltiplos
+ *
+ * Uso:
+ *   <AdminGuard>              → aceita role 'admin'
+ *   <AdminGuard requiredRole="coach">  → aceita role 'coach' OU 'admin'
+ */
+
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-interface AdminGuardProps {
+interface Props {
   children: React.ReactNode;
+  requiredRole?: "admin" | "coach";
 }
 
-export const AdminGuard = ({ children }: AdminGuardProps) => {
+export const AdminGuard = ({ children, requiredRole = "admin" }: Props) => {
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [authorized, setAuthorized] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const check = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (!session) {
-        navigate("/admin-login");
+        navigate(requiredRole === "coach" ? "/auth" : "/admin-login");
         return;
       }
 
-      const { data, error } = await supabase.rpc("has_role", {
-        _user_id: session.user.id,
-        _role: "admin",
-      });
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id);
 
-      if (error || !data) {
-        await supabase.auth.signOut();
-        navigate("/admin-login");
+      const userRoles = roles?.map((r) => r.role) ?? [];
+      const hasAccess =
+        userRoles.includes("admin") ||
+        (requiredRole === "coach" && userRoles.includes("coach"));
+
+      if (!hasAccess) {
+        navigate(requiredRole === "coach" ? "/fitness" : "/admin-login");
         return;
       }
 
-      setIsAdmin(true);
+      setAuthorized(true);
+      setChecking(false);
     };
 
-    checkAdmin();
+    check();
+  }, [navigate, requiredRole]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") navigate("/admin-login");
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  if (isAdmin === null) {
+  if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+        <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  return <>{children}</>;
+  return authorized ? <>{children}</> : null;
 };
