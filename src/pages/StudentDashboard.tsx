@@ -122,13 +122,15 @@ function useToggleItem(userId: string) {
       const newVal = !current;
 
       // Optimistic — handled in onMutate
-      const { data: existing } = await (supabase as any)
+      let query = (supabase as any)
         .from(table)
         .select("id")
         .eq("user_id", userId)
-        .eq(idField, id)
-        ...(type === "meal" ? [`.eq("date", today)`] : [])
-        .maybeSingle();
+        .eq(idField, id);
+      if (type === "meal") {
+        query = query.eq("date", today);
+      }
+      const { data: existing } = await query.maybeSingle();
 
       if (existing) {
         await (supabase as any)
