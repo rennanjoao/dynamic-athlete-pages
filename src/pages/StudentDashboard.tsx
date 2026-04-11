@@ -384,17 +384,78 @@ function WeightChart({ data }: { data: WeightPoint[] }) {
   );
 }
 
+// ─── Hook: Score persistence ──────────────────────────────────────────────────
+
+function useSaveScore(userId: string) {
+  const today = new Date().toISOString().split("T")[0];
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (scores: {
+      workout_score: number;
+      diet_score: number;
+      water_score: number;
+      sleep_score: number;
+      daily_score: number;
+    }) => {
+      const { data: existing } = await (supabase as any)
+        .from("performance_logs")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .maybeSingle();
+
+      if (existing) {
+        await (supabase as any)
+          .from("performance_logs")
+          .update({ ...scores })
+          .eq("id", existing.id);
+      } else {
+        await (supabase as any)
+          .from("performance_logs")
+          .insert({ user_id: userId, date: today, ...scores });
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["totalScore", userId] });
+    },
+  });
+}
+
+function useTotalScore(userId: string) {
+  return useQuery({
+    queryKey: ["totalScore", userId],
+    queryFn: async () => {
+      const { data: logs } = await (supabase as any)
+        .from("performance_logs")
+        .select("daily_score")
+        .eq("user_id", userId);
+      return (logs ?? []).reduce((sum: number, l: any) => sum + (l.daily_score ?? 0), 0);
+    },
+    staleTime: 30_000,
+  });
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
-  const [userId] = useState<string>(() => {
-    // In production: useAuthStore or similar
-    return "";
-  });
+  const [userId, setUserId] = useState<string>("");
+  const [waterMl, setWaterMl] = useState(0);
+  const [sleepChecked, setSleepChecked] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  // Get auth user
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) setUserId(data.session.user.id);
+    });
+  }, []);
 
   const { data, isLoading } = useDailyState(userId);
   const toggle = useToggleItem(userId);
+  const saveScore = useSaveScore(userId);
+  const { data: totalScore = 0 } = useTotalScore(userId);
 
   const workoutMap = useMemo(() => {
     const m: Record<string, boolean> = {};
@@ -423,40 +484,60 @@ export default function StudentDashboard() {
 
   const doneCount = items.filter((i) => i.completed).length;
 
+  // Calculate today's scores
+  const workoutsCompleted = items.filter((i) => i.type === "workout" && i.completed).length;
+  const mealsCompleted = items.filter((i) => i.type === "meal" && i.completed).length;
+  const totalWorkouts = items.filter((i) => i.type === "workout").length;
+  const totalMeals = items.filter((i) => i.type === "meal").length;
+
+  const workoutScore = totalWorkouts > 0
+    ? Math.round((workoutsCompleted / totalWorkouts) * SCORE_WEIGHTS.workout)
+    : 0;
+  const dietScore = totalMeals > 0
+    ? Math.round((mealsCompleted / totalMeals) * SCORE_WEIGHTS.diet)
+    : 0;
+  const waterGoalMl = 2500;
+  const waterScore = waterMl >= waterGoalMl ? SCORE_WEIGHTS.water : Math.round((waterMl / waterGoalMl) * SCORE_WEIGHTS.water);
+  const sleepScore = sleepChecked ? SCORE_WEIGHTS.sleep : 0;
+  const todayScore = workoutScore + dietScore + waterScore + sleepScore;
+
+  // Auto-save score when it changes
+  const persistScore = useCallback(() => {
+    if (!userId) return;
+    saveScore.mutate({
+      workout_score: workoutScore,
+      diet_score: dietScore,
+      water_score: waterScore,
+      sleep_score: sleepScore,
+      daily_score: todayScore,
+    });
+  }, [userId, workoutScore, dietScore, waterScore, sleepScore, todayScore]);
+
+  // Save on meaningful changes
+  useEffect(() => {
+    if (!userId || todayScore === 0) return;
+    const timeout = setTimeout(persistScore, 1500);
+    return () => clearTimeout(timeout);
+  }, [todayScore, persistScore, userId]);
+
+  // Handle anonymous toggle
+  const handleAnonymousToggle = async (val: boolean) => {
+    setIsAnonymous(val);
+    if (!userId) return;
+    const today = new Date().toISOString().split("T")[0];
+    await (supabase as any)
+      .from("performance_logs")
+      .update({ is_anonymous: val })
+      .eq("user_id", userId)
+      .eq("date", today);
+  };
+
   // Sample macros — replace with real plan values
   const macros: Macro[] = [
-    {
-      label: "Proteína",
-      unit: "g",
-      current: 120,
-      goal: 160,
-      color: "#3B82F6",
-      icon: null,
-    },
-    {
-      label: "Carboidrato",
-      unit: "g",
-      current: 200,
-      goal: 300,
-      color: "#F59E0B",
-      icon: null,
-    },
-    {
-      label: "Gordura",
-      unit: "g",
-      current: 45,
-      goal: 60,
-      color: "#EF4444",
-      icon: null,
-    },
-    {
-      label: "Água",
-      unit: "L",
-      current: 1.5,
-      goal: 2.5,
-      color: "#06B6D4",
-      icon: null,
-    },
+    { label: "Proteína", unit: "g", current: 120, goal: 160, color: "#3B82F6", icon: null },
+    { label: "Carboidrato", unit: "g", current: 200, goal: 300, color: "#F59E0B", icon: null },
+    { label: "Gordura", unit: "g", current: 45, goal: 60, color: "#EF4444", icon: null },
+    { label: "Água", unit: "L", current: +(waterMl / 1000).toFixed(1), goal: 2.5, color: "#06B6D4", icon: null },
   ];
 
   const handleLogout = async () => {
@@ -466,23 +547,23 @@ export default function StudentDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-slate-400">Carregando seu plano...</p>
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Carregando seu plano...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <div className="min-h-screen bg-background">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-100">
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-base font-bold text-[#0F172A]">Olá, Atleta 👋</h1>
-            <p className="text-xs text-slate-400">
+            <h1 className="text-base font-bold text-foreground">Olá, Atleta 👋</h1>
+            <p className="text-xs text-muted-foreground">
               {new Date().toLocaleDateString("pt-BR", {
                 weekday: "long",
                 day: "numeric",
@@ -490,29 +571,44 @@ export default function StudentDashboard() {
               })}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/anamnesis")}
+              title="Anamnese"
+            >
+              <ClipboardList className="w-4 h-4" />
+            </Button>
+            <button
+              onClick={handleLogout}
+              className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-5">
-        {/* ── XP / Progress ── */}
-        <XPBar done={doneCount} total={items.length} />
+        {/* ── Score Card (Gamificação) ── */}
+        <ScoreCard
+          totalScore={totalScore}
+          todayScore={todayScore}
+          breakdown={{
+            workout: workoutScore,
+            diet: dietScore,
+            water: waterScore,
+            sleep: sleepScore,
+          }}
+        />
 
         {/* ── Macros ── */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-3">
+        <div className="bg-card rounded-2xl border p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-orange-400" />
-            <h2 className="text-sm font-semibold text-[#0F172A]">
-              Macros de Hoje
-            </h2>
-            <Badge variant="secondary" className="ml-auto text-xs">
-              2.100 kcal
-            </Badge>
+            <h2 className="text-sm font-semibold text-foreground">Macros de Hoje</h2>
+            <Badge variant="secondary" className="ml-auto text-xs">2.100 kcal</Badge>
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             {macros.map((m) => (
@@ -525,9 +621,10 @@ export default function StudentDashboard() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 px-1">
             <Dumbbell className="w-4 h-4 text-blue-500" />
-            <h2 className="text-sm font-semibold text-[#0F172A]">
-              Treinos
-            </h2>
+            <h2 className="text-sm font-semibold text-foreground">Treinos</h2>
+            <Badge variant="outline" className="ml-auto text-xs">
+              +{SCORE_WEIGHTS.workout} pts
+            </Badge>
           </div>
           {items
             .filter((i) => i.type === "workout")
@@ -537,11 +634,7 @@ export default function StudentDashboard() {
                 item={item}
                 loading={toggle.isPending}
                 onToggle={() =>
-                  toggle.mutate({
-                    id: item.id,
-                    type: item.type,
-                    current: item.completed,
-                  })
+                  toggle.mutate({ id: item.id, type: item.type, current: item.completed })
                 }
               />
             ))}
@@ -551,9 +644,10 @@ export default function StudentDashboard() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 px-1">
             <UtensilsCrossed className="w-4 h-4 text-emerald-500" />
-            <h2 className="text-sm font-semibold text-[#0F172A]">
-              Plano Alimentar
-            </h2>
+            <h2 className="text-sm font-semibold text-foreground">Plano Alimentar</h2>
+            <Badge variant="outline" className="ml-auto text-xs">
+              +{SCORE_WEIGHTS.diet} pts
+            </Badge>
           </div>
           {items
             .filter((i) => i.type === "meal")
@@ -563,30 +657,46 @@ export default function StudentDashboard() {
                 item={item}
                 loading={toggle.isPending}
                 onToggle={() =>
-                  toggle.mutate({
-                    id: item.id,
-                    type: item.type,
-                    current: item.completed,
-                  })
+                  toggle.mutate({ id: item.id, type: item.type, current: item.completed })
                 }
               />
             ))}
         </div>
 
-        {/* ── Hydration quick-log ── */}
-        <div className="bg-cyan-50 border border-cyan-100 rounded-2xl p-4">
+        {/* ── Hidratação (gamificada) ── */}
+        <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Droplets className="w-4 h-4 text-cyan-500" />
-            <h2 className="text-sm font-semibold text-[#0F172A]">Hidratação</h2>
-            <span className="ml-auto text-xs text-cyan-600 font-bold">
-              1,5 L / 2,5 L
+            <h2 className="text-sm font-semibold text-foreground">Hidratação</h2>
+            <Badge variant="outline" className="ml-auto text-xs border-cyan-300 text-cyan-600">
+              +{SCORE_WEIGHTS.water} pts
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground">
+              {(waterMl / 1000).toFixed(1)} L / {(waterGoalMl / 1000).toFixed(1)} L
             </span>
+            {waterMl >= waterGoalMl && (
+              <Badge className="bg-cyan-100 text-cyan-700 border-cyan-200 text-xs">
+                ✅ Meta atingida!
+              </Badge>
+            )}
+          </div>
+          <div className="h-2 rounded-full bg-cyan-100 dark:bg-cyan-900 overflow-hidden mb-3">
+            <div
+              className="h-full rounded-full bg-cyan-500 transition-all duration-500"
+              style={{ width: `${Math.min((waterMl / waterGoalMl) * 100, 100)}%` }}
+            />
           </div>
           <div className="flex gap-2 flex-wrap">
             {[200, 300, 500].map((ml) => (
               <button
                 key={ml}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-cyan-200
+                onClick={() => {
+                  setWaterMl((prev) => prev + ml);
+                  toast.success(`+${ml}ml registrado! 💧`);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-card border border-cyan-200
                   text-cyan-700 hover:bg-cyan-100 transition-colors"
               >
                 +{ml} ml
@@ -595,21 +705,61 @@ export default function StudentDashboard() {
           </div>
         </div>
 
+        {/* ── Sono Check-in ── */}
+        <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Moon className="w-4 h-4 text-indigo-500" />
+            <h2 className="text-sm font-semibold text-foreground">Qualidade do Sono</h2>
+            <Badge variant="outline" className="ml-auto text-xs border-indigo-300 text-indigo-600">
+              +{SCORE_WEIGHTS.sleep} pts
+            </Badge>
+          </div>
+          <button
+            onClick={() => {
+              setSleepChecked((prev) => {
+                const next = !prev;
+                toast.success(next ? "Sono registrado! 😴 +70 pts" : "Sono desmarcado");
+                return next;
+              });
+            }}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all duration-200 text-left
+              ${sleepChecked
+                ? "bg-indigo-100 dark:bg-indigo-900/50 border-indigo-300"
+                : "bg-card border-border hover:border-indigo-300"
+              }`}
+          >
+            {sleepChecked ? (
+              <CheckCircle2 className="w-5 h-5 text-indigo-500 shrink-0" />
+            ) : (
+              <Circle className="w-5 h-5 text-muted-foreground shrink-0" />
+            )}
+            <span className={`flex-1 text-sm font-medium ${
+              sleepChecked ? "text-indigo-700 dark:text-indigo-300" : "text-foreground"
+            }`}>
+              Dormi bem esta noite (7h+ de sono)
+            </span>
+          </button>
+        </div>
+
         {/* ── Weight Chart ── */}
         <WeightChart data={data?.weightHistory ?? []} />
 
-        {/* ── Achievements ── */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4">
+        {/* ── Ranking Top 3 ── */}
+        <RankingTeaser />
+
+        {/* ── Conquistas ── */}
+        <div className="bg-card rounded-2xl border p-4">
           <div className="flex items-center gap-2 mb-3">
             <Trophy className="w-4 h-4 text-yellow-500" />
-            <h2 className="text-sm font-semibold text-[#0F172A]">Conquistas</h2>
+            <h2 className="text-sm font-semibold text-foreground">Conquistas</h2>
           </div>
           <div className="flex gap-2 flex-wrap">
             {[
-              { label: "7 dias seguidos", unlocked: true },
-              { label: "Primeira semana", unlocked: true },
-              { label: "30 dias", unlocked: false },
-              { label: "Meta de peso", unlocked: false },
+              { label: "7 dias seguidos", unlocked: totalScore >= 500 },
+              { label: "Primeira semana", unlocked: totalScore >= 300 },
+              { label: "Bronze", unlocked: totalScore >= 500 },
+              { label: "Prata", unlocked: totalScore >= 2000 },
+              { label: "Ouro", unlocked: totalScore >= 5000 },
             ].map((badge) => (
               <Badge
                 key={badge.label}
@@ -617,7 +767,7 @@ export default function StudentDashboard() {
                 className={`text-xs ${
                   badge.unlocked
                     ? "bg-yellow-100 text-yellow-800 border-yellow-200"
-                    : "text-slate-300 border-slate-100"
+                    : "text-muted-foreground border-muted"
                 }`}
               >
                 {badge.unlocked ? "🏅 " : "🔒 "}
@@ -625,6 +775,20 @@ export default function StudentDashboard() {
               </Badge>
             ))}
           </div>
+        </div>
+
+        {/* ── Privacy toggle ── */}
+        <div className="bg-card rounded-2xl border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🕶️</span>
+              <Label className="text-sm font-medium">Modo anônimo no ranking</Label>
+            </div>
+            <Switch checked={isAnonymous} onCheckedChange={handleAnonymousToggle} />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Quando ativado, seu nome aparece como "Anônimo" no ranking.
+          </p>
         </div>
 
         <div className="h-6" />
