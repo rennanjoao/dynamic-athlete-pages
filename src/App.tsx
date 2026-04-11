@@ -33,6 +33,8 @@ const NotFound    = lazy(() => import("./pages/NotFound"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const CoachDashboard   = lazy(() => import("./pages/CoachDashboard"));
 const Anamnesis        = lazy(() => import("./pages/Anamnesis"));
+const DynamicRoutine   = lazy(() => import("./pages/DynamicRoutine"));
+const WorkoutPlanPage  = lazy(() => import("./pages/WorkoutPlan"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,6 +73,8 @@ const App = () => (
             <Route path="/student-area" element={<StudentArea />} />
             <Route path="/fitness"      element={<StudentDashboard />} />
             <Route path="/anamnesis"    element={<Anamnesis />} />
+            <Route path="/routine"      element={<DynamicRoutine />} />
+            <Route path="/workout-plan" element={<WorkoutPlanPage />} />
 
             {/* Coach */}
             <Route
