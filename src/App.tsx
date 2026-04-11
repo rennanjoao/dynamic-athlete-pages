@@ -19,6 +19,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AdminGuard } from "./components/admin/AdminGuard";
+import { NavigationControls } from "@/components/NavigationControls";
 
 // Lazy-loaded pages (split bundle por rota)
 const Index       = lazy(() => import("./pages/Index"));
@@ -61,6 +62,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <NavigationControls />
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Públicas */}
