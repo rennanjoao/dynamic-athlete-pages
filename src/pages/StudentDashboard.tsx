@@ -1,12 +1,12 @@
 /**
- * StudentDashboard.tsx — Visão do Aluno (Refatorada)
+ * StudentDashboard.tsx — Visão do Aluno (Gamificada)
  *
- * Design: Mobile-first, gamificado, foco em checklist diário.
- * Paleta: bg #FAFAFA · texto #0F172A · acento #3B82F6 · sucesso #10B981
+ * Design: Mobile-first, gamificado, foco em checklist diário + pontuação.
+ * Scoring: Treino 100pts, Dieta 80pts, Água 50pts, Sono 70pts
  * Libs: Recharts, Lucide, Shadcn/UI, Supabase, React Query
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -22,10 +22,14 @@ import {
   LogOut,
   ChevronRight,
   Zap,
+  Moon,
+  ClipboardList,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   AreaChart,
@@ -35,6 +39,19 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import ScoreCard from "@/components/gamification/ScoreCard";
+import RankingTeaser from "@/components/gamification/RankingTeaser";
+
+// ─── Scoring Constants ───────────────────────────────────────────────────────
+
+const SCORE_WEIGHTS = {
+  workout: 100,
+  diet: 80,      // per meal (total split across meals)
+  water: 50,
+  sleep: 70,
+  rest_day: 40,
+  updates: 150,
+} as const;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
