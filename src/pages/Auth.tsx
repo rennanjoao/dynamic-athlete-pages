@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
 import { ArrowLeft, User, Lock, Mail, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
