@@ -73,6 +73,8 @@ const App = () => (
             <Route path="/student-area" element={<StudentArea />} />
             <Route path="/fitness"      element={<StudentDashboard />} />
             <Route path="/anamnesis"    element={<Anamnesis />} />
+            <Route path="/routine"      element={<DynamicRoutine />} />
+            <Route path="/workout-plan" element={<WorkoutPlanPage />} />
 
             {/* Coach */}
             <Route
