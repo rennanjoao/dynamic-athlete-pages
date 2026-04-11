@@ -176,7 +176,7 @@ export default function AnamnesisViewer({ studentId, studentName }: Props) {
 
   async function fetchAnamnesis() {
     setLoading(true);
-    const { data: rows, error } = await supabase
+    const { data: rows, error } = await (supabase as any)
       .from("clinical_anamnesis")
       .select("*")
       .eq("user_id", studentId)

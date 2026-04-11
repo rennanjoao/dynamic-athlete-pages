@@ -71,7 +71,7 @@ export default function AnamnesisForm({ userId }: { userId: string }) {
   }, [userId]);
 
   async function loadExisting() {
-    const { data: rows } = await supabase
+    const { data: rows } = await (supabase as any)
       .from("clinical_anamnesis")
       .select("*")
       .eq("user_id", userId)
@@ -79,7 +79,7 @@ export default function AnamnesisForm({ userId }: { userId: string }) {
       .limit(1);
     if (rows && rows.length > 0) {
       setExistingId(rows[0].id);
-      setData(rows[0] as unknown as FormData);
+      setData(rows[0] as FormData);
     }
   }
 
@@ -90,19 +90,19 @@ export default function AnamnesisForm({ userId }: { userId: string }) {
   async function handleSave() {
     setSaving(true);
     try {
-      const payload = { ...data, user_id: userId };
+      const payload: Record<string, any> = { ...data, user_id: userId };
       delete payload.id;
       delete payload.created_at;
       delete payload.updated_at;
 
       if (existingId) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from("clinical_anamnesis")
           .update(payload)
           .eq("id", existingId);
         if (error) throw error;
       } else {
-        const { data: inserted, error } = await supabase
+        const { data: inserted, error } = await (supabase as any)
           .from("clinical_anamnesis")
           .insert(payload)
           .select("id")
