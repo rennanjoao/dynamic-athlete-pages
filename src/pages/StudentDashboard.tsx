@@ -591,6 +591,19 @@ export default function StudentDashboard() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-5">
+        {/* ── Quick Nav ── */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => navigate("/routine")}>
+            <Apple className="w-3.5 h-3.5 mr-1" /> Rotina
+          </Button>
+          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => navigate("/workout-plan")}>
+            <Dumbbell className="w-3.5 h-3.5 mr-1" /> Treino
+          </Button>
+          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => navigate("/anamnesis")}>
+            <ClipboardList className="w-3.5 h-3.5 mr-1" /> Anamnese
+          </Button>
+        </div>
+
         {/* ── Score Card (Gamificação) ── */}
         <ScoreCard
           totalScore={totalScore}
