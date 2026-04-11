@@ -33,6 +33,8 @@ const NotFound    = lazy(() => import("./pages/NotFound"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const CoachDashboard   = lazy(() => import("./pages/CoachDashboard"));
 const Anamnesis        = lazy(() => import("./pages/Anamnesis"));
+const DynamicRoutine   = lazy(() => import("./pages/DynamicRoutine"));
+const WorkoutPlanPage  = lazy(() => import("./pages/WorkoutPlan"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
