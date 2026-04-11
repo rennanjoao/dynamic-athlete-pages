@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Users, Plus, Calendar, Activity, Dumbbell, UtensilsCrossed, ArrowRight, Zap, Shield, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
