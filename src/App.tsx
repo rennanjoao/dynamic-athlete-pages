@@ -32,6 +32,7 @@ const NotFound    = lazy(() => import("./pages/NotFound"));
 // Novas páginas refatoradas
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const CoachDashboard   = lazy(() => import("./pages/CoachDashboard"));
+const Anamnesis        = lazy(() => import("./pages/Anamnesis"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,7 @@ const App = () => (
             {/* Aluno autenticado */}
             <Route path="/student-area" element={<StudentArea />} />
             <Route path="/fitness"      element={<StudentDashboard />} />
+            <Route path="/anamnesis"    element={<Anamnesis />} />
 
             {/* Coach */}
             <Route
