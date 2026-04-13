@@ -5,6 +5,7 @@ import { Users, Plus, Calendar, Activity, Dumbbell, UtensilsCrossed, ArrowRight,
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { InfoChatBot } from "@/components/landing/InfoChatBot";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface Aluno {
   id: string;

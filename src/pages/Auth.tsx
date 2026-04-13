@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { ArrowLeft, User, Lock, Mail, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Auth = () => {
   const navigate = useNavigate();
