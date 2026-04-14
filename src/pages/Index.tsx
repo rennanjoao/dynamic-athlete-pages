@@ -5,7 +5,7 @@ import { Users, Plus, Calendar, Activity, Dumbbell, UtensilsCrossed, ArrowRight,
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { InfoChatBot } from "@/components/landing/InfoChatBot";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import RankingTeaser from "@/components/gamification/RankingTeaser";
 
 interface Aluno {
   id: string;
@@ -59,7 +59,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <ThemeToggle />
 
       {/* Hero Section */}
       <header className="relative overflow-hidden">
@@ -235,6 +234,18 @@ const Index = () => {
             ))}
           </div>
         )}
+      </section>
+
+      {/* Ranking Teaser */}
+      <section className="max-w-6xl mx-auto px-6 pb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="max-w-md mx-auto"
+        >
+          <RankingTeaser />
+        </motion.div>
       </section>
 
       {/* Security Badge */}

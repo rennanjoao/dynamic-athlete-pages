@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { ArrowLeft, User, Lock, Mail, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ThemeToggle } from "@/components/ThemeToggle";
+
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -80,7 +80,7 @@ const Auth = () => {
       <div className="absolute inset-0 gradient-hero" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(350_89%_50%/0.08),transparent_60%)]" />
       
-      <ThemeToggle />
+      
 
       <Link to="/" className="absolute left-6 top-6 z-20">
         <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
