@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ThemeToggle } from "@/components/ThemeToggle";
+
 import { toast } from "sonner";
 import { ArrowLeft, Shield, Mail, Lock } from "lucide-react";
 import { motion } from "framer-motion";
@@ -68,7 +68,7 @@ const AdminLogin = () => {
       <div className="absolute inset-0 gradient-hero" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(350_89%_50%/0.08),transparent_60%)]" />
 
-      <ThemeToggle />
+      
 
       <Link to="/" className="absolute left-6 top-6 z-20">
         <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
