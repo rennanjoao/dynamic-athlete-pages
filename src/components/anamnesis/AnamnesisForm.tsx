@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +66,19 @@ export default function AnamnesisForm({ userId }: { userId: string }) {
   const [data, setData] = useState<FormData>({});
   const [saving, setSaving] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
+
+  // Fetch available coaches
+  const { data: coaches = [] } = useQuery({
+    queryKey: ["available-coaches"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("manage-trainers", {
+        body: { action: "list-coaches" },
+      });
+      if (error || data?.error) return [];
+      return data?.coaches || [];
+    },
+    staleTime: 5 * 60_000,
+  });
 
   useEffect(() => {
     loadExisting();
@@ -180,6 +194,29 @@ export default function AnamnesisForm({ userId }: { userId: string }) {
               <TextInput field="city_state" label="Cidade/UF" />
             </div>
             <TextInput field="whatsapp" label="WhatsApp" placeholder="+55 (00) 00000-0000" />
+
+            {/* Coach Selector */}
+            {coaches.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Coach / Treinador</Label>
+                <Select
+                  value={(data.coach_id as string) || ""}
+                  onValueChange={(v) => set("coach_id", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione seu coach" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {coaches.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.full_name}{c.team_name ? ` — ${c.team_name}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <TextInput field="height" label="Altura (cm)" type="number" />
               <TextInput field="total_weight" label="Peso total (kg)" type="number" />
