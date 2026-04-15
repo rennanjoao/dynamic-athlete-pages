@@ -15,7 +15,6 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verify caller is admin
     const authHeader = req.headers.get("Authorization")!;
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -25,42 +24,44 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check admin role
     const { data: isAdmin } = await adminClient.rpc("has_role", {
       _user_id: user.id,
       _role: "admin",
     });
     if (!isAdmin) throw new Error("Acesso negado");
 
-    const { action, email, password, fullName, trainerId } = await req.json();
+    const body = await req.json();
+    const { action } = body;
 
+    // ── LIST coaches/trainers ──
     if (action === "list") {
-      // Get all users with 'user' role that were created by admin (trainers)
-      // For now, list all non-admin users from profiles
       const { data: roles } = await adminClient
         .from("user_roles")
-        .select("user_id")
-        .eq("role", "user");
+        .select("user_id, role")
+        .in("role", ["user", "coach"]);
 
-      const userIds = roles?.map((r: any) => r.user_id) || [];
-      
-      // Filter out the admin themselves
-      const trainerIds = userIds.filter((id: string) => id !== user.id);
+      const userIds = (roles || [])
+        .map((r: any) => r.user_id)
+        .filter((id: string) => id !== user.id);
 
       const trainers = [];
-      for (const id of trainerIds) {
+      for (const id of userIds) {
         const { data: { user: trainerUser } } = await adminClient.auth.admin.getUserById(id);
         if (trainerUser) {
           const { data: profile } = await adminClient
             .from("profiles")
-            .select("full_name")
+            .select("full_name, team_name")
             .eq("user_id", id)
             .single();
+
+          const role = roles?.find((r: any) => r.user_id === id)?.role || "user";
 
           trainers.push({
             id: trainerUser.id,
             email: trainerUser.email,
             full_name: profile?.full_name || null,
+            team_name: profile?.team_name || null,
+            role,
             created_at: trainerUser.created_at,
           });
         }
@@ -71,7 +72,9 @@ serve(async (req) => {
       });
     }
 
+    // ── CREATE trainer/coach ──
     if (action === "create") {
+      const { email, password, fullName, teamName, role: targetRole } = body;
       if (!email || !password || !fullName) {
         throw new Error("Email, senha e nome são obrigatórios");
       }
@@ -85,21 +88,63 @@ serve(async (req) => {
 
       if (createError) throw createError;
 
+      // Set role (coach or user)
+      const assignRole = targetRole === "coach" ? "coach" : "user";
+      await adminClient
+        .from("user_roles")
+        .update({ role: assignRole })
+        .eq("user_id", newUser.user.id);
+
+      // Update profile with team_name if provided
+      if (teamName) {
+        await adminClient
+          .from("profiles")
+          .update({ team_name: teamName })
+          .eq("user_id", newUser.user.id);
+      }
+
       return new Response(JSON.stringify({ success: true, userId: newUser.user.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // ── DELETE ──
     if (action === "delete") {
+      const { trainerId } = body;
       if (!trainerId) throw new Error("ID do treinador é obrigatório");
-
-      // Don't allow deleting yourself
       if (trainerId === user.id) throw new Error("Não é possível remover a si mesmo");
 
       const { error } = await adminClient.auth.admin.deleteUser(trainerId);
       if (error) throw error;
 
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── LIST COACHES (public-ish, for anamnesis coach selection) ──
+    if (action === "list-coaches") {
+      const { data: coachRoles } = await adminClient
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "coach");
+
+      const coaches = [];
+      for (const r of coachRoles || []) {
+        const { data: profile } = await adminClient
+          .from("profiles")
+          .select("full_name, team_name")
+          .eq("user_id", r.user_id)
+          .single();
+
+        coaches.push({
+          id: r.user_id,
+          full_name: profile?.full_name || "Coach",
+          team_name: profile?.team_name || null,
+        });
+      }
+
+      return new Response(JSON.stringify({ coaches }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
