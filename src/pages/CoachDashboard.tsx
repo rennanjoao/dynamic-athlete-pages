@@ -367,21 +367,21 @@ function LeadsTab({ coachId }: { coachId: string }) {
           {leads.map((lead) => (
             <div key={lead.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">{lead.name}</p>
+                <p className="text-sm font-semibold text-foreground">{lead.full_name}</p>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                   {lead.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{lead.email}</span>}
-                  {lead.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</span>}
+                  {lead.whatsapp && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.whatsapp}</span>}
                   {lead.source && <span>· {lead.source}</span>}
                 </div>
                 {lead.notes && <p className="text-xs text-muted-foreground mt-1">{lead.notes}</p>}
               </div>
               <Select value={lead.status} onValueChange={(v) => updateStatus(lead.id, v)}>
-                <SelectTrigger className="w-28 h-8 text-xs">
+                <SelectTrigger className="w-32 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.keys(statusColors).map((s) => (
-                    <SelectItem key={s} value={s} className="text-xs capitalize">{s}</SelectItem>
+                  {Object.entries(statusLabels).map(([s, info]) => (
+                    <SelectItem key={s} value={s} className="text-xs">{info.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -397,10 +397,10 @@ function LeadsTab({ coachId }: { coachId: string }) {
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader><DialogTitle>Novo Lead</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            <div><Label className="text-xs">Nome *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 h-9 text-sm" /></div>
+            <div><Label className="text-xs">Nome *</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="mt-1 h-9 text-sm" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs">Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 h-9 text-sm" /></div>
-              <div><Label className="text-xs">Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1 h-9 text-sm" /></div>
+              <div><Label className="text-xs">WhatsApp</Label><Input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} className="mt-1 h-9 text-sm" /></div>
             </div>
             <div><Label className="text-xs">Origem</Label><Input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="Instagram, indicação..." className="mt-1 h-9 text-sm" /></div>
             <div><Label className="text-xs">Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1 text-sm h-16" /></div>
