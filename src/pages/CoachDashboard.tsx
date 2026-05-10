@@ -885,6 +885,7 @@ export default function CoachDashboard() {
         </Tabs>
 
         {coachId && <LinkStudentDialog coachId={coachId} open={showLinkDialog} onClose={() => setShowLinkDialog(false)} />}
+        {coachId && <ProfileDialog coachId={coachId} open={showProfile} onClose={() => setShowProfile(false)} />}
 
         <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}>
           {editingStudent && (
