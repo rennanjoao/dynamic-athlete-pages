@@ -11,7 +11,7 @@ import {
   AlertTriangle, CheckCircle2, Search, Filter, Users, Bell, Pencil,
   Dumbbell, UtensilsCrossed, BarChart3, ClipboardList, ArrowLeft,
   Loader2, Plus, Trash2, DollarSign, UserPlus, Phone, Mail,
-  TrendingUp, Calendar, Save, X,
+  TrendingUp, Calendar, Save, X, User,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -54,9 +54,9 @@ interface StudentStatus {
 
 interface Lead {
   id: string;
-  name: string;
+  full_name: string;
   email: string | null;
-  phone: string | null;
+  whatsapp: string | null;
   status: string;
   notes: string | null;
   source: string | null;
@@ -66,13 +66,11 @@ interface Lead {
 interface FinanceRecord {
   id: string;
   student_id: string | null;
-  student_name?: string;
   description: string;
   amount: number;
-  status: string;
+  status: string; // 'pending' | 'paid' | 'overdue'
   due_date: string | null;
   paid_at: string | null;
-  category: string;
   created_at: string;
 }
 
@@ -305,24 +303,25 @@ function LeadsTab({ coachId }: { coachId: string }) {
   const { data: leads = [], isLoading } = useLeads(coachId);
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "", source: "" });
+  const [form, setForm] = useState({ full_name: "", email: "", whatsapp: "", notes: "", source: "" });
 
   const addLead = useMutation({
     mutationFn: async () => {
-      if (!form.name) throw new Error("Nome é obrigatório");
+      if (!form.full_name) throw new Error("Nome é obrigatório");
       const { error } = await (supabase as any).from("coach_leads").insert({
         coach_id: coachId,
-        name: form.name,
+        full_name: form.full_name,
         email: form.email || null,
-        phone: form.phone || null,
+        whatsapp: form.whatsapp || null,
         notes: form.notes || null,
         source: form.source || null,
+        status: "new",
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Lead adicionado!");
-      setForm({ name: "", email: "", phone: "", notes: "", source: "" });
+      setForm({ full_name: "", email: "", whatsapp: "", notes: "", source: "" });
       setShowAdd(false);
       qc.invalidateQueries({ queryKey: ["coach-leads"] });
     },
@@ -342,12 +341,12 @@ function LeadsTab({ coachId }: { coachId: string }) {
     toast.success("Lead removido");
   };
 
-  const statusColors: Record<string, string> = {
-    novo: "bg-blue-100 text-blue-700",
-    contato: "bg-amber-100 text-amber-700",
-    negociando: "bg-purple-100 text-purple-700",
-    convertido: "bg-emerald-100 text-emerald-700",
-    perdido: "bg-red-100 text-red-700",
+  const statusLabels: Record<string, { label: string; cls: string }> = {
+    new: { label: "Novo", cls: "bg-blue-100 text-blue-700" },
+    contacted: { label: "Em contato", cls: "bg-amber-100 text-amber-700" },
+    negotiating: { label: "Negociando", cls: "bg-purple-100 text-purple-700" },
+    converted: { label: "Convertido", cls: "bg-emerald-100 text-emerald-700" },
+    lost: { label: "Perdido", cls: "bg-red-100 text-red-700" },
   };
 
   return (
@@ -368,21 +367,21 @@ function LeadsTab({ coachId }: { coachId: string }) {
           {leads.map((lead) => (
             <div key={lead.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">{lead.name}</p>
+                <p className="text-sm font-semibold text-foreground">{lead.full_name}</p>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                   {lead.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{lead.email}</span>}
-                  {lead.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</span>}
+                  {lead.whatsapp && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.whatsapp}</span>}
                   {lead.source && <span>· {lead.source}</span>}
                 </div>
                 {lead.notes && <p className="text-xs text-muted-foreground mt-1">{lead.notes}</p>}
               </div>
               <Select value={lead.status} onValueChange={(v) => updateStatus(lead.id, v)}>
-                <SelectTrigger className="w-28 h-8 text-xs">
+                <SelectTrigger className="w-32 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.keys(statusColors).map((s) => (
-                    <SelectItem key={s} value={s} className="text-xs capitalize">{s}</SelectItem>
+                  {Object.entries(statusLabels).map(([s, info]) => (
+                    <SelectItem key={s} value={s} className="text-xs">{info.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -398,10 +397,10 @@ function LeadsTab({ coachId }: { coachId: string }) {
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader><DialogTitle>Novo Lead</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            <div><Label className="text-xs">Nome *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 h-9 text-sm" /></div>
+            <div><Label className="text-xs">Nome *</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="mt-1 h-9 text-sm" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs">Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 h-9 text-sm" /></div>
-              <div><Label className="text-xs">Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1 h-9 text-sm" /></div>
+              <div><Label className="text-xs">WhatsApp</Label><Input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} className="mt-1 h-9 text-sm" /></div>
             </div>
             <div><Label className="text-xs">Origem</Label><Input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="Instagram, indicação..." className="mt-1 h-9 text-sm" /></div>
             <div><Label className="text-xs">Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1 text-sm h-16" /></div>
@@ -426,7 +425,6 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
     description: "",
     amount: "",
     due_date: "",
-    category: "mensalidade",
   });
 
   const addFinance = useMutation({
@@ -438,13 +436,13 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
         description: form.description,
         amount: Number(form.amount),
         due_date: form.due_date || null,
-        category: form.category,
+        status: "pending",
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Registro financeiro adicionado!");
-      setForm({ student_id: "", description: "", amount: "", due_date: "", category: "mensalidade" });
+      setForm({ student_id: "", description: "", amount: "", due_date: "" });
       setShowAdd(false);
       qc.invalidateQueries({ queryKey: ["coach-finances"] });
     },
@@ -453,7 +451,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
 
   const togglePaid = async (id: string, currentlyPaid: boolean) => {
     await (supabase as any).from("coach_finances").update({
-      status: currentlyPaid ? "pendente" : "pago",
+      status: currentlyPaid ? "pending" : "paid",
       paid_at: currentlyPaid ? null : new Date().toISOString(),
     }).eq("id", id);
     qc.invalidateQueries({ queryKey: ["coach-finances"] });
@@ -466,9 +464,9 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
     qc.invalidateQueries({ queryKey: ["coach-finances"] });
   };
 
-  const totalReceita = finances.filter((f) => f.status === "pago").reduce((s, f) => s + Number(f.amount), 0);
-  const totalPendente = finances.filter((f) => f.status === "pendente").reduce((s, f) => s + Number(f.amount), 0);
-  const totalAtrasado = finances.filter((f) => f.status === "pendente" && f.due_date && new Date(f.due_date) < new Date()).reduce((s, f) => s + Number(f.amount), 0);
+  const totalReceita = finances.filter((f) => f.status === "paid").reduce((s, f) => s + Number(f.amount), 0);
+  const totalPendente = finances.filter((f) => f.status === "pending").reduce((s, f) => s + Number(f.amount), 0);
+  const totalAtrasado = finances.filter((f) => f.status === "pending" && f.due_date && new Date(f.due_date) < new Date()).reduce((s, f) => s + Number(f.amount), 0);
 
   return (
     <div className="space-y-4">
@@ -505,7 +503,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
             <TableBody>
               {finances.map((f) => {
                 const studentName = students.find((s) => s.id === f.student_id)?.name;
-                const isOverdue = f.status === "pendente" && f.due_date && new Date(f.due_date) < new Date();
+                const isOverdue = f.status === "pending" && f.due_date && new Date(f.due_date) < new Date();
                 return (
                   <TableRow key={f.id}>
                     <TableCell className="text-sm font-medium">{f.description}</TableCell>
@@ -514,16 +512,16 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
                     <TableCell className="text-xs">{f.due_date ? new Date(f.due_date).toLocaleDateString("pt-BR") : "—"}</TableCell>
                     <TableCell>
                       <button
-                        onClick={() => togglePaid(f.id, f.status === "pago")}
+                        onClick={() => togglePaid(f.id, f.status === "paid")}
                         className={`text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer ${
-                          f.status === "pago"
+                          f.status === "paid"
                             ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                             : isOverdue
                               ? "bg-red-100 text-red-700 border-red-200"
                               : "bg-amber-100 text-amber-700 border-amber-200"
                         }`}
                       >
-                        {f.status === "pago" ? "Pago" : isOverdue ? "Atrasado" : "Pendente"}
+                        {f.status === "paid" ? "Pago" : isOverdue ? "Atrasado" : "Pendente"}
                       </button>
                     </TableCell>
                     <TableCell>
@@ -557,18 +555,6 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-xs">Categoria</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mensalidade">Mensalidade</SelectItem>
-                  <SelectItem value="avulso">Avulso</SelectItem>
-                  <SelectItem value="pacote">Pacote</SelectItem>
-                  <SelectItem value="outro">Outro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <Button onClick={() => addFinance.mutate()} disabled={addFinance.isPending} className="w-full">
               {addFinance.isPending ? "Salvando..." : "Adicionar Registro"}
             </Button>
@@ -590,44 +576,37 @@ function LinkStudentDialog({ coachId, open, onClose }: { coachId: string; open: 
     if (!email) { toast.error("Digite o email do aluno"); return; }
     setLoading(true);
     try {
-      // Find student by email in profiles
-      // We need to use edge function for this since we can't query auth.users
-      const { data: profiles } = await supabase
-        .from("student_profiles")
-        .select("user_id, full_name");
-
-      // Since we can't search by email from client, we search all and check
-      // This is a workaround - in production you'd use an edge function
-      if (!profiles || profiles.length === 0) {
-        toast.error("Nenhum aluno encontrado. O aluno precisa estar cadastrado.");
-        return;
-      }
-
-      // For now, let user input user_id or search by name
-      const found = profiles.find(
-        (p) => p.full_name?.toLowerCase().includes(email.toLowerCase())
-      );
-
+      const { data, error } = await supabase.functions.invoke("manage-trainers", {
+        body: { action: "find-student-by-email", email: email.trim() },
+      });
+      if (error) throw error;
+      const found = (data as any)?.student;
       if (!found) {
-        toast.error("Aluno não encontrado. Busque pelo nome cadastrado.");
+        toast.error("Nenhum aluno encontrado com esse e-mail.");
         return;
       }
 
-      const { error } = await (supabase as any).from("coach_students").insert({
+      const { error: insErr } = await (supabase as any).from("coach_students").insert({
         coach_id: coachId,
-        student_id: found.user_id,
+        student_id: found.id,
+        status: "active",
       });
 
-      if (error) {
-        if (error.code === "23505") {
-          toast.error("Este aluno já está vinculado.");
+      if (insErr) {
+        if (insErr.code === "23505") {
+          // Re-activate if previously inactive
+          await (supabase as any).from("coach_students")
+            .update({ status: "active" })
+            .eq("coach_id", coachId)
+            .eq("student_id", found.id);
+          toast.success(`${found.full_name} reativado.`);
         } else {
-          throw error;
+          throw insErr;
         }
-        return;
+      } else {
+        toast.success(`${found.full_name} vinculado com sucesso!`);
       }
 
-      toast.success(`${found.full_name} vinculado com sucesso!`);
       setEmail("");
       onClose();
       qc.invalidateQueries({ queryKey: ["coach-students"] });
@@ -644,11 +623,81 @@ function LinkStudentDialog({ coachId, open, onClose }: { coachId: string; open: 
         <DialogHeader><DialogTitle>Vincular Aluno</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
           <div>
-            <Label className="text-xs">Nome do aluno</Label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Busque pelo nome cadastrado" className="mt-1 h-9 text-sm" />
+            <Label className="text-xs">E-mail do aluno</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="aluno@email.com"
+              className="mt-1 h-9 text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              O aluno precisa já ter conta no sistema.
+            </p>
           </div>
           <Button onClick={handleLink} disabled={loading} className="w-full">
             {loading ? "Vinculando..." : "Vincular Aluno"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Profile (team name) Dialog ──────────────────────────────────────────────
+
+function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [fullName, setFullName] = useState("");
+  const [teamName, setTeamName] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !coachId) return;
+    supabase
+      .from("profiles")
+      .select("full_name, team_name")
+      .eq("user_id", coachId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setFullName(data?.full_name || "");
+        setTeamName((data as any)?.team_name || "");
+      });
+  }, [open, coachId]);
+
+  const save = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: fullName, team_name: teamName } as any)
+        .eq("user_id", coachId);
+      if (error) throw error;
+      toast.success("Perfil atualizado");
+      qc.invalidateQueries({ queryKey: ["coach-profile", coachId] });
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[380px]">
+        <DialogHeader><DialogTitle>Meu Perfil</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-2">
+          <div>
+            <Label className="text-xs">Nome completo</Label>
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1 h-9 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs">Nome da equipe / empresa</Label>
+            <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex: Equipe Performance" className="mt-1 h-9 text-sm" />
+          </div>
+          <Button onClick={save} disabled={loading} className="w-full">
+            {loading ? "Salvando..." : "Salvar"}
           </Button>
         </div>
       </DialogContent>
@@ -666,6 +715,7 @@ export default function CoachDashboard() {
   const [view, setView] = useState<CoachView>("list");
   const [selectedStudent, setSelectedStudent] = useState<StudentStatus | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const qc = useQueryClient();
 
   const { data: students = [], isLoading } = useCoachStudents(coachId);
@@ -735,12 +785,17 @@ export default function CoachDashboard() {
               {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
             </p>
           </div>
-          {stats.critical > 0 && (
-            <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg">
-              <Bell className="w-3.5 h-3.5" />
-              {stats.critical} aluno{stats.critical > 1 ? "s" : ""} em alerta
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {stats.critical > 0 && (
+              <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg">
+                <Bell className="w-3.5 h-3.5" />
+                {stats.critical} aluno{stats.critical > 1 ? "s" : ""} em alerta
+              </div>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setShowProfile(true)} className="gap-1.5">
+              <User className="w-3.5 h-3.5" /> Perfil
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -830,6 +885,7 @@ export default function CoachDashboard() {
         </Tabs>
 
         {coachId && <LinkStudentDialog coachId={coachId} open={showLinkDialog} onClose={() => setShowLinkDialog(false)} />}
+        {coachId && <ProfileDialog coachId={coachId} open={showProfile} onClose={() => setShowProfile(false)} />}
 
         <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}>
           {editingStudent && (

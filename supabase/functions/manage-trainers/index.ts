@@ -28,10 +28,71 @@ serve(async (req) => {
       _user_id: user.id,
       _role: "admin",
     });
-    if (!isAdmin) throw new Error("Acesso negado");
+    const { data: isCoach } = await adminClient.rpc("has_role", {
+      _user_id: user.id,
+      _role: "coach",
+    });
 
     const body = await req.json();
     const { action } = body;
+
+    // Public-ish action (any authenticated user) for anamnesis coach picker
+    const publicActions = ["list-coaches"];
+    // Coach-or-admin actions
+    const coachActions = ["find-student-by-email"];
+
+    if (!publicActions.includes(action)) {
+      if (coachActions.includes(action)) {
+        if (!isAdmin && !isCoach) throw new Error("Acesso negado");
+      } else {
+        if (!isAdmin) throw new Error("Acesso negado");
+      }
+    }
+
+    // ── FIND STUDENT BY EMAIL (coach linking) ──
+    if (action === "find-student-by-email") {
+      const { email } = body;
+      if (!email) throw new Error("Email é obrigatório");
+
+      const { data: list, error: listErr } = await adminClient.auth.admin.listUsers({
+        page: 1,
+        perPage: 200,
+      });
+      if (listErr) throw listErr;
+
+      const match = list.users.find(
+        (u: any) => (u.email || "").toLowerCase() === String(email).toLowerCase()
+      );
+      if (!match) {
+        return new Response(JSON.stringify({ student: null }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: profile } = await adminClient
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", match.id)
+        .maybeSingle();
+
+      const { data: studentProfile } = await adminClient
+        .from("student_profiles")
+        .select("full_name")
+        .eq("user_id", match.id)
+        .maybeSingle();
+
+      return new Response(
+        JSON.stringify({
+          student: {
+            id: match.id,
+            email: match.email,
+            full_name:
+              studentProfile?.full_name || profile?.full_name || match.email,
+          },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // ── LIST coaches/trainers ──
     if (action === "list") {
