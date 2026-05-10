@@ -503,7 +503,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
             <TableBody>
               {finances.map((f) => {
                 const studentName = students.find((s) => s.id === f.student_id)?.name;
-                const isOverdue = f.status === "pendente" && f.due_date && new Date(f.due_date) < new Date();
+                const isOverdue = f.status === "pending" && f.due_date && new Date(f.due_date) < new Date();
                 return (
                   <TableRow key={f.id}>
                     <TableCell className="text-sm font-medium">{f.description}</TableCell>
@@ -512,16 +512,16 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
                     <TableCell className="text-xs">{f.due_date ? new Date(f.due_date).toLocaleDateString("pt-BR") : "—"}</TableCell>
                     <TableCell>
                       <button
-                        onClick={() => togglePaid(f.id, f.status === "pago")}
+                        onClick={() => togglePaid(f.id, f.status === "paid")}
                         className={`text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer ${
-                          f.status === "pago"
+                          f.status === "paid"
                             ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                             : isOverdue
                               ? "bg-red-100 text-red-700 border-red-200"
                               : "bg-amber-100 text-amber-700 border-amber-200"
                         }`}
                       >
-                        {f.status === "pago" ? "Pago" : isOverdue ? "Atrasado" : "Pendente"}
+                        {f.status === "paid" ? "Pago" : isOverdue ? "Atrasado" : "Pendente"}
                       </button>
                     </TableCell>
                     <TableCell>
