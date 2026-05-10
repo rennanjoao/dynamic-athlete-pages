@@ -425,7 +425,6 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
     description: "",
     amount: "",
     due_date: "",
-    category: "mensalidade",
   });
 
   const addFinance = useMutation({
@@ -437,13 +436,13 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
         description: form.description,
         amount: Number(form.amount),
         due_date: form.due_date || null,
-        category: form.category,
+        status: "pending",
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Registro financeiro adicionado!");
-      setForm({ student_id: "", description: "", amount: "", due_date: "", category: "mensalidade" });
+      setForm({ student_id: "", description: "", amount: "", due_date: "" });
       setShowAdd(false);
       qc.invalidateQueries({ queryKey: ["coach-finances"] });
     },
@@ -452,7 +451,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
 
   const togglePaid = async (id: string, currentlyPaid: boolean) => {
     await (supabase as any).from("coach_finances").update({
-      status: currentlyPaid ? "pendente" : "pago",
+      status: currentlyPaid ? "pending" : "paid",
       paid_at: currentlyPaid ? null : new Date().toISOString(),
     }).eq("id", id);
     qc.invalidateQueries({ queryKey: ["coach-finances"] });
@@ -465,9 +464,9 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
     qc.invalidateQueries({ queryKey: ["coach-finances"] });
   };
 
-  const totalReceita = finances.filter((f) => f.status === "pago").reduce((s, f) => s + Number(f.amount), 0);
-  const totalPendente = finances.filter((f) => f.status === "pendente").reduce((s, f) => s + Number(f.amount), 0);
-  const totalAtrasado = finances.filter((f) => f.status === "pendente" && f.due_date && new Date(f.due_date) < new Date()).reduce((s, f) => s + Number(f.amount), 0);
+  const totalReceita = finances.filter((f) => f.status === "paid").reduce((s, f) => s + Number(f.amount), 0);
+  const totalPendente = finances.filter((f) => f.status === "pending").reduce((s, f) => s + Number(f.amount), 0);
+  const totalAtrasado = finances.filter((f) => f.status === "pending" && f.due_date && new Date(f.due_date) < new Date()).reduce((s, f) => s + Number(f.amount), 0);
 
   return (
     <div className="space-y-4">
