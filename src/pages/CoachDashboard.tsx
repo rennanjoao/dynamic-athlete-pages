@@ -303,24 +303,25 @@ function LeadsTab({ coachId }: { coachId: string }) {
   const { data: leads = [], isLoading } = useLeads(coachId);
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "", source: "" });
+  const [form, setForm] = useState({ full_name: "", email: "", whatsapp: "", notes: "", source: "" });
 
   const addLead = useMutation({
     mutationFn: async () => {
-      if (!form.name) throw new Error("Nome é obrigatório");
+      if (!form.full_name) throw new Error("Nome é obrigatório");
       const { error } = await (supabase as any).from("coach_leads").insert({
         coach_id: coachId,
-        name: form.name,
+        full_name: form.full_name,
         email: form.email || null,
-        phone: form.phone || null,
+        whatsapp: form.whatsapp || null,
         notes: form.notes || null,
         source: form.source || null,
+        status: "new",
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Lead adicionado!");
-      setForm({ name: "", email: "", phone: "", notes: "", source: "" });
+      setForm({ full_name: "", email: "", whatsapp: "", notes: "", source: "" });
       setShowAdd(false);
       qc.invalidateQueries({ queryKey: ["coach-leads"] });
     },
@@ -340,12 +341,12 @@ function LeadsTab({ coachId }: { coachId: string }) {
     toast.success("Lead removido");
   };
 
-  const statusColors: Record<string, string> = {
-    novo: "bg-blue-100 text-blue-700",
-    contato: "bg-amber-100 text-amber-700",
-    negociando: "bg-purple-100 text-purple-700",
-    convertido: "bg-emerald-100 text-emerald-700",
-    perdido: "bg-red-100 text-red-700",
+  const statusLabels: Record<string, { label: string; cls: string }> = {
+    new: { label: "Novo", cls: "bg-blue-100 text-blue-700" },
+    contacted: { label: "Em contato", cls: "bg-amber-100 text-amber-700" },
+    negotiating: { label: "Negociando", cls: "bg-purple-100 text-purple-700" },
+    converted: { label: "Convertido", cls: "bg-emerald-100 text-emerald-700" },
+    lost: { label: "Perdido", cls: "bg-red-100 text-red-700" },
   };
 
   return (
