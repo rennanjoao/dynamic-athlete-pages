@@ -54,9 +54,9 @@ interface StudentStatus {
 
 interface Lead {
   id: string;
-  name: string;
+  full_name: string;
   email: string | null;
-  phone: string | null;
+  whatsapp: string | null;
   status: string;
   notes: string | null;
   source: string | null;
@@ -66,13 +66,11 @@ interface Lead {
 interface FinanceRecord {
   id: string;
   student_id: string | null;
-  student_name?: string;
   description: string;
   amount: number;
-  status: string;
+  status: string; // 'pending' | 'paid' | 'overdue'
   due_date: string | null;
   paid_at: string | null;
-  category: string;
   created_at: string;
 }
 
