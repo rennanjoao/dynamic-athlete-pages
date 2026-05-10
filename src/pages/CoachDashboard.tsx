@@ -576,44 +576,37 @@ function LinkStudentDialog({ coachId, open, onClose }: { coachId: string; open: 
     if (!email) { toast.error("Digite o email do aluno"); return; }
     setLoading(true);
     try {
-      // Find student by email in profiles
-      // We need to use edge function for this since we can't query auth.users
-      const { data: profiles } = await supabase
-        .from("student_profiles")
-        .select("user_id, full_name");
-
-      // Since we can't search by email from client, we search all and check
-      // This is a workaround - in production you'd use an edge function
-      if (!profiles || profiles.length === 0) {
-        toast.error("Nenhum aluno encontrado. O aluno precisa estar cadastrado.");
-        return;
-      }
-
-      // For now, let user input user_id or search by name
-      const found = profiles.find(
-        (p) => p.full_name?.toLowerCase().includes(email.toLowerCase())
-      );
-
+      const { data, error } = await supabase.functions.invoke("manage-trainers", {
+        body: { action: "find-student-by-email", email: email.trim() },
+      });
+      if (error) throw error;
+      const found = (data as any)?.student;
       if (!found) {
-        toast.error("Aluno não encontrado. Busque pelo nome cadastrado.");
+        toast.error("Nenhum aluno encontrado com esse e-mail.");
         return;
       }
 
-      const { error } = await (supabase as any).from("coach_students").insert({
+      const { error: insErr } = await (supabase as any).from("coach_students").insert({
         coach_id: coachId,
-        student_id: found.user_id,
+        student_id: found.id,
+        status: "active",
       });
 
-      if (error) {
-        if (error.code === "23505") {
-          toast.error("Este aluno já está vinculado.");
+      if (insErr) {
+        if (insErr.code === "23505") {
+          // Re-activate if previously inactive
+          await (supabase as any).from("coach_students")
+            .update({ status: "active" })
+            .eq("coach_id", coachId)
+            .eq("student_id", found.id);
+          toast.success(`${found.full_name} reativado.`);
         } else {
-          throw error;
+          throw insErr;
         }
-        return;
+      } else {
+        toast.success(`${found.full_name} vinculado com sucesso!`);
       }
 
-      toast.success(`${found.full_name} vinculado com sucesso!`);
       setEmail("");
       onClose();
       qc.invalidateQueries({ queryKey: ["coach-students"] });
@@ -630,11 +623,81 @@ function LinkStudentDialog({ coachId, open, onClose }: { coachId: string; open: 
         <DialogHeader><DialogTitle>Vincular Aluno</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
           <div>
-            <Label className="text-xs">Nome do aluno</Label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Busque pelo nome cadastrado" className="mt-1 h-9 text-sm" />
+            <Label className="text-xs">E-mail do aluno</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="aluno@email.com"
+              className="mt-1 h-9 text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              O aluno precisa já ter conta no sistema.
+            </p>
           </div>
           <Button onClick={handleLink} disabled={loading} className="w-full">
             {loading ? "Vinculando..." : "Vincular Aluno"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Profile (team name) Dialog ──────────────────────────────────────────────
+
+function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [fullName, setFullName] = useState("");
+  const [teamName, setTeamName] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !coachId) return;
+    supabase
+      .from("profiles")
+      .select("full_name, team_name")
+      .eq("user_id", coachId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setFullName(data?.full_name || "");
+        setTeamName((data as any)?.team_name || "");
+      });
+  }, [open, coachId]);
+
+  const save = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: fullName, team_name: teamName } as any)
+        .eq("user_id", coachId);
+      if (error) throw error;
+      toast.success("Perfil atualizado");
+      qc.invalidateQueries({ queryKey: ["coach-profile", coachId] });
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[380px]">
+        <DialogHeader><DialogTitle>Meu Perfil</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-2">
+          <div>
+            <Label className="text-xs">Nome completo</Label>
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1 h-9 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs">Nome da equipe / empresa</Label>
+            <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex: Equipe Performance" className="mt-1 h-9 text-sm" />
+          </div>
+          <Button onClick={save} disabled={loading} className="w-full">
+            {loading ? "Salvando..." : "Salvar"}
           </Button>
         </div>
       </DialogContent>
