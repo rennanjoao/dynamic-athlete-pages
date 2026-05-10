@@ -785,12 +785,17 @@ export default function CoachDashboard() {
               {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
             </p>
           </div>
-          {stats.critical > 0 && (
-            <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg">
-              <Bell className="w-3.5 h-3.5" />
-              {stats.critical} aluno{stats.critical > 1 ? "s" : ""} em alerta
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {stats.critical > 0 && (
+              <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg">
+                <Bell className="w-3.5 h-3.5" />
+                {stats.critical} aluno{stats.critical > 1 ? "s" : ""} em alerta
+              </div>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setShowProfile(true)} className="gap-1.5">
+              <User className="w-3.5 h-3.5" /> Perfil
+            </Button>
+          </div>
         </div>
       </header>
 
