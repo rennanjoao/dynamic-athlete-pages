@@ -715,6 +715,7 @@ export default function CoachDashboard() {
   const [view, setView] = useState<CoachView>("list");
   const [selectedStudent, setSelectedStudent] = useState<StudentStatus | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const qc = useQueryClient();
 
   const { data: students = [], isLoading } = useCoachStudents(coachId);
