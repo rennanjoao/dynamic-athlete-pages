@@ -122,6 +122,7 @@ export type Database = {
           calf_left: number | null
           calf_right: number | null
           city_state: string | null
+          coach_id: string | null
           concentration: number | null
           consulting_goals: string | null
           created_at: string
@@ -192,6 +193,7 @@ export type Database = {
           calf_left?: number | null
           calf_right?: number | null
           city_state?: string | null
+          coach_id?: string | null
           concentration?: number | null
           consulting_goals?: string | null
           created_at?: string
@@ -262,6 +264,7 @@ export type Database = {
           calf_left?: number | null
           calf_right?: number | null
           city_state?: string | null
+          coach_id?: string | null
           concentration?: number | null
           consulting_goals?: string | null
           created_at?: string
@@ -321,7 +324,116 @@ export type Database = {
           wakes_rested?: boolean | null
           whatsapp?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clinical_anamnesis_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_finances: {
+        Row: {
+          amount: number
+          coach_id: string
+          created_at: string
+          description: string
+          due_date: string | null
+          id: string
+          paid_at: string | null
+          status: string
+          student_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          coach_id: string
+          created_at?: string
+          description: string
+          due_date?: string | null
+          id?: string
+          paid_at?: string | null
+          status?: string
+          student_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          coach_id?: string
+          created_at?: string
+          description?: string
+          due_date?: string | null
+          id?: string
+          paid_at?: string | null
+          status?: string
+          student_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_finances_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_finances_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_leads: {
+        Row: {
+          coach_id: string
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          notes: string | null
+          source: string | null
+          status: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_leads_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coach_plans: {
         Row: {
@@ -385,6 +497,51 @@ export type Database = {
           workout_periodization_json?: Json | null
         }
         Relationships: []
+      }
+      coach_students: {
+        Row: {
+          coach_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_students_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_alerts: {
         Row: {
@@ -518,6 +675,7 @@ export type Database = {
           cref: string | null
           full_name: string | null
           id: string
+          team_name: string | null
           updated_at: string
           user_id: string
         }
@@ -526,6 +684,7 @@ export type Database = {
           cref?: string | null
           full_name?: string | null
           id?: string
+          team_name?: string | null
           updated_at?: string
           user_id: string
         }
@@ -534,6 +693,7 @@ export type Database = {
           cref?: string | null
           full_name?: string | null
           id?: string
+          team_name?: string | null
           updated_at?: string
           user_id?: string
         }
