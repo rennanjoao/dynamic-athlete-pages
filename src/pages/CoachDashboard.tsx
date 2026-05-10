@@ -11,7 +11,7 @@ import {
   AlertTriangle, CheckCircle2, Search, Filter, Users, Bell, Pencil,
   Dumbbell, UtensilsCrossed, BarChart3, ClipboardList, ArrowLeft,
   Loader2, Plus, Trash2, DollarSign, UserPlus, Phone, Mail,
-  TrendingUp, Calendar, Save, X,
+  TrendingUp, Calendar, Save, X, User,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
