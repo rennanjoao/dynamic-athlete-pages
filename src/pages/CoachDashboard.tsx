@@ -555,18 +555,6 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-xs">Categoria</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mensalidade">Mensalidade</SelectItem>
-                  <SelectItem value="avulso">Avulso</SelectItem>
-                  <SelectItem value="pacote">Pacote</SelectItem>
-                  <SelectItem value="outro">Outro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <Button onClick={() => addFinance.mutate()} disabled={addFinance.isPending} className="w-full">
               {addFinance.isPending ? "Salvando..." : "Adicionar Registro"}
             </Button>
