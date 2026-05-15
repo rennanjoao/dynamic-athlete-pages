@@ -5,8 +5,11 @@
  */
 
 import { useState, useMemo, lazy, Suspense, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCoachStudents, type StudentStatus, type AlertLevel } from "@/hooks/useCoachStudents";
+import { useLeads, type Lead } from "@/hooks/useLeads";
+import { useCoachFinances, type FinanceRecord } from "@/hooks/useCoachFinances";
 import {
   AlertTriangle, CheckCircle2, Search, Filter, Users, Bell, Pencil,
   Dumbbell, UtensilsCrossed, BarChart3, ClipboardList, ArrowLeft,
