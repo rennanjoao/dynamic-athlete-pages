@@ -24,7 +24,7 @@ export default function RankingTeaser() {
     queryKey: ["ranking-top3"],
     queryFn: async () => {
       // Aggregate total daily_score per user from performance_logs
-      const { data: logs } = await (supabase as any)
+      const { data: logs } = await supabase
         .from("performance_logs")
         .select("user_id, daily_score, is_anonymous")
         .order("daily_score", { ascending: false });

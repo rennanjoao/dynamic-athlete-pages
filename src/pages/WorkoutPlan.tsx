@@ -127,7 +127,7 @@ function useWorkoutPlan(userId: string) {
   return useQuery({
     queryKey: ["workout-plan", userId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("coach_plans")
         .select("workout_periodization_json")
         .eq("student_id", userId)

@@ -139,7 +139,7 @@ function LeadsTab({ coachId }: { coachId: string }) {
   const addLead = useMutation({
     mutationFn: async () => {
       if (!form.full_name) throw new Error("Nome é obrigatório");
-      const { error } = await (supabase as any).from("coach_leads").insert({
+      const { error } = await supabase.from("coach_leads").insert({
         coach_id: coachId,
         full_name: form.full_name,
         email: form.email || null,
@@ -160,14 +160,14 @@ function LeadsTab({ coachId }: { coachId: string }) {
   });
 
   const updateStatus = async (id: string, status: string) => {
-    await (supabase as any).from("coach_leads").update({ status }).eq("id", id);
+    await supabase.from("coach_leads").update({ status }).eq("id", id);
     qc.invalidateQueries({ queryKey: ["coach-leads"] });
     toast.success("Status atualizado");
   };
 
   const deleteLead = async (id: string) => {
     if (!confirm("Remover lead?")) return;
-    await (supabase as any).from("coach_leads").delete().eq("id", id);
+    await supabase.from("coach_leads").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["coach-leads"] });
     toast.success("Lead removido");
   };
@@ -261,7 +261,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   const addFinance = useMutation({
     mutationFn: async () => {
       if (!form.description || !form.amount) throw new Error("Descrição e valor são obrigatórios");
-      const { error } = await (supabase as any).from("coach_finances").insert({
+      const { error } = await supabase.from("coach_finances").insert({
         coach_id: coachId,
         student_id: form.student_id || null,
         description: form.description,
@@ -281,7 +281,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   });
 
   const togglePaid = async (id: string, currentlyPaid: boolean) => {
-    await (supabase as any).from("coach_finances").update({
+    await supabase.from("coach_finances").update({
       status: currentlyPaid ? "pending" : "paid",
       paid_at: currentlyPaid ? null : new Date().toISOString(),
     }).eq("id", id);
@@ -291,7 +291,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
 
   const deleteFinance = async (id: string) => {
     if (!confirm("Remover registro?")) return;
-    await (supabase as any).from("coach_finances").delete().eq("id", id);
+    await supabase.from("coach_finances").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["coach-finances"] });
   };
 
@@ -417,7 +417,7 @@ function LinkStudentDialog({ coachId, open, onClose }: { coachId: string; open: 
         return;
       }
 
-      const { error: insErr } = await (supabase as any).from("coach_students").insert({
+      const { error: insErr } = await supabase.from("coach_students").insert({
         coach_id: coachId,
         student_id: found.id,
         status: "active",
@@ -426,7 +426,7 @@ function LinkStudentDialog({ coachId, open, onClose }: { coachId: string; open: 
       if (insErr) {
         if (insErr.code === "23505") {
           // Re-activate if previously inactive
-          await (supabase as any).from("coach_students")
+          await supabase.from("coach_students")
             .update({ status: "active" })
             .eq("coach_id", coachId)
             .eq("student_id", found.id);
@@ -571,7 +571,7 @@ export default function CoachDashboard() {
 
   const handleUnlink = async (student: StudentStatus) => {
     if (!confirm(`Desvincular ${student.name}?`)) return;
-    await (supabase as any).from("coach_students")
+    await supabase.from("coach_students")
       .update({ status: "inactive" })
       .eq("coach_id", coachId)
       .eq("student_id", student.id);

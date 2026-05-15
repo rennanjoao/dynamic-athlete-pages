@@ -140,7 +140,7 @@ function useToggleItem(userId: string) {
       const newVal = !current;
 
       // Optimistic — handled in onMutate
-      let query = (supabase as any)
+      let query = supabase
         .from(table)
         .select("id")
         .eq("user_id", userId)
@@ -151,7 +151,7 @@ function useToggleItem(userId: string) {
       const { data: existing } = await query.maybeSingle();
 
       if (existing) {
-        await (supabase as any)
+        await supabase
           .from(table)
           .update({
             completed: newVal,
@@ -159,7 +159,7 @@ function useToggleItem(userId: string) {
           })
           .eq("id", existing.id);
       } else {
-        await (supabase as any).from(table).insert({
+        await supabase.from(table).insert({
           user_id: userId,
           [idField]: id,
           ...(type === "meal" ? { date: today } : {}),
@@ -399,7 +399,7 @@ function useSaveScore(userId: string) {
       sleep_score: number;
       daily_score: number;
     }) => {
-      const { data: existing } = await (supabase as any)
+      const { data: existing } = await supabase
         .from("performance_logs")
         .select("id")
         .eq("user_id", userId)
@@ -407,12 +407,12 @@ function useSaveScore(userId: string) {
         .maybeSingle();
 
       if (existing) {
-        await (supabase as any)
+        await supabase
           .from("performance_logs")
           .update({ ...scores })
           .eq("id", existing.id);
       } else {
-        await (supabase as any)
+        await supabase
           .from("performance_logs")
           .insert({ user_id: userId, date: today, ...scores });
       }
@@ -427,7 +427,7 @@ function useTotalScore(userId: string) {
   return useQuery({
     queryKey: ["totalScore", userId],
     queryFn: async () => {
-      const { data: logs } = await (supabase as any)
+      const { data: logs } = await supabase
         .from("performance_logs")
         .select("daily_score")
         .eq("user_id", userId);
@@ -526,7 +526,7 @@ export default function StudentDashboard() {
     setIsAnonymous(val);
     if (!userId) return;
     const today = new Date().toISOString().split("T")[0];
-    await (supabase as any)
+    await supabase
       .from("performance_logs")
       .update({ is_anonymous: val })
       .eq("user_id", userId)
