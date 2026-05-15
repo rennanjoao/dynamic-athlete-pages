@@ -248,7 +248,7 @@ function LeadsTab({ coachId }: { coachId: string }) {
 // ─── Finances Tab ────────────────────────────────────────────────────────────
 
 function FinancesTab({ coachId, students }: { coachId: string; students: StudentStatus[] }) {
-  const { data: finances = [], isLoading } = useFinances(coachId);
+  const { data: finances = [], isLoading } = useCoachFinances(coachId);
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
