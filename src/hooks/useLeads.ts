@@ -17,7 +17,7 @@ export function useLeads(coachId: string | null) {
     queryKey: ["coach-leads", coachId],
     queryFn: async (): Promise<Lead[]> => {
       if (!coachId) return [];
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("coach_leads")
         .select("*")
         .eq("coach_id", coachId)

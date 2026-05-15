@@ -34,7 +34,7 @@ export function useCoachStudents(coachId: string | null) {
     queryFn: async (): Promise<StudentStatus[]> => {
       if (!coachId) return [];
 
-      const { data: links } = await (supabase as any)
+      const { data: links } = await supabase
         .from("coach_students")
         .select("student_id")
         .eq("coach_id", coachId)

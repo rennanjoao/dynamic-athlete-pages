@@ -142,7 +142,7 @@ function useDietStrategy(userId: string) {
   return useQuery({
     queryKey: ["diet-strategy", userId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("coach_plans")
         .select("diet_strategy_json, base_calories, base_protein_g, base_carbs_g, base_fat_g")
         .eq("student_id", userId)

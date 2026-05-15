@@ -17,7 +17,7 @@ export function useCoachFinances(coachId: string | null) {
     queryKey: ["coach-finances", coachId],
     queryFn: async (): Promise<FinanceRecord[]> => {
       if (!coachId) return [];
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("coach_finances")
         .select("*")
         .eq("coach_id", coachId)

@@ -46,7 +46,7 @@ export const AlertManager = () => {
   };
 
   const fetchAlerts = async () => {
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("daily_alerts")
       .select("*")
       .order("created_at", { ascending: false });
@@ -67,7 +67,7 @@ export const AlertManager = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const { error } = await (supabase as any).from("daily_alerts").insert({
+    const { error } = await supabase.from("daily_alerts").insert({
       trainer_id: user.id,
       student_id: selectedStudent,
       message: message.trim(),
@@ -90,12 +90,12 @@ export const AlertManager = () => {
   };
 
   const toggleAlert = async (id: string, current: boolean) => {
-    await (supabase as any).from("daily_alerts").update({ is_active: !current }).eq("id", id);
+    await supabase.from("daily_alerts").update({ is_active: !current }).eq("id", id);
     fetchAlerts();
   };
 
   const deleteAlert = async (id: string) => {
-    await (supabase as any).from("daily_alerts").delete().eq("id", id);
+    await supabase.from("daily_alerts").delete().eq("id", id);
     toast.success("Alerta excluído");
     fetchAlerts();
   };

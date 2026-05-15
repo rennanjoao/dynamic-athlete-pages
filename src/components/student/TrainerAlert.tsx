@@ -11,7 +11,7 @@ export const TrainerAlert = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from("daily_alerts")
         .select("message, frequency, target_date")
         .eq("student_id", user.id)
