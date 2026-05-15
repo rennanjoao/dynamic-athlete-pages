@@ -5,8 +5,11 @@
  */
 
 import { useState, useMemo, lazy, Suspense, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCoachStudents, type StudentStatus, type AlertLevel } from "@/hooks/useCoachStudents";
+import { useLeads, type Lead } from "@/hooks/useLeads";
+import { useCoachFinances, type FinanceRecord } from "@/hooks/useCoachFinances";
 import {
   AlertTriangle, CheckCircle2, Search, Filter, Users, Bell, Pencil,
   Dumbbell, UtensilsCrossed, BarChart3, ClipboardList, ArrowLeft,
@@ -34,61 +37,7 @@ import { toast } from "sonner";
 const AnamnesisViewer = lazy(() => import("@/components/anamnesis/AnamnesisViewer"));
 const RoutineBuilder = lazy(() => import("@/components/coach/RoutineBuilder"));
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type AlertLevel = "critical" | "warning" | "ok";
 type CoachView = "list" | "anamnesis" | "routine";
-
-interface StudentStatus {
-  id: string;
-  name: string;
-  email: string;
-  lastWorkout: string | null;
-  lastMeal: string | null;
-  alertLevel: AlertLevel;
-  daysInactive: number;
-  goal: string;
-  currentWeight: number | null;
-  targetWeight: number | null;
-}
-
-interface Lead {
-  id: string;
-  full_name: string;
-  email: string | null;
-  whatsapp: string | null;
-  status: string;
-  notes: string | null;
-  source: string | null;
-  created_at: string;
-}
-
-interface FinanceRecord {
-  id: string;
-  student_id: string | null;
-  description: string;
-  amount: number;
-  status: string; // 'pending' | 'paid' | 'overdue'
-  due_date: string | null;
-  paid_at: string | null;
-  created_at: string;
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function daysSince(dateStr: string | null): number {
-  if (!dateStr) return 999;
-  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
-}
-
-function getAlertLevel(lastWorkout: string | null, lastMeal: string | null): AlertLevel {
-  const days = daysSince(lastWorkout ?? lastMeal);
-  if (days >= 3) return "critical";
-  if (days >= 1) return "warning";
-  return "ok";
-}
-
-// ─── Hooks ───────────────────────────────────────────────────────────────────
 
 function useCoachId() {
   const [coachId, setCoachId] = useState<string | null>(null);
@@ -98,124 +47,6 @@ function useCoachId() {
     });
   }, []);
   return coachId;
-}
-
-function useCoachStudents(coachId: string | null) {
-  return useQuery({
-    queryKey: ["coach-students", coachId],
-    queryFn: async (): Promise<StudentStatus[]> => {
-      if (!coachId) return [];
-
-      // Get linked students
-      const { data: links } = await (supabase as any)
-        .from("coach_students")
-        .select("student_id")
-        .eq("coach_id", coachId)
-        .eq("status", "active");
-
-      if (!links || links.length === 0) return [];
-      const studentIds = links.map((l: any) => l.student_id);
-
-      // Get profiles
-      const { data: profiles } = await supabase
-        .from("student_profiles")
-        .select("user_id, full_name")
-        .in("user_id", studentIds);
-
-      // Get latest workout/diet progress per student
-      const students: StudentStatus[] = [];
-      for (const sid of studentIds) {
-        const profile = profiles?.find((p) => p.user_id === sid);
-
-        const { data: lastW } = await supabase
-          .from("workout_progress")
-          .select("completed_at")
-          .eq("user_id", sid)
-          .eq("completed", true)
-          .order("completed_at", { ascending: false })
-          .limit(1);
-
-        const { data: lastD } = await supabase
-          .from("diet_progress")
-          .select("completed_at")
-          .eq("user_id", sid)
-          .eq("completed", true)
-          .order("completed_at", { ascending: false })
-          .limit(1);
-
-        // Get plan
-        const { data: plan } = await supabase
-          .from("coach_plans")
-          .select("goal")
-          .eq("student_id", sid)
-          .eq("coach_id", coachId)
-          .limit(1);
-
-        // Get latest weight
-        const { data: bm } = await supabase
-          .from("body_measurements")
-          .select("weight")
-          .eq("user_id", sid)
-          .order("measurement_date", { ascending: false })
-          .limit(1);
-
-        const lastWorkout = lastW?.[0]?.completed_at || null;
-        const lastMeal = lastD?.[0]?.completed_at || null;
-
-        students.push({
-          id: sid,
-          name: profile?.full_name || "Aluno",
-          email: "",
-          lastWorkout,
-          lastMeal,
-          alertLevel: getAlertLevel(lastWorkout, lastMeal),
-          daysInactive: daysSince(lastWorkout ?? lastMeal),
-          goal: plan?.[0]?.goal || "—",
-          currentWeight: bm?.[0]?.weight ? Number(bm[0].weight) : null,
-          targetWeight: null,
-        });
-      }
-
-      return students.sort((a, b) => {
-        const order: Record<AlertLevel, number> = { critical: 0, warning: 1, ok: 2 };
-        return order[a.alertLevel] - order[b.alertLevel];
-      });
-    },
-    enabled: !!coachId,
-    refetchInterval: 60_000,
-  });
-}
-
-function useLeads(coachId: string | null) {
-  return useQuery({
-    queryKey: ["coach-leads", coachId],
-    queryFn: async (): Promise<Lead[]> => {
-      if (!coachId) return [];
-      const { data } = await (supabase as any)
-        .from("coach_leads")
-        .select("*")
-        .eq("coach_id", coachId)
-        .order("created_at", { ascending: false });
-      return data || [];
-    },
-    enabled: !!coachId,
-  });
-}
-
-function useFinances(coachId: string | null) {
-  return useQuery({
-    queryKey: ["coach-finances", coachId],
-    queryFn: async (): Promise<FinanceRecord[]> => {
-      if (!coachId) return [];
-      const { data } = await (supabase as any)
-        .from("coach_finances")
-        .select("*")
-        .eq("coach_id", coachId)
-        .order("created_at", { ascending: false });
-      return data || [];
-    },
-    enabled: !!coachId,
-  });
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -417,7 +248,7 @@ function LeadsTab({ coachId }: { coachId: string }) {
 // ─── Finances Tab ────────────────────────────────────────────────────────────
 
 function FinancesTab({ coachId, students }: { coachId: string; students: StudentStatus[] }) {
-  const { data: finances = [], isLoading } = useFinances(coachId);
+  const { data: finances = [], isLoading } = useCoachFinances(coachId);
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
