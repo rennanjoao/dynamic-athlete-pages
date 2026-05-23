@@ -135,37 +135,58 @@ function useToggleItem(userId: string) {
       type: "workout" | "meal";
       current: boolean;
     }) => {
-      const table = type === "workout" ? "workout_progress" : "diet_progress";
-      const idField = type === "workout" ? "workout_id" : "meal_id";
       const newVal = !current;
 
-      // Optimistic — handled in onMutate
-      let query = supabase
-        .from(table)
-        .select("id")
-        .eq("user_id", userId)
-        .eq(idField, id);
-      if (type === "meal") {
-        query = query.eq("date", today);
-      }
-      const { data: existing } = await query.maybeSingle();
+      if (type === "workout") {
+        const { data: existing } = await supabase
+          .from("workout_progress")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("workout_id", id)
+          .maybeSingle();
 
-      if (existing) {
-        await supabase
-          .from(table)
-          .update({
+        if (existing) {
+          await supabase
+            .from("workout_progress")
+            .update({
+              completed: newVal,
+              completed_at: newVal ? new Date().toISOString() : null,
+            })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("workout_progress").insert({
+            user_id: userId,
+            workout_id: id,
             completed: newVal,
             completed_at: newVal ? new Date().toISOString() : null,
-          })
-          .eq("id", existing.id);
+          });
+        }
       } else {
-        await supabase.from(table).insert({
-          user_id: userId,
-          [idField]: id,
-          ...(type === "meal" ? { date: today } : {}),
-          completed: newVal,
-          completed_at: newVal ? new Date().toISOString() : null,
-        });
+        const { data: existing } = await supabase
+          .from("diet_progress")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("meal_id", id)
+          .eq("date", today)
+          .maybeSingle();
+
+        if (existing) {
+          await supabase
+            .from("diet_progress")
+            .update({
+              completed: newVal,
+              completed_at: newVal ? new Date().toISOString() : null,
+            })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("diet_progress").insert({
+            user_id: userId,
+            meal_id: id,
+            date: today,
+            completed: newVal,
+            completed_at: newVal ? new Date().toISOString() : null,
+          });
+        }
       }
       return { id, type, newVal };
     },
