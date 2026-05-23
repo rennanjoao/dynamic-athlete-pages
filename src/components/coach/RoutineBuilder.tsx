@@ -203,7 +203,7 @@ export default function RoutineBuilder({ studentId, studentName, onClose }: Prop
       qc.invalidateQueries({ queryKey: ["students"] });
       onClose();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Erro ao salvar rotina");
     },
   });

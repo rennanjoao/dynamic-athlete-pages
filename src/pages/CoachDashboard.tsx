@@ -156,7 +156,7 @@ function LeadsTab({ coachId }: { coachId: string }) {
       setShowAdd(false);
       qc.invalidateQueries({ queryKey: ["coach-leads"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const updateStatus = async (id: string, status: string) => {
@@ -277,7 +277,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
       setShowAdd(false);
       qc.invalidateQueries({ queryKey: ["coach-finances"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const togglePaid = async (id: string, currentlyPaid: boolean) => {
@@ -658,7 +658,7 @@ export default function CoachDashboard() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar aluno..." className="pl-8 h-9 text-sm" />
               </div>
-              <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
+              <Select value={filter} onValueChange={(v) => setFilter(v as "all" | AlertLevel)}>
                 <SelectTrigger className="w-36 h-9 text-sm">
                   <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
                   <SelectValue placeholder="Filtrar" />
