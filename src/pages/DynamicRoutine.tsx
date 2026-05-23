@@ -151,7 +151,7 @@ function useDietStrategy(userId: string) {
         .maybeSingle();
 
       if (data?.diet_strategy_json && Object.keys(data.diet_strategy_json).length > 0) {
-        return data.diet_strategy_json as DietStrategy;
+        return data.diet_strategy_json as unknown as DietStrategy;
       }
       return DEFAULT_STRATEGY;
     },

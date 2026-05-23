@@ -135,56 +135,81 @@ function useToggleItem(userId: string) {
       type: "workout" | "meal";
       current: boolean;
     }) => {
-      const table = type === "workout" ? "workout_progress" : "diet_progress";
-      const idField = type === "workout" ? "workout_id" : "meal_id";
       const newVal = !current;
 
-      // Optimistic — handled in onMutate
-      let query = supabase
-        .from(table)
-        .select("id")
-        .eq("user_id", userId)
-        .eq(idField, id);
-      if (type === "meal") {
-        query = query.eq("date", today);
-      }
-      const { data: existing } = await query.maybeSingle();
+      if (type === "workout") {
+        const { data: existing } = await supabase
+          .from("workout_progress")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("workout_id", id)
+          .maybeSingle();
 
-      if (existing) {
-        await supabase
-          .from(table)
-          .update({
+        if (existing) {
+          await supabase
+            .from("workout_progress")
+            .update({
+              completed: newVal,
+              completed_at: newVal ? new Date().toISOString() : null,
+            })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("workout_progress").insert({
+            user_id: userId,
+            workout_id: id,
             completed: newVal,
             completed_at: newVal ? new Date().toISOString() : null,
-          })
-          .eq("id", existing.id);
+          });
+        }
       } else {
-        await supabase.from(table).insert({
-          user_id: userId,
-          [idField]: id,
-          ...(type === "meal" ? { date: today } : {}),
-          completed: newVal,
-          completed_at: newVal ? new Date().toISOString() : null,
-        });
+        const { data: existing } = await supabase
+          .from("diet_progress")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("meal_id", id)
+          .eq("date", today)
+          .maybeSingle();
+
+        if (existing) {
+          await supabase
+            .from("diet_progress")
+            .update({
+              completed: newVal,
+              completed_at: newVal ? new Date().toISOString() : null,
+            })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("diet_progress").insert({
+            user_id: userId,
+            meal_id: id,
+            date: today,
+            completed: newVal,
+            completed_at: newVal ? new Date().toISOString() : null,
+          });
+        }
       }
       return { id, type, newVal };
     },
     onMutate: async ({ id, type, current }) => {
       await qc.cancelQueries({ queryKey: ["daily", userId, today] });
       const prev = qc.getQueryData(["daily", userId, today]);
-      qc.setQueryData(["daily", userId, today], (old: any) => {
+      qc.setQueryData<{
+        workouts: { workout_id: string; completed: boolean }[];
+        meals: { meal_id: string; completed: boolean }[];
+        weightHistory: { date: string; weight: number }[];
+      }>(["daily", userId, today], (old) => {
         if (!old) return old;
         if (type === "workout") {
           return {
             ...old,
-            workouts: old.workouts.map((w: any) =>
+            workouts: old.workouts.map((w) =>
               w.workout_id === id ? { ...w, completed: !current } : w
             ),
           };
         }
         return {
           ...old,
-          meals: old.meals.map((m: any) =>
+          meals: old.meals.map((m) =>
             m.meal_id === id ? { ...m, completed: !current } : m
           ),
         };
@@ -431,7 +456,7 @@ function useTotalScore(userId: string) {
         .from("performance_logs")
         .select("daily_score")
         .eq("user_id", userId);
-      return (logs ?? []).reduce((sum: number, l: any) => sum + (l.daily_score ?? 0), 0);
+      return (logs ?? []).reduce((sum, l) => sum + (l.daily_score ?? 0), 0);
     },
     staleTime: 30_000,
   });

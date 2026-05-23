@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -104,7 +105,7 @@ export default function AnamnesisForm({ userId }: { userId: string }) {
   async function handleSave() {
     setSaving(true);
     try {
-      const payload: Record<string, any> = { ...data, user_id: userId };
+      const payload: Record<string, unknown> = { ...data, user_id: userId };
       delete payload.id;
       delete payload.created_at;
       delete payload.updated_at;
@@ -112,13 +113,13 @@ export default function AnamnesisForm({ userId }: { userId: string }) {
       if (existingId) {
         const { error } = await supabase
           .from("clinical_anamnesis")
-          .update(payload)
+          .update(payload as TablesInsert<"clinical_anamnesis">)
           .eq("id", existingId);
         if (error) throw error;
       } else {
         const { data: inserted, error } = await supabase
           .from("clinical_anamnesis")
-          .insert(payload)
+          .insert(payload as TablesInsert<"clinical_anamnesis">)
           .select("id")
           .single();
         if (error) throw error;
@@ -207,7 +208,7 @@ export default function AnamnesisForm({ userId }: { userId: string }) {
                     <SelectValue placeholder="Selecione seu coach" />
                   </SelectTrigger>
                   <SelectContent>
-                    {coaches.map((c: any) => (
+                    {(coaches as Array<{ id: string; full_name: string; team_name: string | null }>).map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.full_name}{c.team_name ? ` — ${c.team_name}` : ""}
                       </SelectItem>

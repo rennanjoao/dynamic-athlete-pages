@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -180,8 +181,8 @@ export default function RoutineBuilder({ studentId, studentName, onClose }: Prop
         water_l: water,
         goal,
         notes,
-        diet_strategy_json: dietStrategy as any,
-        workout_periodization_json: workoutPeriodization as any,
+        diet_strategy_json: dietStrategy as unknown as Json,
+        workout_periodization_json: workoutPeriodization as unknown as Json,
       };
 
       if (existing && existing.length > 0) {
@@ -202,7 +203,7 @@ export default function RoutineBuilder({ studentId, studentName, onClose }: Prop
       qc.invalidateQueries({ queryKey: ["students"] });
       onClose();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Erro ao salvar rotina");
     },
   });

@@ -156,7 +156,7 @@ function LeadsTab({ coachId }: { coachId: string }) {
       setShowAdd(false);
       qc.invalidateQueries({ queryKey: ["coach-leads"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const updateStatus = async (id: string, status: string) => {
@@ -277,7 +277,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
       setShowAdd(false);
       qc.invalidateQueries({ queryKey: ["coach-finances"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const togglePaid = async (id: string, currentlyPaid: boolean) => {
@@ -411,7 +411,7 @@ function LinkStudentDialog({ coachId, open, onClose }: { coachId: string; open: 
         body: { action: "find-student-by-email", email: email.trim() },
       });
       if (error) throw error;
-      const found = (data as any)?.student;
+      const found = (data as { student?: { id: string; email: string; full_name: string } | null })?.student;
       if (!found) {
         toast.error("Nenhum aluno encontrado com esse e-mail.");
         return;
@@ -492,7 +492,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
       .maybeSingle()
       .then(({ data }) => {
         setFullName(data?.full_name || "");
-        setTeamName((data as any)?.team_name || "");
+        setTeamName(data?.team_name || "");
       });
   }, [open, coachId]);
 
@@ -501,7 +501,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ full_name: fullName, team_name: teamName } as any)
+        .update({ full_name: fullName, team_name: teamName })
         .eq("user_id", coachId);
       if (error) throw error;
       toast.success("Perfil atualizado");
@@ -658,7 +658,7 @@ export default function CoachDashboard() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar aluno..." className="pl-8 h-9 text-sm" />
               </div>
-              <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
+              <Select value={filter} onValueChange={(v) => setFilter(v as "all" | AlertLevel)}>
                 <SelectTrigger className="w-36 h-9 text-sm">
                   <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
                   <SelectValue placeholder="Filtrar" />

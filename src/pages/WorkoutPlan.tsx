@@ -136,7 +136,7 @@ function useWorkoutPlan(userId: string) {
         .maybeSingle();
 
       if (data?.workout_periodization_json && Object.keys(data.workout_periodization_json).length > 0) {
-        return data.workout_periodization_json as WorkoutPeriodization;
+        return data.workout_periodization_json as unknown as WorkoutPeriodization;
       }
       return DEFAULT_PERIODIZATION;
     },
