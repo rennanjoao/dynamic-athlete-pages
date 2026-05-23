@@ -41,7 +41,7 @@ export function useCoachStudents(coachId: string | null) {
         .eq("status", "active");
 
       if (!links || links.length === 0) return [];
-      const studentIds = links.map((l: any) => l.student_id);
+      const studentIds = links.map((l) => l.student_id);
 
       const { data: profiles } = await supabase
         .from("student_profiles")
