@@ -411,7 +411,7 @@ function LinkStudentDialog({ coachId, open, onClose }: { coachId: string; open: 
         body: { action: "find-student-by-email", email: email.trim() },
       });
       if (error) throw error;
-      const found = (data as any)?.student;
+      const found = (data as { student?: { id: string; email: string; full_name: string } | null })?.student;
       if (!found) {
         toast.error("Nenhum aluno encontrado com esse e-mail.");
         return;

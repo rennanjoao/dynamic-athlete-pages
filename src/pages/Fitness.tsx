@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useFitnessProgress } from "@/hooks/useFitnessProgress";
@@ -52,7 +53,7 @@ const SAMPLE_MEALS = [
 ];
 
 export default function Fitness() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const { workoutProgress, dietProgress, performanceLogs, loading, toggleWorkout, toggleDiet } = useFitnessProgress(user?.id);
 

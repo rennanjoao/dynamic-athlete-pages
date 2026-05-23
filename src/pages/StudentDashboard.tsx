@@ -193,19 +193,23 @@ function useToggleItem(userId: string) {
     onMutate: async ({ id, type, current }) => {
       await qc.cancelQueries({ queryKey: ["daily", userId, today] });
       const prev = qc.getQueryData(["daily", userId, today]);
-      qc.setQueryData(["daily", userId, today], (old: any) => {
+      qc.setQueryData<{
+        workouts: { workout_id: string; completed: boolean }[];
+        meals: { meal_id: string; completed: boolean }[];
+        weightHistory: { date: string; weight: number }[];
+      }>(["daily", userId, today], (old) => {
         if (!old) return old;
         if (type === "workout") {
           return {
             ...old,
-            workouts: old.workouts.map((w: any) =>
+            workouts: old.workouts.map((w) =>
               w.workout_id === id ? { ...w, completed: !current } : w
             ),
           };
         }
         return {
           ...old,
-          meals: old.meals.map((m: any) =>
+          meals: old.meals.map((m) =>
             m.meal_id === id ? { ...m, completed: !current } : m
           ),
         };
@@ -452,7 +456,7 @@ function useTotalScore(userId: string) {
         .from("performance_logs")
         .select("daily_score")
         .eq("user_id", userId);
-      return (logs ?? []).reduce((sum: number, l: any) => sum + (l.daily_score ?? 0), 0);
+      return (logs ?? []).reduce((sum, l) => sum + (l.daily_score ?? 0), 0);
     },
     staleTime: 30_000,
   });

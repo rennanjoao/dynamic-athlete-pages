@@ -149,7 +149,7 @@ export const TrainerManagement = () => {
           <div className="space-y-4 py-4">
             <div>
               <Label>Tipo</Label>
-              <Select value={newTrainer.role} onValueChange={(v) => setNewTrainer({ ...newTrainer, role: v as any })}>
+              <Select value={newTrainer.role} onValueChange={(v) => setNewTrainer({ ...newTrainer, role: v as "coach" | "user" })}>
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>

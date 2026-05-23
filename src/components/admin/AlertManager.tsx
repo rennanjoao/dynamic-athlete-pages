@@ -54,7 +54,7 @@ export const AlertManager = () => {
     if (data) {
       const { data: profiles } = await supabase.from("student_profiles").select("user_id, full_name");
       const nameMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
-      setAlerts(data.map((a: any) => ({ ...a, student_name: nameMap.get(a.student_id) || "Desconhecido" })));
+      setAlerts(data.map((a) => ({ ...a, student_name: nameMap.get(a.student_id) || "Desconhecido" })));
     }
   };
 

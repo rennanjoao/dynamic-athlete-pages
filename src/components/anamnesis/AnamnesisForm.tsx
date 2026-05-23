@@ -208,7 +208,7 @@ export default function AnamnesisForm({ userId }: { userId: string }) {
                     <SelectValue placeholder="Selecione seu coach" />
                   </SelectTrigger>
                   <SelectContent>
-                    {coaches.map((c: any) => (
+                    {(coaches as Array<{ id: string; full_name: string; team_name: string | null }>).map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.full_name}{c.team_name ? ` — ${c.team_name}` : ""}
                       </SelectItem>

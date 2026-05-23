@@ -69,7 +69,7 @@ export const SkinfoldForm = () => {
 
       <div className="mb-4">
         <Label>Protocolo de Avaliação</Label>
-        <Select value={protocol} onValueChange={(value: any) => setProtocol(value)}>
+        <Select value={protocol} onValueChange={(value) => setProtocol(value as typeof protocol)}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
