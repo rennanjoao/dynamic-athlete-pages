@@ -492,7 +492,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
       .maybeSingle()
       .then(({ data }) => {
         setFullName(data?.full_name || "");
-        setTeamName((data as any)?.team_name || "");
+        setTeamName(data?.team_name || "");
       });
   }, [open, coachId]);
 
@@ -501,7 +501,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ full_name: fullName, team_name: teamName } as any)
+        .update({ full_name: fullName, team_name: teamName })
         .eq("user_id", coachId);
       if (error) throw error;
       toast.success("Perfil atualizado");

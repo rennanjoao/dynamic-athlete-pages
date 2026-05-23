@@ -180,8 +180,8 @@ export default function RoutineBuilder({ studentId, studentName, onClose }: Prop
         water_l: water,
         goal,
         notes,
-        diet_strategy_json: dietStrategy as any,
-        workout_periodization_json: workoutPeriodization as any,
+        diet_strategy_json: dietStrategy as unknown as Json,
+        workout_periodization_json: workoutPeriodization as unknown as Json,
       };
 
       if (existing && existing.length > 0) {
