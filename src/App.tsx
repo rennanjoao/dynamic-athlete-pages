@@ -34,6 +34,8 @@ const NotFound    = lazy(() => import("./pages/NotFound"));
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
 const CoachDashboard   = lazy(() => import("./pages/CoachDashboard"));
 const Anamnesis        = lazy(() => import("./pages/Anamnesis"));
+const CheckIn          = lazy(() => import("./pages/CheckIn"));
+const Evolution        = lazy(() => import("./pages/Evolution"));
 const DynamicRoutine   = lazy(() => import("./pages/DynamicRoutine"));
 const WorkoutPlanPage  = lazy(() => import("./pages/WorkoutPlan"));
 
@@ -75,6 +77,8 @@ const App = () => (
             <Route path="/student-area" element={<StudentArea />} />
             <Route path="/fitness"      element={<StudentDashboard />} />
             <Route path="/anamnesis"    element={<Anamnesis />} />
+            <Route path="/check-in"     element={<CheckIn />} />
+            <Route path="/evolution"    element={<Evolution />} />
             <Route path="/routine"      element={<DynamicRoutine />} />
             <Route path="/workout-plan" element={<WorkoutPlanPage />} />
 

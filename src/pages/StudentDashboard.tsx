@@ -619,6 +619,12 @@ export default function StudentDashboard() {
       <main className="max-w-lg mx-auto px-4 py-5 space-y-5">
         {/* ── Quick Nav ── */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => navigate("/evolution")}>
+            <BarChart3 className="w-3.5 h-3.5 mr-1" /> Evolução
+          </Button>
+          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => navigate("/check-in")}>
+            <ClipboardList className="w-3.5 h-3.5 mr-1" /> Check-in
+          </Button>
           <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => navigate("/routine")}>
             <Apple className="w-3.5 h-3.5 mr-1" /> Rotina
           </Button>
