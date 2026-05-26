@@ -39,13 +39,10 @@ export interface Protocol {
   updated_at: string;
 }
 
-// Helper for tables that may not yet exist on the generated Database type
-const sb = supabase as unknown as {
-  from: (t: string) => ReturnType<typeof supabase.from>;
-  channel: typeof supabase.channel;
-  removeChannel: typeof supabase.removeChannel;
-  auth: typeof supabase.auth;
-};
+// New tables (anamnesis/check_ins/protocols) not yet present on the
+// generated Database type — bypass with a permissive cast.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sb: any = supabase;
 
 export function useStudentData(explicitStudentId?: string) {
   const qc = useQueryClient();
