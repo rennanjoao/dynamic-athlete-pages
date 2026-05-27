@@ -14,7 +14,7 @@ import {
   AlertTriangle, CheckCircle2, Search, Filter, Users, Bell, Pencil,
   Dumbbell, UtensilsCrossed, BarChart3, ClipboardList, ArrowLeft,
   Loader2, Plus, Trash2, DollarSign, UserPlus, Phone, Mail,
-  TrendingUp, Calendar, Save, X, User,
+  TrendingUp, Calendar, Save, X, User, FileText,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -36,8 +36,9 @@ import { toast } from "sonner";
 
 const AnamnesisViewer = lazy(() => import("@/components/anamnesis/AnamnesisViewer"));
 const RoutineBuilder = lazy(() => import("@/components/coach/RoutineBuilder"));
+const ProtocolEditor = lazy(() => import("@/components/coach/ProtocolEditor"));
 
-type CoachView = "list" | "anamnesis" | "routine";
+type CoachView = "list" | "anamnesis" | "routine" | "protocol";
 
 function useCoachId() {
   const [coachId, setCoachId] = useState<string | null>(null);
@@ -74,12 +75,13 @@ function AlertBadge({ level }: { level: AlertLevel }) {
 }
 
 function StudentRow({
-  student, onEdit, onAnamnesis, onRoutine, onUnlink,
+  student, onEdit, onAnamnesis, onRoutine, onProtocol, onUnlink,
 }: {
   student: StudentStatus;
   onEdit: (s: StudentStatus) => void;
   onAnamnesis: (s: StudentStatus) => void;
   onRoutine: (s: StudentStatus) => void;
+  onProtocol: (s: StudentStatus) => void;
   onUnlink: (s: StudentStatus) => void;
 }) {
   const lastActivity =
@@ -116,6 +118,9 @@ function StudentRow({
         </button>
         <button onClick={() => onRoutine(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors" title="Criar Rotina">
           <Dumbbell className="w-4 h-4" />
+        </button>
+        <button onClick={() => onProtocol(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors" title="Protocolo">
+          <FileText className="w-4 h-4" />
         </button>
         <button onClick={() => onEdit(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors" title="Editar Plano">
           <Pencil className="w-4 h-4" />
@@ -589,7 +594,7 @@ export default function CoachDashboard() {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <h1 className="text-sm font-bold text-foreground">
-              {view === "anamnesis" ? "Anamnese" : "Criar Rotina"} — {selectedStudent.name}
+              {view === "anamnesis" ? "Anamnese" : view === "routine" ? "Criar Rotina" : "Protocolo"} — {selectedStudent.name}
             </h1>
           </div>
         </header>
@@ -597,8 +602,10 @@ export default function CoachDashboard() {
           <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
             {view === "anamnesis" ? (
               <AnamnesisViewer studentId={selectedStudent.id} studentName={selectedStudent.name} />
-            ) : (
+            ) : view === "routine" ? (
               <RoutineBuilder studentId={selectedStudent.id} studentName={selectedStudent.name} onClose={goBack} />
+            ) : (
+              <ProtocolEditor studentId={selectedStudent.id} studentName={selectedStudent.name} />
             )}
           </Suspense>
         </main>
@@ -697,6 +704,7 @@ export default function CoachDashboard() {
                     onEdit={setEditingStudent}
                     onAnamnesis={(st) => { setSelectedStudent(st); setView("anamnesis"); }}
                     onRoutine={(st) => { setSelectedStudent(st); setView("routine"); }}
+                    onProtocol={(st) => { setSelectedStudent(st); setView("protocol"); }}
                     onUnlink={handleUnlink}
                   />
                 ))}
