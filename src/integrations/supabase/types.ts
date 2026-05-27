@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      anamnesis: {
+        Row: {
+          baseline_metrics: Json
+          coach_id: string | null
+          created_at: string
+          id: string
+          payload: Json
+          student_id: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          baseline_metrics?: Json
+          coach_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          student_id: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          baseline_metrics?: Json
+          coach_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          student_id?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       avatar_customization: {
         Row: {
           clothing_color: string
@@ -110,229 +143,44 @@ export type Database = {
         }
         Relationships: []
       }
-      clinical_anamnesis: {
+      check_ins: {
         Row: {
-          activity_times: string | null
-          age: number | null
-          allergies: string | null
-          arm_contracted_left: number | null
-          arm_contracted_right: number | null
-          arm_relaxed_left: number | null
-          arm_relaxed_right: number | null
-          calf_left: number | null
-          calf_right: number | null
-          city_state: string | null
+          coach_feedback: string | null
           coach_id: string | null
-          concentration: number | null
-          consulting_goals: string | null
           created_at: string
-          daytime_fatigue_peaks: string | null
-          dental_canal: string | null
-          drugs_history: string | null
-          empathy: number | null
-          feces_consistency: string | null
-          feces_obs: string | null
-          final_obs: string | null
-          food_availability: string | null
-          food_recall: string | null
-          full_name: string | null
-          gastric_issues: string | null
-          hair_health: string | null
-          hair_loss: string | null
-          height: number | null
-          hip_cm: number | null
-          hormones_history: string | null
-          hrv_fvc_avg: number | null
+          current_metrics: Json
           id: string
-          implants: string | null
-          lean_mass_bf: number | null
-          learning_ease: number | null
-          learning_memory: number | null
-          morning_erection: string | null
-          morning_temperature: number | null
-          motivation: number | null
-          muscle_pump: string | null
-          negative_diff_3_years: string | null
-          neuro_obs: string | null
-          night_awakenings: number | null
-          night_symptoms: string | null
-          periodizes_training: boolean | null
-          physical_activities: string | null
-          pre_existing_diseases: string | null
-          prescribed_meds: string | null
-          profession_schedule: string | null
-          sexual_initiative: number | null
-          short_term_memory: number | null
-          simple_pleasures: number | null
-          sleep_latency: string | null
-          sleep_schedule: string | null
-          sociability: number | null
-          stagnation_feeling: string | null
-          stimulants: string | null
-          study_schedule: string | null
-          surgeries: string | null
-          thigh_left: number | null
-          thigh_right: number | null
-          time_without_rest: string | null
-          total_weight: number | null
+          payload: Json
+          photo_url: string | null
+          student_id: string
+          submitted_at: string
           updated_at: string
-          user_id: string
-          verbal_fluency: number | null
-          waist_cm: number | null
-          wakes_rested: boolean | null
-          whatsapp: string | null
         }
         Insert: {
-          activity_times?: string | null
-          age?: number | null
-          allergies?: string | null
-          arm_contracted_left?: number | null
-          arm_contracted_right?: number | null
-          arm_relaxed_left?: number | null
-          arm_relaxed_right?: number | null
-          calf_left?: number | null
-          calf_right?: number | null
-          city_state?: string | null
+          coach_feedback?: string | null
           coach_id?: string | null
-          concentration?: number | null
-          consulting_goals?: string | null
           created_at?: string
-          daytime_fatigue_peaks?: string | null
-          dental_canal?: string | null
-          drugs_history?: string | null
-          empathy?: number | null
-          feces_consistency?: string | null
-          feces_obs?: string | null
-          final_obs?: string | null
-          food_availability?: string | null
-          food_recall?: string | null
-          full_name?: string | null
-          gastric_issues?: string | null
-          hair_health?: string | null
-          hair_loss?: string | null
-          height?: number | null
-          hip_cm?: number | null
-          hormones_history?: string | null
-          hrv_fvc_avg?: number | null
+          current_metrics?: Json
           id?: string
-          implants?: string | null
-          lean_mass_bf?: number | null
-          learning_ease?: number | null
-          learning_memory?: number | null
-          morning_erection?: string | null
-          morning_temperature?: number | null
-          motivation?: number | null
-          muscle_pump?: string | null
-          negative_diff_3_years?: string | null
-          neuro_obs?: string | null
-          night_awakenings?: number | null
-          night_symptoms?: string | null
-          periodizes_training?: boolean | null
-          physical_activities?: string | null
-          pre_existing_diseases?: string | null
-          prescribed_meds?: string | null
-          profession_schedule?: string | null
-          sexual_initiative?: number | null
-          short_term_memory?: number | null
-          simple_pleasures?: number | null
-          sleep_latency?: string | null
-          sleep_schedule?: string | null
-          sociability?: number | null
-          stagnation_feeling?: string | null
-          stimulants?: string | null
-          study_schedule?: string | null
-          surgeries?: string | null
-          thigh_left?: number | null
-          thigh_right?: number | null
-          time_without_rest?: string | null
-          total_weight?: number | null
+          payload?: Json
+          photo_url?: string | null
+          student_id: string
+          submitted_at?: string
           updated_at?: string
-          user_id: string
-          verbal_fluency?: number | null
-          waist_cm?: number | null
-          wakes_rested?: boolean | null
-          whatsapp?: string | null
         }
         Update: {
-          activity_times?: string | null
-          age?: number | null
-          allergies?: string | null
-          arm_contracted_left?: number | null
-          arm_contracted_right?: number | null
-          arm_relaxed_left?: number | null
-          arm_relaxed_right?: number | null
-          calf_left?: number | null
-          calf_right?: number | null
-          city_state?: string | null
+          coach_feedback?: string | null
           coach_id?: string | null
-          concentration?: number | null
-          consulting_goals?: string | null
           created_at?: string
-          daytime_fatigue_peaks?: string | null
-          dental_canal?: string | null
-          drugs_history?: string | null
-          empathy?: number | null
-          feces_consistency?: string | null
-          feces_obs?: string | null
-          final_obs?: string | null
-          food_availability?: string | null
-          food_recall?: string | null
-          full_name?: string | null
-          gastric_issues?: string | null
-          hair_health?: string | null
-          hair_loss?: string | null
-          height?: number | null
-          hip_cm?: number | null
-          hormones_history?: string | null
-          hrv_fvc_avg?: number | null
+          current_metrics?: Json
           id?: string
-          implants?: string | null
-          lean_mass_bf?: number | null
-          learning_ease?: number | null
-          learning_memory?: number | null
-          morning_erection?: string | null
-          morning_temperature?: number | null
-          motivation?: number | null
-          muscle_pump?: string | null
-          negative_diff_3_years?: string | null
-          neuro_obs?: string | null
-          night_awakenings?: number | null
-          night_symptoms?: string | null
-          periodizes_training?: boolean | null
-          physical_activities?: string | null
-          pre_existing_diseases?: string | null
-          prescribed_meds?: string | null
-          profession_schedule?: string | null
-          sexual_initiative?: number | null
-          short_term_memory?: number | null
-          simple_pleasures?: number | null
-          sleep_latency?: string | null
-          sleep_schedule?: string | null
-          sociability?: number | null
-          stagnation_feeling?: string | null
-          stimulants?: string | null
-          study_schedule?: string | null
-          surgeries?: string | null
-          thigh_left?: number | null
-          thigh_right?: number | null
-          time_without_rest?: string | null
-          total_weight?: number | null
+          payload?: Json
+          photo_url?: string | null
+          student_id?: string
+          submitted_at?: string
           updated_at?: string
-          user_id?: string
-          verbal_fluency?: number | null
-          waist_cm?: number | null
-          wakes_rested?: boolean | null
-          whatsapp?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "clinical_anamnesis_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       coach_finances: {
         Row: {
@@ -696,6 +544,39 @@ export type Database = {
           team_name?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      protocols: {
+        Row: {
+          active: boolean
+          coach_id: string | null
+          created_at: string
+          html_content: string
+          id: string
+          student_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          coach_id?: string | null
+          created_at?: string
+          html_content?: string
+          id?: string
+          student_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          coach_id?: string | null
+          created_at?: string
+          html_content?: string
+          id?: string
+          student_id?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
