@@ -10,7 +10,9 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const AnamnesisGuard = ({ children }: { children: React.ReactNode }) => {
   const { anamnesis, loading } = useStudentData();
@@ -18,20 +20,22 @@ export const AnamnesisGuard = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Verifica se o usuário já está na rota da anamnese para não gerar loop infinito
   const isAnamnesisRoute = location.pathname.includes("anamnesis");
-  
-  // Só considera a anamnese concluída se o aluno clicou em "Enviar" (possui data de envio)
   const hasCompletedAnamnesis = !!anamnesis?.submitted_at;
 
   useEffect(() => {
-    // Se terminou de carregar, NÃO tem anamnese enviada e NÃO está na página da anamnese -> Abre o Pop-up
     if (!loading && !hasCompletedAnamnesis && !isAnamnesisRoute) {
       setIsOpen(true);
     } else {
       setIsOpen(false);
     }
   }, [hasCompletedAnamnesis, loading, isAnamnesisRoute]);
+
+  const handleLogoutOrHome = async () => {
+    await supabase.auth.signOut();
+    setIsOpen(false);
+    navigate("/");
+  };
 
   if (loading) {
     return (
@@ -41,17 +45,14 @@ export const AnamnesisGuard = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // Se o aluno já estiver na página de Anamnese, renderiza a página normalmente
   if (isAnamnesisRoute) {
     return <>{children}</>;
   }
 
   return (
     <>
-      {/* Se tiver a anamnese, mostra a página que ele tentou acessar (Evolução, Área do Aluno, etc) */}
       {hasCompletedAnamnesis && children}
 
-      {/* Pop-up que trava a tela */}
       <AlertDialog open={isOpen}>
         <AlertDialogContent className="border-primary/30">
           <AlertDialogHeader>
@@ -60,10 +61,13 @@ export const AnamnesisGuard = ({ children }: { children: React.ReactNode }) => {
               Para liberar o seu painel, rotinas e gráficos de evolução, é estritamente necessário preencher e enviar sua Anamnese inicial. O seu protocolo será montado com base nestes dados.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-4">
+            <Button variant="outline" onClick={handleLogoutOrHome} className="w-full sm:w-auto">
+              Voltar ao Início
+            </Button>
             <AlertDialogAction 
               onClick={() => navigate("/anamnesis")} 
-              className="w-full font-bold"
+              className="w-full sm:w-auto font-bold"
             >
               Preencher Anamnese Agora
             </AlertDialogAction>
