@@ -14,6 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
+// IMPORTAÇÃO DO SPLASH SCREEN AQUI PARA COBRIR O BLOQUEIO
+import { SplashScreen } from "@/components/student/SplashScreen";
+
 export const AnamnesisGuard = ({ children }: { children: React.ReactNode }) => {
   const { anamnesis, loading } = useStudentData();
   const navigate = useNavigate();
@@ -40,21 +43,32 @@ export const AnamnesisGuard = ({ children }: { children: React.ReactNode }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary opacity-30" />
       </div>
     );
   }
 
+  // Se o aluno estiver na rota da anamnese, exibe a ficha (com o Splash cobrindo a entrada)
   if (isAnamnesisRoute) {
-    return <>{children}</>;
+    return (
+      <>
+        <SplashScreen />
+        {children}
+      </>
+    );
   }
 
   return (
     <>
+      {/* O SPLASH SCREEN AGORA RODA ANTES DE TUDO, INDEPENDENTE DE BLOQUEIO */}
+      <SplashScreen />
+
+      {/* Renderiza a Área do Aluno apenas se a Anamnese estiver preenchida */}
       {hasCompletedAnamnesis && children}
 
+      {/* O pop-up só aparece/fica interativo por baixo/depois do Splash */}
       <AlertDialog open={isOpen}>
-        <AlertDialogContent className="border-primary/30">
+        <AlertDialogContent className="border-primary/30 z-[9000]">
           <AlertDialogHeader>
             <AlertDialogTitle>Ponto de Partida Obrigatório</AlertDialogTitle>
             <AlertDialogDescription>
@@ -67,7 +81,7 @@ export const AnamnesisGuard = ({ children }: { children: React.ReactNode }) => {
             </Button>
             <AlertDialogAction 
               onClick={() => navigate("/anamnesis")} 
-              className="w-full sm:w-auto font-bold"
+              className="w-full sm:w-auto font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Preencher Anamnese Agora
             </AlertDialogAction>
