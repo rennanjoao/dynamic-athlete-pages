@@ -5,6 +5,9 @@ import { motion } from "framer-motion";
 import { InfoChatBot } from "@/components/landing/InfoChatBot";
 import RankingTeaser from "@/components/gamification/RankingTeaser";
 
+// IMPORTAÇÃO DA TELA DE ABERTURA
+import { SplashScreen } from "@/components/student/SplashScreen";
+
 const FeatureCard = ({ icon: Icon, title, description, delay }: { icon: any; title: string; description: string; delay: number }) => (
   <motion.div
     initial={{ opacity: 0, y: 30 }}
@@ -30,6 +33,9 @@ const StatBlock = ({ value, label }: { value: string; label: string }) => (
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
+      {/* A PORTA DE ENTRADA DO SITE */}
+      <SplashScreen />
+
       {/* Hero Section */}
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 gradient-hero opacity-90 dark:opacity-100" />
