@@ -16,7 +16,8 @@
  *   /admin          → Painel admin
  */
 
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState, useCallback } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,6 +26,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminGuard } from "./components/admin/AdminGuard";
 import { AnamnesisGuard } from "./components/student/AnamnesisGuard";
 import { NavigationControls } from "@/components/NavigationControls";
+import { SplashScreen } from "@/components/SplashScreen";
 
 // Lazy-loaded pages (split bundle por rota)
 const Index       = lazy(() => import("./pages/Index"));
@@ -63,57 +65,71 @@ function PageLoader() {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <NavigationControls />
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            {/* Públicas */}
-            <Route path="/"            element={<Index />} />
-            <Route path="/student"     element={<Student />} />
-            <Route path="/auth"        element={<Auth />} />
-            <Route path="/admin-login" element={<AdminLogin />} />
+const App = () => {
+  const [splashDone, setSplashDone] = useState(false);
+  const handleSplashFinish = useCallback(() => setSplashDone(true), []);
 
-            {/* Aluno autenticado - Protegido pela trava AnamnesisGuard */}
-            <Route path="/student-area" element={<AnamnesisGuard><StudentArea /></AnamnesisGuard>} />
-            <Route path="/fitness"      element={<Navigate to="/student-area" replace />} />
-            <Route path="/anamnesis"    element={<AnamnesisGuard><Anamnesis /></AnamnesisGuard>} />
-            <Route path="/check-in"     element={<AnamnesisGuard><CheckIn /></AnamnesisGuard>} />
-            <Route path="/evolution"    element={<AnamnesisGuard><Evolution /></AnamnesisGuard>} />
-            <Route path="/routine"      element={<AnamnesisGuard><DynamicRoutine /></AnamnesisGuard>} />
-            <Route path="/workout-plan" element={<AnamnesisGuard><WorkoutPlanPage /></AnamnesisGuard>} />
-            <Route path="/daily"        element={<AnamnesisGuard><StudentDashboard /></AnamnesisGuard>} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
 
-            {/* Coach */}
-            <Route
-              path="/coach"
-              element={
-                <AdminGuard requiredRole="coach">
-                  <CoachDashboard />
-                </AdminGuard>
-              }
-            />
+        {/* Splash — AnimatePresence garante a saída animada */}
+        <AnimatePresence>
+          {!splashDone && (
+            <SplashScreen onFinish={handleSplashFinish} />
+          )}
+        </AnimatePresence>
 
-            {/* Admin */}
-            <Route
-              path="/admin"
-              element={
-                <AdminGuard>
-                  <Admin />
-                </AdminGuard>
-              }
-            />
+        {/* App principal (renderiza embaixo durante o splash) */}
+        <BrowserRouter>
+          <NavigationControls />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              {/* Públicas */}
+              <Route path="/"            element={<Index />} />
+              <Route path="/student"     element={<Student />} />
+              <Route path="/auth"        element={<Auth />} />
+              <Route path="/admin-login" element={<AdminLogin />} />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+              {/* Aluno autenticado - Protegido pela trava AnamnesisGuard */}
+              <Route path="/student-area" element={<AnamnesisGuard><StudentArea /></AnamnesisGuard>} />
+              <Route path="/fitness"      element={<Navigate to="/student-area" replace />} />
+              <Route path="/anamnesis"    element={<AnamnesisGuard><Anamnesis /></AnamnesisGuard>} />
+              <Route path="/check-in"     element={<AnamnesisGuard><CheckIn /></AnamnesisGuard>} />
+              <Route path="/evolution"    element={<AnamnesisGuard><Evolution /></AnamnesisGuard>} />
+              <Route path="/routine"      element={<AnamnesisGuard><DynamicRoutine /></AnamnesisGuard>} />
+              <Route path="/workout-plan" element={<AnamnesisGuard><WorkoutPlanPage /></AnamnesisGuard>} />
+              <Route path="/daily"        element={<AnamnesisGuard><StudentDashboard /></AnamnesisGuard>} />
+
+              {/* Coach */}
+              <Route
+                path="/coach"
+                element={
+                  <AdminGuard requiredRole="coach">
+                    <CoachDashboard />
+                  </AdminGuard>
+                }
+              />
+
+              {/* Admin */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminGuard>
+                    <Admin />
+                  </AdminGuard>
+                }
+              />
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
