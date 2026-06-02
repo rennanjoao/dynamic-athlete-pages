@@ -1,12 +1,10 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users, Plus, Dumbbell, UtensilsCrossed, ArrowRight, Zap, Shield, TrendingUp } from "lucide-react";
-import { motion } from "framer-motion";
+import { Users, Plus, Dumbbell, UtensilsCrossed, ArrowRight, Zap, Shield, TrendingUp, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { InfoChatBot } from "@/components/landing/InfoChatBot";
 import RankingTeaser from "@/components/gamification/RankingTeaser";
-
-// IMPORTAÇÃO DA TELA DE ABERTURA
-import { SplashScreen } from "@/components/student/SplashScreen";
 
 const FeatureCard = ({ icon: Icon, title, description, delay }: { icon: any; title: string; description: string; delay: number }) => (
   <motion.div
@@ -31,10 +29,92 @@ const StatBlock = ({ value, label }: { value: string; label: string }) => (
 );
 
 const Index = () => {
+  // ESTADO QUE CONTROLA O SPLASH SCREEN
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    // Trava o scroll da página enquanto o splash estiver visível
+    if (showSplash) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    // Auto-fecha após 6 segundos
+    const timer = setTimeout(() => setShowSplash(false), 6000);
+    return () => {
+      clearTimeout(timer);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showSplash]);
+
   return (
     <div className="min-h-screen bg-background">
-      {/* A PORTA DE ENTRADA DO SITE */}
-      <SplashScreen />
+      
+      {/* ─── INÍCIO DO SPLASH SCREEN EMBUTIDO ─── */}
+      <AnimatePresence>
+        {showSplash && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
+            onClick={() => setShowSplash(false)}
+            className="fixed inset-0 z-[999999] bg-[#0B0B0C] text-[#F5F5F5] flex flex-col items-center justify-center p-8 text-center cursor-pointer"
+          >
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7 }}
+              className="text-[11px] font-semibold tracking-[0.3em] uppercase text-[#B11226] mb-6"
+            >
+              Elite Hub
+            </motion.div>
+            
+            <motion.div 
+              initial={{ height: 0 }} animate={{ height: 48 }} transition={{ delay: 0.35, duration: 0.5 }}
+              className="w-px bg-[#B11226] mb-8" 
+            />
+
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.7 }}
+              className="font-serif font-bold text-4xl md:text-6xl leading-tight mb-2"
+            >
+              Bem-vindo à sua
+            </motion.h1>
+            
+            <motion.h2 
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.78, duration: 0.7 }}
+              className="font-serif font-bold italic text-[#B11226] text-4xl md:text-6xl leading-tight mb-8"
+            >
+              nova fase.
+            </motion.h2>
+
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.1, duration: 0.7 }}
+              className="text-sm md:text-base text-[#8B8B92] leading-relaxed max-w-sm mb-12"
+            >
+              Este é o ponto de partida para uma transformação construída com estratégia, acompanhamento e comprometimento.
+              <br /><br />
+              Nós fornecemos o caminho. Você constrói o resultado.
+            </motion.p>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.5, duration: 0.7 }}
+              className="flex items-center gap-3 text-[11px] font-semibold tracking-[0.18em] uppercase text-[#55555C]"
+            >
+              <Sparkles className="w-4 h-4 text-[#B11226]" />
+              Toque para começar
+              <div className="w-7 h-px bg-[#55555C]" />
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8, duration: 0.7 }}
+              className="absolute bottom-8 text-[10px] tracking-[0.2em] uppercase text-[#55555C]"
+            >
+              By Rennan João
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* ─── FIM DO SPLASH SCREEN ─── */}
 
       {/* Hero Section */}
       <header className="relative overflow-hidden">
@@ -123,43 +203,3 @@ const Index = () => {
             description="Diretrizes e recomendações alimentares para apoiar seus objetivos de emagrecimento, saúde e performance."
             delay={0.2}
           />
-          <FeatureCard
-            icon={TrendingUp}
-            title="Painel de Evolução"
-            description="Visualize sua evolução através de métricas corporais, registros fotográficos e indicadores de performance ao longo do processo."
-            delay={0.3}
-          />
-        </div>
-      </section>
-
-      {/* Ranking Teaser */}
-      <section className="max-w-6xl mx-auto px-6 pb-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="max-w-md mx-auto"
-        >
-          <RankingTeaser />
-        </motion.div>
-      </section>
-
-      {/* Security Badge */}
-      <section className="max-w-6xl mx-auto px-6 pb-12">
-        <div className="glass rounded-2xl p-6 flex items-center justify-center gap-3 text-sm text-muted-foreground">
-          <Shield className="w-4 h-4 text-primary" />
-          <span>Dados protegidos com criptografia e Row Level Security</span>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border/50 py-8 text-center">
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Elite Lab Hub — Rennan João</p>
-      </footer>
-
-      <InfoChatBot />
-    </div>
-  );
-};
-
-export default Index;
