@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TrainerAlert } from "@/components/student/TrainerAlert";
+import { ProgressChart } from "@/components/student/ProgressChart";
 import { useStudentData } from "@/hooks/useStudentData";
 import {
   LogOut,
@@ -19,6 +20,7 @@ import {
   Dumbbell,
   Apple,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 const NAV_CARDS = [
@@ -37,8 +39,8 @@ const NAV_CARDS = [
   {
     to: "/evolution",
     icon: Activity,
-    title: "Painel de Evolução",
-    desc: "Métricas, fotos e indicadores derivados da sua anamnese + check-ins.",
+    title: "Painel de Evolução Completo",
+    desc: "Acesse todas as métricas detalhadas e fotos de progresso.",
   },
   {
     to: "/workout-plan",
@@ -54,11 +56,21 @@ const NAV_CARDS = [
   },
 ];
 
+const MOTIVATIONAL_MESSAGES = [
+  "Parabéns pelo foco! Cada dia conta na sua evolução.",
+  "A persistência é o caminho do sucesso. Continue firme!",
+  "Resultados exigem tempo e constância. Você está no caminho certo!",
+  "Não pare agora! O seu corpo já está agradecendo o esforço.",
+  "Disciplina constrói resultados que a motivação não alcança sozinha.",
+  "A sua dedicação diária é o que constrói a sua melhor versão!",
+  "O suor de hoje é o resultado de amanhã. Excelente trabalho!"
+];
+
 const StudentArea = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
+  const [quote, setQuote] = useState("");
   
-  // Consome a Anamnese para extrair os dados básicos (Nome)
   const { anamnesis, loading } = useStudentData();
 
   useEffect(() => {
@@ -72,6 +84,10 @@ const StudentArea = () => {
       if (!session) navigate("/");
       else setUser(session.user);
     });
+    
+    // Seleciona uma frase aleatória
+    setQuote(MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)]);
+    
     return () => subscription.unsubscribe();
   }, [navigate]);
 
@@ -88,7 +104,6 @@ const StudentArea = () => {
     );
   }
 
-  // Extração direta do Payload da Anamnese
   const payloadAna = (anamnesis?.payload as Record<string, any>) || {};
   const firstName = payloadAna.nome ? payloadAna.nome.split(" ")[0] : "Aluno";
 
@@ -114,9 +129,10 @@ const StudentArea = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-8 max-w-5xl">
+      <main className="container mx-auto px-4 py-8 space-y-10 max-w-5xl">
         <TrainerAlert />
 
+        {/* Módulos de Navegação */}
         <section>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             Seus módulos
@@ -141,6 +157,21 @@ const StudentArea = () => {
               </Link>
             ))}
           </div>
+        </section>
+
+        {/* Gráfico de Evolução Direto na Home */}
+        <section className="pt-4">
+          <div className="flex flex-col items-center justify-center text-center mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary mb-3">
+              <Sparkles className="w-4 h-4" />
+              <span className="text-sm font-semibold">Seu Progresso</span>
+            </div>
+            <p className="text-muted-foreground text-sm max-w-xl animate-fade-in">
+              {quote}
+            </p>
+          </div>
+          
+          <ProgressChart />
         </section>
       </main>
     </div>
