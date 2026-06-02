@@ -1,7 +1,5 @@
 /**
  * Anamnesis.tsx — Nova ficha de anamnese.
- * Aluno preenche 1x; salva em public.anamnesis (JSONB).
- * Auto-save em rascunho (localStorage). Submit final marca submitted_at.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -31,7 +29,6 @@ export default function Anamnesis() {
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  // Init: auth + carrega registro existente ou rascunho
   useEffect(() => {
     (async () => {
       const { data: sess } = await supabase.auth.getSession();
@@ -58,7 +55,6 @@ export default function Anamnesis() {
     })();
   }, [navigate]);
 
-  // Auto-save em rascunho local
   useEffect(() => {
     if (loading) return;
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch { /* ignore */ }
@@ -84,11 +80,26 @@ export default function Anamnesis() {
         baseline_metrics: baseline,
         ...(submit ? { submitted_at: new Date().toISOString() } : {}),
       };
+      
       const { error } = await sb
         .from("anamnesis")
         .upsert(payload, { onConflict: "student_id" });
       if (error) throw error;
+
+      // Sincronização silenciosa: Preenche a tabela "profiles" em backgroud usando os inputs da Anamnese
+      if (submit) {
+         const alturaFormatada = data.altura ? parseFloat(String(data.altura)) : null;
+         await sb.from("profiles").upsert({
+            id: userId,
+            full_name: data.nome || "Aluno Sem Nome",
+            gender: data.genero === "F" ? "female" : "male",
+            height: alturaFormatada,
+            birth_date: data.data_nasc || null
+         }, { onConflict: "id" });
+      }
+
       toast.success(submit ? "Anamnese enviada ao seu coach." : "Rascunho salvo.");
+      
       if (submit) {
         setSubmitted(true);
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
