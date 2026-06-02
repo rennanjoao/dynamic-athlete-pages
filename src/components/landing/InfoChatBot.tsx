@@ -28,9 +28,9 @@ const QUICK_ACTIONS = [
 ];
 
 const NAV_LINKS = [
-  { label: "Área do Atleta", path: "/auth", icon: Users, description: "Perfil, medidas e avatar 3D" },
-  { label: "Painel Fitness", path: "/fitness", icon: Activity, description: "Treinos, dieta e performance" },
-  { label: "Área do Treinador", path: "/admin-login", icon: Dumbbell, description: "Gestão de alunos e planos" },
+  { label: "Área do Aluno", path: "/auth", icon: Users, description: "Anamnese, check-ins e evolução" },
+  { label: "Painel de Evolução", path: "/evolution", icon: Activity, description: "Métricas corporais e indicadores" },
+  { label: "Área do Treinador", path: "/admin-login", icon: Dumbbell, description: "Gestão dos seus alunos" },
 ];
 
 const INITIAL_MESSAGE: Message = {

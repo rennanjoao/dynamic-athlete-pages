@@ -1,15 +1,19 @@
 /**
- * App.tsx — Roteamento atualizado com lazy loading + roles
+ * App.tsx — Roteamento.
  *
  * Rotas:
  *   /               → Landing (Index)
  *   /auth           → Login / cadastro aluno
  *   /student        → Página pública do aluno (id=?)
- *   /student-area   → Área privada do aluno (medidas, dobras)
- *   /fitness        → Dashboard fitness do aluno (checklist/macros) ← NOVO
- *   /coach          → Dashboard do coach (alert-first) ← NOVO
+ *   /student-area   → Área do Aluno (hub: anamnese, check-in, evolução, treino, dieta)
+ *   /anamnesis      → Anamnese
+ *   /check-in       → Feedback / check-in periódico
+ *   /evolution      → Painel de Evolução
+ *   /routine        → Estratégia nutricional
+ *   /workout-plan   → Treino do dia
+ *   /coach          → Dashboard do coach (alert-first)
  *   /admin-login    → Login admin
- *   /admin          → Painel admin (geração de planos HTML)
+ *   /admin          → Painel admin
  */
 
 import { lazy, Suspense } from "react";
@@ -17,7 +21,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminGuard } from "./components/admin/AdminGuard";
 import { NavigationControls } from "@/components/NavigationControls";
 
@@ -75,12 +79,13 @@ const App = () => (
 
             {/* Aluno autenticado */}
             <Route path="/student-area" element={<StudentArea />} />
-            <Route path="/fitness"      element={<StudentDashboard />} />
+            <Route path="/fitness"      element={<Navigate to="/student-area" replace />} />
             <Route path="/anamnesis"    element={<Anamnesis />} />
             <Route path="/check-in"     element={<CheckIn />} />
             <Route path="/evolution"    element={<Evolution />} />
             <Route path="/routine"      element={<DynamicRoutine />} />
             <Route path="/workout-plan" element={<WorkoutPlanPage />} />
+            <Route path="/daily"        element={<StudentDashboard />} />
 
             {/* Coach */}
             <Route

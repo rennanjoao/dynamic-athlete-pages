@@ -42,7 +42,7 @@ export const AdminGuard = ({ children, requiredRole = "admin" }: Props) => {
         (requiredRole === "coach" && userRoles.includes("coach"));
 
       if (!hasAccess) {
-        navigate(requiredRole === "coach" ? "/fitness" : "/admin-login");
+        navigate(requiredRole === "coach" ? "/student-area" : "/admin-login");
         return;
       }
 
