@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TrainerAlert } from "@/components/student/TrainerAlert";
 import { ProgressChart } from "@/components/student/ProgressChart";
+import { SplashScreen } from "@/components/student/SplashScreen"; // <-- IMPORTAÇÃO AQUI
 import { useStudentData } from "@/hooks/useStudentData";
 import {
   LogOut,
@@ -130,6 +131,8 @@ const StudentArea = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-10 max-w-5xl">
+        <SplashScreen /> {/* <-- TELA DE ABERTURA AQUI */}
+        
         <TrainerAlert />
 
         {/* Módulos de Navegação */}
