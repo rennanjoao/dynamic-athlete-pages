@@ -1,6 +1,6 @@
 /**
  * AnamnesisViewer.tsx — Visualizador de anamnese para o Coach.
- * Lê da nova tabela `anamnesis` (payload em JSONB).
+ * Blindado contra Arrays e Objetos (JSONB).
  */
 
 import { useEffect, useState } from "react";
@@ -22,9 +22,12 @@ interface Props {
   studentName?: string;
 }
 
+// FORMATADOR BLINDADO: Impede Crash caso o valor seja Array ou Objeto JSON
 function fmt(val: unknown): string {
   if (val === null || val === undefined || val === "") return "—";
   if (typeof val === "boolean") return val ? "Sim" : "Não";
+  if (Array.isArray(val)) return val.join(", ");
+  if (typeof val === "object") return JSON.stringify(val);
   return String(val);
 }
 
@@ -55,12 +58,15 @@ export default function AnamnesisViewer({ studentId, studentName }: Props) {
     const w = window.open("", "_blank");
     if (!w) { toast.error("Permita popups para exportar"); return; }
     const name = (data.nome as string) || studentName || "Aluno";
+    
+    // Proteção na extração de campos
     const sections = ANAMNESIS_SECTIONS.map((s) => `
       <h2>${s.title}</h2>
-      ${s.fields.map((f) => `
+      ${(s.fields || []).map((f) => `
         <div class="row"><span class="lbl">${f.label}</span><span class="val">${fmt(data[f.key])}</span></div>
       `).join("")}
     `).join("");
+    
     w.document.write(`
       <!doctype html><html><head><meta charset="utf-8"><title>Anamnese — ${name}</title>
       <style>
@@ -103,7 +109,7 @@ export default function AnamnesisViewer({ studentId, studentName }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">{(data.nome as string) || studentName}</h2>
+          <h2 className="text-xl font-bold">{(data.nome as string) || studentName || "Aluno"}</h2>
           {updatedAt && (
             <p className="text-sm text-muted-foreground">
               Atualizado em {new Date(updatedAt).toLocaleDateString("pt-BR")}
@@ -123,7 +129,7 @@ export default function AnamnesisViewer({ studentId, studentName }: Props) {
             </AccordionTrigger>
             <AccordionContent>
               <div className="grid gap-2 py-2">
-                {s.fields.map((f) => (
+                {(s.fields || []).map((f) => (
                   <div key={f.key} className="flex items-center justify-between py-1.5 text-sm border-b border-border/40 last:border-0">
                     <span className="text-muted-foreground">{f.label}</span>
                     <span className="font-medium text-right max-w-[55%]">{fmt(data[f.key])}</span>
