@@ -1,11 +1,5 @@
 /**
  * StudentArea.tsx — Hub central da Área do Aluno.
- *
- * Fluxo:
- *  1. Garante perfil mínimo (nome/sexo) — necessário para anamnese e métricas
- *  2. Mostra cards de navegação para os módulos disponíveis
- *  3. Não permite mais o preenchimento manual de medidas corporais —
- *     toda métrica vem da Anamnese e dos Check-ins/feedbacks
  */
 
 import { useEffect, useState } from "react";
@@ -15,20 +9,10 @@ import { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { TrainerAlert } from "@/components/student/TrainerAlert";
-import { useStudentProfile } from "@/hooks/useStudentProfile";
+import { useStudentData } from "@/hooks/useStudentData";
 import {
   LogOut,
-  User as UserIcon,
   ClipboardList,
   Activity,
   FileText,
@@ -73,14 +57,9 @@ const NAV_CARDS = [
 const StudentArea = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
-  const { profile, loading: profileLoading, createOrUpdateProfile } = useStudentProfile();
-  const [showProfileSetup, setShowProfileSetup] = useState(false);
-  const [profileForm, setProfileForm] = useState({
-    full_name: "",
-    gender: "male" as "male" | "female",
-    height: "",
-    birth_date: "",
-  });
+  
+  // Consome a Anamnese para extrair os dados básicos (Nome)
+  const { anamnesis, loading } = useStudentData();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -96,27 +75,12 @@ const StudentArea = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  useEffect(() => {
-    if (!profileLoading && !profile && user) setShowProfileSetup(true);
-  }, [profileLoading, profile, user]);
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/");
   };
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await createOrUpdateProfile({
-      full_name: profileForm.full_name,
-      gender: profileForm.gender,
-      height: profileForm.height ? parseFloat(profileForm.height) : null,
-      birth_date: profileForm.birth_date || null,
-    });
-    setShowProfileSetup(false);
-  };
-
-  if (profileLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">Carregando...</p>
@@ -124,61 +88,9 @@ const StudentArea = () => {
     );
   }
 
-  if (showProfileSetup) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-2xl mx-auto">
-          <Card className="p-6 glass-strong">
-            <div className="flex items-center gap-2 mb-6">
-              <UserIcon className="w-6 h-6 text-primary" />
-              <h1 className="text-3xl font-bold text-foreground">Complete seu Perfil</h1>
-            </div>
-            <form onSubmit={handleProfileSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="full_name">Nome Completo</Label>
-                <Input
-                  id="full_name"
-                  value={profileForm.full_name}
-                  onChange={(e) => setProfileForm((p) => ({ ...p, full_name: e.target.value }))}
-                  required
-                />
-              </div>
-              <div>
-                <Label>Sexo</Label>
-                <Select
-                  value={profileForm.gender}
-                  onValueChange={(v: "male" | "female") => setProfileForm((p) => ({ ...p, gender: v }))}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Masculino</SelectItem>
-                    <SelectItem value="female">Feminino</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="height">Altura (cm)</Label>
-                <Input
-                  id="height" type="number" step="0.1" placeholder="Ex: 170"
-                  value={profileForm.height}
-                  onChange={(e) => setProfileForm((p) => ({ ...p, height: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="birth_date">Data de Nascimento</Label>
-                <Input
-                  id="birth_date" type="date"
-                  value={profileForm.birth_date}
-                  onChange={(e) => setProfileForm((p) => ({ ...p, birth_date: e.target.value }))}
-                />
-              </div>
-              <Button type="submit" className="w-full glow-primary-strong">Criar Perfil</Button>
-            </form>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  // Extração direta do Payload da Anamnese
+  const payloadAna = (anamnesis?.payload as Record<string, any>) || {};
+  const firstName = payloadAna.nome ? payloadAna.nome.split(" ")[0] : "Aluno";
 
   return (
     <div className="min-h-screen bg-background">
@@ -190,7 +102,7 @@ const StudentArea = () => {
               <span className="text-primary">Hub</span>
             </h1>
             <p className="text-xs text-muted-foreground">
-              Olá, {profile?.full_name || "Aluno"} — escolha um módulo abaixo
+              Olá, {firstName} — escolha um módulo abaixo
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -230,19 +142,6 @@ const StudentArea = () => {
             ))}
           </div>
         </section>
-
-        <Card className="p-5 bg-card/40 border-dashed">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Medidas corporais</strong> não são mais preenchidas
-            manualmente. Todo peso, circunferência, foto e indicador físico é capturado pela{" "}
-            <Link to="/anamnesis" className="text-primary font-semibold">Anamnese</Link>{" "}
-            (linha de base) e pelos{" "}
-            <Link to="/check-in" className="text-primary font-semibold">Feedbacks periódicos</Link>{" "}
-            (atualizações). O gráfico em{" "}
-            <Link to="/evolution" className="text-primary font-semibold">Painel de Evolução</Link>{" "}
-            se atualiza automaticamente.
-          </p>
-        </Card>
       </main>
     </div>
   );
