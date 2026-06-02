@@ -3,70 +3,64 @@ import { Sparkles } from "lucide-react";
 
 export const SplashScreen = () => {
   const [isVisible, setIsVisible] = useState(true);
-  const [isAnimatingOut, setIsAnimatingOut] = useState(false);
 
-  // Fecha automaticamente após 6 segundos
   useEffect(() => {
+    // Trava a rolagem da página por baixo
+    document.body.style.overflow = "hidden";
+    
+    // Auto-destruição em 6 segundos
     const timer = setTimeout(() => {
-      closeSplash();
-    }, 6000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const closeSplash = () => {
-    setIsAnimatingOut(true);
-    setTimeout(() => {
       setIsVisible(false);
-    }, 700); // Tempo da animação de saída
-  };
+      document.body.style.overflow = "auto";
+    }, 6000);
+    
+    return () => {
+      document.body.style.overflow = "auto";
+      clearTimeout(timer);
+    };
+  }, []);
 
   if (!isVisible) return null;
 
   return (
-    <div
-      onClick={closeSplash}
-      className={`fixed inset-0 z-[1000] bg-[#0B0B0C] text-white flex flex-col items-center justify-center p-8 text-center cursor-pointer transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-        isAnimatingOut ? "opacity-0 scale-105 pointer-events-none" : "opacity-100 scale-100"
-      }`}
+    <div 
+      onClick={() => { setIsVisible(false); document.body.style.overflow = "auto"; }}
+      style={{
+        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+        zIndex: 99999, backgroundColor: "#0B0B0C", color: "#F5F5F5",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        padding: "32px", textAlign: "center", cursor: "pointer",
+        fontFamily: "system-ui, -apple-system, sans-serif"
+      }}
     >
-      <div className="text-[0.6rem] font-semibold tracking-[0.3em] uppercase text-[#B11226] mb-5 animate-fade-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
+      <div style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", color: "#B11226", marginBottom: "24px" }}>
         Elite Hub
       </div>
       
-      <div className="w-px h-12 bg-[#B11226] mb-8 animate-fade-in-up" style={{ animationDelay: '0.35s', animationFillMode: 'both' }} />
+      <div style={{ width: "1px", height: "48px", backgroundColor: "#B11226", marginBottom: "32px" }} />
 
-      <h1 className="font-serif font-bold text-4xl md:text-6xl leading-tight mb-2 animate-fade-in-up" style={{ animationDelay: '0.55s', animationFillMode: 'both' }}>
+      <h1 style={{ fontFamily: "serif", fontWeight: 700, fontSize: "clamp(2rem, 8vw, 3.5rem)", lineHeight: 1.1, margin: 0 }}>
         Bem-vindo à sua
       </h1>
-      <h2 className="font-serif font-bold italic text-[#B11226] text-4xl md:text-6xl leading-tight mb-8 animate-fade-in-up" style={{ animationDelay: '0.78s', animationFillMode: 'both' }}>
+      <h2 style={{ fontFamily: "serif", fontWeight: 700, fontStyle: "italic", color: "#B11226", fontSize: "clamp(2rem, 8vw, 3.5rem)", lineHeight: 1.1, marginBottom: "32px" }}>
         nova fase.
       </h2>
 
-      <p className="text-sm md:text-base text-gray-400 leading-relaxed max-w-md animate-fade-in-up" style={{ animationDelay: '1.1s', animationFillMode: 'both' }}>
+      <p style={{ fontSize: "14px", color: "#8B8B92", lineHeight: 1.6, maxWidth: "340px", marginBottom: "48px" }}>
         Este é o ponto de partida para uma transformação construída com estratégia, acompanhamento e comprometimento.
         <br /><br />
         Nós fornecemos o caminho. Você constrói o resultado.
       </p>
 
-      <div className="mt-12 flex items-center gap-3 text-[0.68rem] font-semibold tracking-[0.18em] uppercase text-gray-500 animate-fade-in-up" style={{ animationDelay: '1.5s', animationFillMode: 'both' }}>
-        <Sparkles className="w-4 h-4 text-[#B11226]" />
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "11px", fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: "#55555C" }}>
+        <Sparkles size={16} color="#B11226" />
         Toque para começar
-        <div className="w-7 h-px bg-gray-500" />
+        <div style={{ width: "28px", height: "1px", backgroundColor: "#55555C" }} />
       </div>
 
-      <div className="absolute bottom-8 text-[0.6rem] tracking-[0.2em] uppercase text-gray-600 animate-fade-in-up" style={{ animationDelay: '1.8s', animationFillMode: 'both' }}>
+      <div style={{ position: "absolute", bottom: "32px", fontSize: "10px", letterSpacing: "0.2em", textTransform: "uppercase", color: "#55555C" }}>
         By Rennan João
       </div>
-
-      <style>{`
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(18px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.7s ease forwards;
-        }
-      `}</style>
     </div>
   );
 };
