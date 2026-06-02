@@ -1,18 +1,17 @@
 /**
- * Anamnesis.tsx — Nova ficha de anamnese.
+ * Anamnesis.tsx — Nova ficha de anamnese com Vinculação de Treinador (coach_students).
  */
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  ANAMNESIS_SECTIONS, extractBaseline,
-} from "@/lib/anamnesisSchema";
+import { ANAMNESIS_SECTIONS, extractBaseline } from "@/lib/anamnesisSchema";
 import { FormField } from "@/components/student/FormField";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, CheckCircle2, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,6 +27,7 @@ export default function Anamnesis() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [coaches, setCoaches] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -36,11 +36,12 @@ export default function Anamnesis() {
       const uid = sess.session.user.id;
       setUserId(uid);
 
-      const { data: row } = await sb
-        .from("anamnesis")
-        .select("*")
-        .eq("student_id", uid)
-        .maybeSingle();
+      // Busca os Treinadores Disponíveis
+      const { data: coachList } = await sb.from("profiles").select("user_id, full_name, team_name").eq("role", "coach");
+      if (coachList) setCoaches(coachList);
+
+      // Busca a Anamnese do Aluno
+      const { data: row } = await sb.from("anamnesis").select("*").eq("student_id", uid).maybeSingle();
 
       if (row) {
         setData((row.payload as Record<string, unknown>) || {});
@@ -71,6 +72,11 @@ export default function Anamnesis() {
 
   async function persist(submit: boolean) {
     if (!userId) return;
+    if (submit && !data.coach_id) {
+      toast.error("Por favor, selecione quem será o seu treinador.");
+      return;
+    }
+
     setSaving(true);
     try {
       const baseline = extractBaseline(data);
@@ -81,24 +87,34 @@ export default function Anamnesis() {
         ...(submit ? { submitted_at: new Date().toISOString() } : {}),
       };
       
-      const { error } = await sb
-        .from("anamnesis")
-        .upsert(payload, { onConflict: "student_id" });
+      const { error } = await sb.from("anamnesis").upsert(payload, { onConflict: "student_id" });
       if (error) throw error;
 
-      // Sincronização silenciosa: Preenche a tabela "profiles" em backgroud usando os inputs da Anamnese
       if (submit) {
+         // Atualiza o Perfil Silenciosamente
          const alturaFormatada = data.altura ? parseFloat(String(data.altura)) : null;
          await sb.from("profiles").upsert({
-            id: userId,
-            full_name: data.nome || "Aluno Sem Nome",
+            user_id: userId,
+            full_name: data.nome || "Aluno",
             gender: data.genero === "F" ? "female" : "male",
             height: alturaFormatada,
             birth_date: data.data_nasc || null
-         }, { onConflict: "id" });
+         }, { onConflict: "user_id" });
+
+         // Realiza o Vínculo Físico Treinador x Aluno
+         const { error: insErr } = await sb.from("coach_students").insert({
+            coach_id: data.coach_id,
+            student_id: userId,
+            status: "active"
+         });
+         
+         // Se já existir, força a ativação
+         if (insErr && insErr.code === "23505") {
+            await sb.from("coach_students").update({ status: "active" }).eq("coach_id", data.coach_id).eq("student_id", userId);
+         }
       }
 
-      toast.success(submit ? "Anamnese enviada ao seu coach." : "Rascunho salvo.");
+      toast.success(submit ? "Anamnese enviada com sucesso!" : "Rascunho salvo.");
       
       if (submit) {
         setSubmitted(true);
@@ -145,6 +161,32 @@ export default function Anamnesis() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+        {/* BLOCO EXCLUSIVO PARA ESCOLHER O TREINADOR */}
+        {!submitted && coaches.length > 0 && (
+          <Card className="bg-primary/5 border-primary/30 p-5 shadow-sm">
+            <h2 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">
+              Vínculo de Acompanhamento
+            </h2>
+            <div className="grid grid-cols-1">
+              <Label className="text-xs text-foreground font-semibold mb-2 block">
+                Selecione o seu Treinador *
+              </Label>
+              <Select value={(data.coach_id as string) || ""} onValueChange={(v) => setData(p => ({ ...p, coach_id: v }))}>
+                <SelectTrigger className="w-full h-10 bg-background border-border">
+                  <SelectValue placeholder="Escolha quem irá montar o seu protocolo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {coaches.map(c => (
+                    <SelectItem key={c.user_id} value={c.user_id}>
+                      {c.full_name} {c.team_name ? `(${c.team_name})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+        )}
+
         {ANAMNESIS_SECTIONS.map((sec) => (
           <Card key={sec.id} className="bg-card/60 border-border p-5">
             <h2 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">
