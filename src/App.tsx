@@ -23,6 +23,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminGuard } from "./components/admin/AdminGuard";
+import { AnamnesisGuard } from "./components/student/AnamnesisGuard";
 import { NavigationControls } from "@/components/NavigationControls";
 
 // Lazy-loaded pages (split bundle por rota)
@@ -77,15 +78,15 @@ const App = () => (
             <Route path="/auth"        element={<Auth />} />
             <Route path="/admin-login" element={<AdminLogin />} />
 
-            {/* Aluno autenticado */}
-            <Route path="/student-area" element={<StudentArea />} />
+            {/* Aluno autenticado - Protegido pela trava AnamnesisGuard */}
+            <Route path="/student-area" element={<AnamnesisGuard><StudentArea /></AnamnesisGuard>} />
             <Route path="/fitness"      element={<Navigate to="/student-area" replace />} />
-            <Route path="/anamnesis"    element={<Anamnesis />} />
-            <Route path="/check-in"     element={<CheckIn />} />
-            <Route path="/evolution"    element={<Evolution />} />
-            <Route path="/routine"      element={<DynamicRoutine />} />
-            <Route path="/workout-plan" element={<WorkoutPlanPage />} />
-            <Route path="/daily"        element={<StudentDashboard />} />
+            <Route path="/anamnesis"    element={<AnamnesisGuard><Anamnesis /></AnamnesisGuard>} />
+            <Route path="/check-in"     element={<AnamnesisGuard><CheckIn /></AnamnesisGuard>} />
+            <Route path="/evolution"    element={<AnamnesisGuard><Evolution /></AnamnesisGuard>} />
+            <Route path="/routine"      element={<AnamnesisGuard><DynamicRoutine /></AnamnesisGuard>} />
+            <Route path="/workout-plan" element={<AnamnesisGuard><WorkoutPlanPage /></AnamnesisGuard>} />
+            <Route path="/daily"        element={<AnamnesisGuard><StudentDashboard /></AnamnesisGuard>} />
 
             {/* Coach */}
             <Route
