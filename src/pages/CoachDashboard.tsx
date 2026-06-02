@@ -1,7 +1,7 @@
 /**
  * CoachDashboard.tsx — Painel completo do Coach
  * Tabs: Alunos, Financeiro, Leads
- * Dados reais do banco de dados via coach_students
+ * Dados blindados contra retornos de JSON.
  */
 
 import { useState, useMemo, lazy, Suspense, useEffect } from "react";
@@ -70,7 +70,7 @@ function AlertBadge({ level }: { level: AlertLevel }) {
     warning: { label: "Atenção", cls: "bg-amber-100 text-amber-700 border-amber-200" },
     ok: { label: "Em dia", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   };
-  const { label, cls } = map[level];
+  const { label, cls } = map[level] || map.ok;
   return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${cls}`}>{label}</span>;
 }
 
@@ -90,28 +90,42 @@ function StudentRow({
     student.daysInactive >= 999 ? "Nunca" :
     `${student.daysInactive}d atrás`;
 
+  // Prevenção contra undefined
+  const safeName = student.name || "Aluno";
+  const initials = safeName.split(" ").slice(0, 2).map((n) => n[0] || "").join("");
+  
+  // Extração segura do peso caso a API devolva um objeto JSON
+  let displayWeight: string | number | undefined;
+  if (typeof student.currentWeight === 'object' && student.currentWeight !== null) {
+      displayWeight = (student.currentWeight as any).peso || (student.currentWeight as any).weight || undefined;
+  } else {
+      displayWeight = student.currentWeight as string | number | undefined;
+  }
+
   return (
     <div className={`flex items-center gap-4 px-4 py-3.5 rounded-xl border transition-colors ${
       student.alertLevel === "critical" ? "bg-red-50/60 border-red-100 dark:bg-red-950/20 dark:border-red-900" :
       student.alertLevel === "warning" ? "bg-amber-50/50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900" :
       "bg-card border-border"
     }`}>
-      <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-primary/10 text-primary">
-        {student.name.split(" ").slice(0, 2).map((n) => n[0]).join("")}
+      <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-primary/10 text-primary uppercase">
+        {initials}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-foreground truncate">{student.name}</p>
-          <AlertBadge level={student.alertLevel} />
+          <p className="text-sm font-semibold text-foreground truncate">{safeName}</p>
+          <AlertBadge level={student.alertLevel || "ok"} />
         </div>
-        <p className="text-xs text-muted-foreground truncate">{student.goal} · {lastActivity}</p>
+        <p className="text-xs text-muted-foreground truncate">{student.goal || "Objetivo não definido"} · {lastActivity}</p>
       </div>
-      {student.currentWeight && (
+      
+      {displayWeight !== undefined && displayWeight !== null && (
         <div className="hidden sm:block text-right shrink-0">
           <p className="text-xs text-muted-foreground">Peso</p>
-          <p className="text-sm font-semibold text-foreground">{student.currentWeight} kg</p>
+          <p className="text-sm font-semibold text-foreground">{displayWeight} kg</p>
         </div>
       )}
+      
       <div className="flex items-center gap-1 shrink-0">
         <button onClick={() => onAnamnesis(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors" title="Ver Anamnese">
           <ClipboardList className="w-4 h-4" />
@@ -559,7 +573,8 @@ export default function CoachDashboard() {
   const filtered = useMemo(() => {
     return students
       .filter((s) => {
-        const matchSearch = s.name.toLowerCase().includes(search.toLowerCase());
+        const safeName = s.name || "";
+        const matchSearch = safeName.toLowerCase().includes(search.toLowerCase());
         const matchFilter = filter === "all" || s.alertLevel === filter;
         return matchSearch && matchFilter;
       });
@@ -594,7 +609,7 @@ export default function CoachDashboard() {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <h1 className="text-sm font-bold text-foreground">
-              {view === "anamnesis" ? "Anamnese" : view === "routine" ? "Criar Rotina" : "Protocolo"} — {selectedStudent.name}
+              {view === "anamnesis" ? "Anamnese" : view === "routine" ? "Criar Rotina" : "Protocolo"} — {selectedStudent.name || "Aluno"}
             </h1>
           </div>
         </header>
