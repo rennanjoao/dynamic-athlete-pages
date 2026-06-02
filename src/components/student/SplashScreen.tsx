@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Sparkles } from "lucide-react";
 
 export const SplashScreen = () => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Trava a rolagem da página por baixo
+    // Trava a rolagem da página
     document.body.style.overflow = "hidden";
     
     // Auto-destruição em 6 segundos
@@ -22,12 +23,14 @@ export const SplashScreen = () => {
 
   if (!isVisible) return null;
 
-  return (
+  // O conteúdo da tela
+  const splashContent = (
     <div 
       onClick={() => { setIsVisible(false); document.body.style.overflow = "auto"; }}
       style={{
         position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-        zIndex: 99999, backgroundColor: "#0B0B0C", color: "#F5F5F5",
+        zIndex: 2147483647, // Valor máximo absoluto permitido pelos navegadores
+        backgroundColor: "#0B0B0C", color: "#F5F5F5",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         padding: "32px", textAlign: "center", cursor: "pointer",
         fontFamily: "system-ui, -apple-system, sans-serif"
@@ -63,4 +66,7 @@ export const SplashScreen = () => {
       </div>
     </div>
   );
+
+  // Injeta o HTML diretamente na tag <body> para ignorar qualquer bloqueio do React/Tailwind
+  return createPortal(splashContent, document.body);
 };
