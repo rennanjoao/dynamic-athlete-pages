@@ -93,7 +93,7 @@ export default function Anamnesis() {
         setSubmitted(true);
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
         qc.invalidateQueries({ queryKey: ["anamnesis", userId] });
-        setTimeout(() => navigate("/fitness"), 1200);
+        setTimeout(() => navigate("/student-area"), 1200);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro ao salvar";
