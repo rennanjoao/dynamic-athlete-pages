@@ -589,7 +589,7 @@ export default function StudentDashboard() {
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-base font-bold text-foreground">Olá, Atleta 👋</h1>
+            <h1 className="text-base font-bold text-foreground">Olá, Aluno 👋</h1>
             <p className="text-xs text-muted-foreground">
               {new Date().toLocaleDateString("pt-BR", {
                 weekday: "long",

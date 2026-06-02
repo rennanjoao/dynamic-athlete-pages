@@ -100,8 +100,8 @@ const Auth = () => {
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 glow-primary">
               <Zap className="w-7 h-7 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-1">Área do Atleta</h1>
-            <p className="text-sm text-muted-foreground">Acesse sua conta de performance</p>
+            <h1 className="text-2xl font-bold text-foreground mb-1">Área do Aluno</h1>
+            <p className="text-sm text-muted-foreground">Acesse sua conta no Elite Lab <span className="text-primary font-semibold">Hub</span></p>
           </div>
 
           <Tabs defaultValue="login" className="w-full">

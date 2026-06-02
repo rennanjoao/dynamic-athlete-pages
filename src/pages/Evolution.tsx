@@ -30,7 +30,7 @@ export default function Evolution() {
     <div className="min-h-screen bg-background pb-10">
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/fitness")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/student-area")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1">
