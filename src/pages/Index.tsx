@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Users, Plus, Dumbbell, UtensilsCrossed, ArrowRight, Zap, Shield, TrendingUp, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { InfoChatBot } from "@/components/landing/InfoChatBot";
 import RankingTeaser from "@/components/gamification/RankingTeaser";
 
@@ -29,18 +29,14 @@ const StatBlock = ({ value, label }: { value: string; label: string }) => (
 );
 
 const Index = () => {
-  // ESTADO QUE CONTROLA O SPLASH SCREEN
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    // Trava o scroll da página enquanto o splash estiver visível
     if (showSplash) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
-
-    // Auto-fecha após 6 segundos
     const timer = setTimeout(() => setShowSplash(false), 6000);
     return () => {
       clearTimeout(timer);
@@ -50,71 +46,41 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      
-      {/* ─── INÍCIO DO SPLASH SCREEN EMBUTIDO ─── */}
-      <AnimatePresence>
-        {showSplash && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
-            onClick={() => setShowSplash(false)}
-            className="fixed inset-0 z-[999999] bg-[#0B0B0C] text-[#F5F5F5] flex flex-col items-center justify-center p-8 text-center cursor-pointer"
-          >
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7 }}
-              className="text-[11px] font-semibold tracking-[0.3em] uppercase text-[#B11226] mb-6"
-            >
-              Elite Hub
-            </motion.div>
-            
-            <motion.div 
-              initial={{ height: 0 }} animate={{ height: 48 }} transition={{ delay: 0.35, duration: 0.5 }}
-              className="w-px bg-[#B11226] mb-8" 
-            />
-
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.7 }}
-              className="font-serif font-bold text-4xl md:text-6xl leading-tight mb-2"
-            >
-              Bem-vindo à sua
-            </motion.h1>
-            
-            <motion.h2 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.78, duration: 0.7 }}
-              className="font-serif font-bold italic text-[#B11226] text-4xl md:text-6xl leading-tight mb-8"
-            >
-              nova fase.
-            </motion.h2>
-
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.1, duration: 0.7 }}
-              className="text-sm md:text-base text-[#8B8B92] leading-relaxed max-w-sm mb-12"
-            >
-              Este é o ponto de partida para uma transformação construída com estratégia, acompanhamento e comprometimento.
-              <br /><br />
-              Nós fornecemos o caminho. Você constrói o resultado.
-            </motion.p>
-
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.5, duration: 0.7 }}
-              className="flex items-center gap-3 text-[11px] font-semibold tracking-[0.18em] uppercase text-[#55555C]"
-            >
-              <Sparkles className="w-4 h-4 text-[#B11226]" />
-              Toque para começar
-              <div className="w-7 h-px bg-[#55555C]" />
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8, duration: 0.7 }}
-              className="absolute bottom-8 text-[10px] tracking-[0.2em] uppercase text-[#55555C]"
-            >
-              By Rennan João
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {/* ─── FIM DO SPLASH SCREEN ─── */}
+      {/* ─── SPLASH SCREEN BLINDADO (CSS NATIVO) ─── */}
+      {showSplash && (
+        <div
+          onClick={() => setShowSplash(false)}
+          style={{
+            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 9999999, backgroundColor: "#0B0B0C", color: "#F5F5F5",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            padding: "32px", textAlign: "center", cursor: "pointer",
+            fontFamily: "system-ui, -apple-system, sans-serif"
+          }}
+        >
+          <div style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase", color: "#B11226", marginBottom: "24px" }}>
+            Elite Hub
+          </div>
+          <div style={{ width: "1px", height: "48px", backgroundColor: "#B11226", marginBottom: "32px" }} />
+          <h1 style={{ fontFamily: "serif", fontWeight: 700, fontSize: "clamp(2rem, 8vw, 3.5rem)", lineHeight: 1.1, margin: 0 }}>
+            Bem-vindo à sua
+          </h1>
+          <h2 style={{ fontFamily: "serif", fontWeight: 700, fontStyle: "italic", color: "#B11226", fontSize: "clamp(2rem, 8vw, 3.5rem)", lineHeight: 1.1, marginBottom: "32px" }}>
+            nova fase.
+          </h2>
+          <p style={{ fontSize: "14px", color: "#8B8B92", lineHeight: 1.6, maxWidth: "340px", marginBottom: "48px" }}>
+            Este é o ponto de partida para uma transformação construída com estratégia, acompanhamento e comprometimento.
+            <br /><br />
+            Nós fornecemos o caminho. Você constrói o resultado.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "11px", fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: "#55555C" }}>
+            <Sparkles size={16} color="#B11226" /> Toque para começar <div style={{ width: "28px", height: "1px", backgroundColor: "#55555C" }} />
+          </div>
+          <div style={{ position: "absolute", bottom: "32px", fontSize: "10px", letterSpacing: "0.2em", textTransform: "uppercase", color: "#55555C" }}>
+            By Rennan João
+          </div>
+        </div>
+      )}
 
       {/* Hero Section */}
       <header className="relative overflow-hidden">
@@ -203,3 +169,40 @@ const Index = () => {
             description="Diretrizes e recomendações alimentares para apoiar seus objetivos de emagrecimento, saúde e performance."
             delay={0.2}
           />
+          <FeatureCard
+            icon={TrendingUp}
+            title="Painel de Evolução"
+            description="Visualize sua evolução através de métricas corporais, registros fotográficos e indicadores de performance ao longo do processo."
+            delay={0.3}
+          />
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-6 pb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="max-w-md mx-auto"
+        >
+          <RankingTeaser />
+        </motion.div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-6 pb-12">
+        <div className="glass rounded-2xl p-6 flex items-center justify-center gap-3 text-sm text-muted-foreground">
+          <Shield className="w-4 h-4 text-primary" />
+          <span>Dados protegidos com criptografia e Row Level Security</span>
+        </div>
+      </section>
+
+      <footer className="border-t border-border/50 py-8 text-center">
+        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Elite Lab Hub — Rennan João</p>
+      </footer>
+
+      <InfoChatBot />
+    </div>
+  );
+};
+
+export default Index;
