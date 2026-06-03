@@ -1,187 +1,149 @@
 /**
- * StudentArea.tsx — Hub central da Área do Aluno.
+ * StudentArea.tsx — Hub Central do Aluno
+ * Tela inicial limpa com acesso rápido aos pilares do protocolo.
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
+import { Apple, Dumbbell, Pill, TrendingUp, CheckCircle2, Loader2, User } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { TrainerAlert } from "@/components/student/TrainerAlert";
-import { CheckInReminder } from "@/components/student/CheckInReminder";
-import { ProgressDashboard } from "@/components/student/ProgressDashboard";
-import StudentToolbar from "@/components/student/StudentToolbar";
-import { useStudentData } from "@/hooks/useStudentData";
-import {
-  ClipboardList,
-  Activity,
-  FileText,
-  Dumbbell,
-  Apple,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
-
-const NAV_CARDS = [
-  {
-    to: "/anamnesis",
-    icon: ClipboardList,
-    title: "Anamnese",
-    desc: "Sua linha de base completa — atualize quando algo importante mudar.",
-  },
-  {
-    to: "/check-in",
-    icon: FileText,
-    title: "Feedback / Check-in",
-    desc: "Envie seu feedback periódico para o coach calibrar o protocolo.",
-  },
-  {
-    to: "/evolution",
-    icon: Activity,
-    title: "Painel de Evolução Completo",
-    desc: "Acesse todas as métricas detalhadas e fotos de progresso.",
-  },
-  {
-    to: "/workout-plan",
-    icon: Dumbbell,
-    title: "Treino do dia",
-    desc: "Sessão atual com séries, RPE e cadência.",
-  },
-  {
-    to: "/routine",
-    icon: Apple,
-    title: "Estratégia Nutricional",
-    desc: "Diretrizes alimentares, hidratação e suplementação do seu protocolo.",
-  },
-];
-
-const MOTIVATIONAL_MESSAGES = [
-  "Parabéns pelo foco! Cada dia conta na sua evolução.",
-  "A persistência é o caminho do sucesso. Continue firme!",
-  "Resultados exigem tempo e constância. Você está no caminho certo!",
-  "Não pare agora! O seu corpo já está agradecendo o esforço.",
-  "Disciplina constrói resultados que a motivação não alcança sozinha.",
-  "A sua dedicação diária é o que constrói a sua melhor versão!",
-  "O suor de hoje é o resultado de amanhã. Excelente trabalho!",
-];
-
-const StudentArea = () => {
+export default function StudentArea() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [quote, setQuote] = useState("");
-
-  const { anamnesis, loading } = useStudentData();
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) navigate("/");
-      else setUser(session.user);
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) {
+        setUserId(data.session.user.id);
+      } else {
+        navigate("/auth");
+      }
     });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) navigate("/");
-      else setUser(session.user);
-    });
-
-    setQuote(
-      MOTIVATIONAL_MESSAGES[
-        Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)
-      ]
-    );
-
-    return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const payloadAna = (anamnesis?.payload as Record<string, any>) || {};
-  const firstName = payloadAna.nome
-    ? payloadAna.nome.split(" ")[0]
-    : "Aluno";
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ["student-profile-hub", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", userId)
+        .maybeSingle();
+      return data;
+    },
+  });
 
-  if (loading) {
+  const firstName = profile?.full_name ? profile.full_name.split(" ")[0] : "Aluno";
+
+  const modules = [
+    {
+      title: "Dieta",
+      description: "Plano alimentar, substituições e macros.",
+      icon: Apple,
+      color: "text-amber-500",
+      bg: "bg-amber-500/10",
+      border: "border-amber-500/20",
+      route: "/routine",
+    },
+    {
+      title: "Treino",
+      description: "Séries, cadência e diretrizes biomecânicas.",
+      icon: Dumbbell,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10",
+      border: "border-blue-500/20",
+      route: "/workout-plan",
+    },
+    {
+      title: "Suplementação",
+      description: "Fármacos, vitaminas e horários de uso.",
+      icon: Pill,
+      color: "text-purple-500",
+      bg: "bg-purple-500/10",
+      border: "border-purple-500/20",
+      route: "/supplements",
+    },
+    {
+      title: "Evolução",
+      description: "Fotos de progresso, gráficos e anamnese.",
+      icon: TrendingUp,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+      border: "border-emerald-500/20",
+      route: "/evolution",
+    },
+    {
+      title: "Check-in",
+      description: "Envie seu feedback periódico para o treinador.",
+      icon: CheckCircle2,
+      color: "text-rose-500",
+      bg: "bg-rose-500/10",
+      border: "border-rose-500/20",
+      route: "/check-in",
+    },
+  ];
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground animate-pulse">
-          Carregando seus dados...
-        </p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border glass-strong">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Área do Aluno <span className="text-primary">·</span> Elite Lab{" "}
-              <span className="text-primary">Hub</span>
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Olá, {firstName} — escolha um módulo abaixo
-            </p>
+    <div className="min-h-screen bg-background pb-12">
+      <header className="bg-card border-b border-border/50 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-foreground">Olá, {firstName}</h1>
+              <p className="text-xs text-muted-foreground">Bem-vindo ao seu painel central</p>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-6 max-w-5xl">
-        <TrainerAlert />
-        <CheckInReminder />
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-2">
+          Seu Protocolo
+        </h2>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {modules.map((mod) => (
+            <Card 
+              key={mod.title} 
+              className={`cursor-pointer hover:shadow-md transition-all hover:-translate-y-1 bg-card/60 border ${mod.border}`}
+              onClick={() => navigate(mod.route)}
+            >
+              <CardContent className="p-5 flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${mod.bg}`}>
+                  <mod.icon className={`w-6 h-6 ${mod.color}`} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">{mod.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    {mod.description}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Seus módulos
-          </h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            {NAV_CARDS.map(({ to, icon: Icon, title, desc }) => (
-              <Link key={to} to={to}>
-                <Card className="p-5 card-hover group hover:border-primary/40 h-full">
-                  <div className="flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:glow-primary transition-all">
-                      <Icon className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-bold text-foreground">{title}</h3>
-                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {desc}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Ferramentas Nutricionais
-          </h2>
-          <StudentToolbar />
-        </section>
-
-        <section className="pt-4">
-          <div className="flex flex-col items-center justify-center text-center mb-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary mb-3">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-semibold">Seu Progresso</span>
-            </div>
-            <p className="text-muted-foreground text-sm max-w-xl animate-fade-in">
-              {quote}
-            </p>
-          </div>
-
-          <ProgressDashboard />
-        </section>
+        <div className="mt-8 p-4 bg-muted/30 border border-border/50 rounded-xl text-center">
+          <p className="text-xs text-muted-foreground">
+            Precisa de ajuda? Acesse o chat da Inteligência Artificial no canto da tela ou envie uma dúvida diretamente dentro do módulo específico.
+          </p>
+        </div>
       </main>
     </div>
   );
-};
-
-export default StudentArea;
+}
