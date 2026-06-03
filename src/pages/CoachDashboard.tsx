@@ -573,6 +573,7 @@ export default function CoachDashboard() {
   const [selectedStudent, setSelectedStudent] = useState<StudentStatus | null>(null);
   
   const [showProfile, setShowProfile] = useState(false);
+  const [unlinkTarget, setUnlinkTarget] = useState<StudentStatus | null>(null);
   const qc = useQueryClient();
 
   const { data: students = [], isLoading } = useCoachStudents(coachId);
