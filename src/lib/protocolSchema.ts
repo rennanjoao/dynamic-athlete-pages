@@ -1,9 +1,3 @@
-/**
- * protocolSchema.ts — Schema central do Protocolo Master.
- * Estrutura única (JSONB) que abriga treino, dieta, ciclo de carbo,
- * suplementação e diretrizes do aluno.
- */
-
 import { z } from "zod";
 
 export const SPLIT_OPTIONS = [
@@ -43,20 +37,17 @@ export const WorkoutDaySchema = z.object({
   exercises: z.array(ExerciseSchema).default([]),
 });
 
-/** Macros por refeição (g). 0 = não aplicável. */
 export const MealMacrosSchema = z.object({
   carbs: z.number().min(0).default(0),
   protein: z.number().min(0).default(0),
   fat: z.number().min(0).default(0),
 });
 
-/** Uma opção de prato dentro da refeição. */
 export const MealOptionSchema = z.object({
   title: z.string().default(""),
-  items: z.string().default(""), // texto livre dos alimentos
+  items: z.string().default(""),
 });
 
-/** Substituições por macro — 2 entradas cada. */
 export const MealSubsSchema = z.object({
   carb: z.array(z.string()).default(["", ""]),
   protein: z.array(z.string()).default(["", ""]),
@@ -66,7 +57,6 @@ export const MealSubsSchema = z.object({
 export const MealSchema = z.object({
   name: z.string().default(""),
   time: z.string().default(""),
-  // novos campos estruturados
   macros: MealMacrosSchema.default({ carbs: 0, protein: 0, fat: 0 }),
   options: z.array(MealOptionSchema).default([
     { title: "Opção 1", items: "" },
@@ -74,10 +64,10 @@ export const MealSchema = z.object({
   ]),
   substitutions: MealSubsSchema.default({ carb: ["", ""], protein: ["", ""], fat: ["", ""] }),
   notes: z.string().optional().default(""),
-  // legados (mantidos para compat de leitura)
   foods: z.string().optional().default(""),
   qtyHighCarb: z.string().optional().default(""),
   qtyLowCarb: z.string().optional().default(""),
+  cookedNotes: z.string().optional().default(""), // Novo campo para Peso Pronto
 });
 
 export const MacrosBaseSchema = z.object({
@@ -106,9 +96,6 @@ const ProtocolPayloadObject = z.object({
   }),
   workouts: z.array(WorkoutDaySchema).default([]),
   meals: z.array(MealSchema).default([]),
-  // base/high/off — multiplicadores: base=1, high=+15%, off=-15%
-  // Tolerante: aceita strings descritivas e infere o modo por palavras-chave,
-  // preservando o texto original em `carbCycleNotes`.
   carbCycle: z.preprocess((val) => {
     if (!val || typeof val !== "object") return {};
     const out: Record<string, "high" | "base" | "off" | "low"> = {};
@@ -119,7 +106,6 @@ const ProtocolPayloadObject = z.object({
         out[k] = v as "high" | "base" | "off" | "low";
         continue;
       }
-      // inferir por palavras-chave
       let inferred: "high" | "base" | "off" | "low" = "base";
       if (/\b(alto|high|\+\s*15|aumento|carga)\b/.test(v)) inferred = "high";
       else if (/\b(off|descanso|rest|reduzido|baixo|low|-\s*15)\b/.test(v)) inferred = "off";
@@ -131,7 +117,6 @@ const ProtocolPayloadObject = z.object({
     }
     return out;
   }, z.record(z.enum(["high", "base", "off", "low"])).default({})),
-  // Texto original descritivo de cada entrada do ciclo de carbo (quando vier livre).
   carbCycleNotes: z.preprocess((val) => {
     if (!val || typeof val !== "object") return {};
     const out: Record<string, string> = {};
@@ -142,12 +127,6 @@ const ProtocolPayloadObject = z.object({
   }, z.record(z.string()).default({})),
 });
 
-/**
- * Schema tolerante: aceita payloads JSON externos (ex.: gerados por IA) com
- * campos extras ou strings descritivas e adapta-os ao formato interno sem
- * descartar nada. O texto original de cada entrada do ciclo de carbo é
- * copiado para `carbCycleNotes` antes da coerção para enum.
- */
 export const ProtocolPayloadSchema = z.preprocess((raw) => {
   if (!raw || typeof raw !== "object") return raw;
   const obj = raw as Record<string, unknown>;
@@ -165,7 +144,6 @@ export const ProtocolPayloadSchema = z.preprocess((raw) => {
   }
   return obj;
 }, ProtocolPayloadObject);
-
 
 export type ProtocolPayload = z.infer<typeof ProtocolPayloadSchema>;
 export type ExerciseRow = z.infer<typeof ExerciseSchema>;
@@ -191,10 +169,10 @@ export function makeEmptyMeal(name = ""): MealRow {
     foods: "",
     qtyHighCarb: "",
     qtyLowCarb: "",
+    cookedNotes: "",
   };
 }
 
-/** Cria payload base a partir do setup escolhido no modal. */
 export function buildBasePayload(setup: {
   split: SplitValue;
   mealsCount: number;
