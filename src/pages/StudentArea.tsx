@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TrainerAlert } from "@/components/student/TrainerAlert";
 import { CheckInReminder } from "@/components/student/CheckInReminder";
-import { ProgressChart } from "@/components/student/ProgressChart";
+import { ProgressDashboard } from "@/components/student/ProgressDashboard";
 import { useStudentData } from "@/hooks/useStudentData";
 import {
   ClipboardList,
