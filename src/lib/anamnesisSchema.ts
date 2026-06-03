@@ -23,7 +23,7 @@ export const BASELINE_KEYS = [
   "braco_d","braco_e","coxa_d","coxa_e","pant_d","pant_e",
 ] as const;
 
-export interface AnamnesisField { key: string; label: string; type?: string; placeholder?: string; options?: string[] }
+export interface AnamnesisField { key: string; label: string; type?: string; placeholder?: string; options?: string[]; step?: string | number; half?: boolean; [k: string]: unknown }
 export interface AnamnesisSection { id: string; title: string; fields: AnamnesisField[] }
 export type FieldDef = AnamnesisField;
 export type SectionDef = AnamnesisSection;
