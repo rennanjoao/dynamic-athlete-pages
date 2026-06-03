@@ -198,13 +198,23 @@ const Anamnesis = () => {
         if (!isNaN(n)) baseline[k] = n;
       });
 
-      await (supabase.from("anamnesis") as any).upsert({
+      const anamnesisRow = {
         student_id: studentId,
         coach_id: coachIdOrNull,
         payload,
         baseline_metrics: baseline,
         submitted_at: new Date().toISOString(),
-      }, { onConflict: "student_id" });
+      };
+      const { data: prior } = await supabase
+        .from("anamnesis")
+        .select("id")
+        .eq("student_id", studentId!)
+        .maybeSingle();
+      if (prior?.id) {
+        await (supabase.from("anamnesis") as any).update(anamnesisRow).eq("id", prior.id);
+      } else {
+        await (supabase.from("anamnesis") as any).insert(anamnesisRow);
+      }
 
       // Cria vínculo só se houver coach e ainda não existir
       if (coachIdOrNull) {
