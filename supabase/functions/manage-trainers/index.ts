@@ -7,6 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type UserRoleRow = { user_id: string; role: "user" | "coach" | "admin" };
+type ListedUser = { id: string; email?: string | null; created_at?: string };
+
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : "Erro inesperado";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -60,8 +65,8 @@ serve(async (req) => {
       });
       if (listErr) throw listErr;
 
-      const match = list.users.find(
-        (u: any) => (u.email || "").toLowerCase() === String(email).toLowerCase()
+      const match = (list.users as ListedUser[]).find(
+        (u) => (u.email || "").toLowerCase() === String(email).toLowerCase()
       );
       if (!match) {
         return new Response(JSON.stringify({ student: null }), {
@@ -101,8 +106,9 @@ serve(async (req) => {
         .select("user_id, role")
         .in("role", ["user", "coach"]);
 
-      const userIds = (roles || [])
-        .map((r: any) => r.user_id)
+      const roleRows = (roles || []) as UserRoleRow[];
+      const userIds = roleRows
+        .map((r) => r.user_id)
         .filter((id: string) => id !== user.id);
 
       const trainers = [];
@@ -115,7 +121,7 @@ serve(async (req) => {
             .eq("user_id", id)
             .single();
 
-          const role = roles?.find((r: any) => r.user_id === id)?.role || "user";
+          const role = roleRows.find((r) => r.user_id === id)?.role || "user";
 
           trainers.push({
             id: trainerUser.id,
@@ -236,8 +242,8 @@ serve(async (req) => {
     }
 
     throw new Error("Ação inválida");
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: errorMessage(error) }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
