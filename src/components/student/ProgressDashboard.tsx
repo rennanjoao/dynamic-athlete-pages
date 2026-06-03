@@ -12,14 +12,13 @@ import {
   Area,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   TooltipProps,
+  LabelList,
 } from "recharts";
 import { useStudentData } from "@/hooks/useStudentData";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingDown, TrendingUp, Flame, Scale, Percent, Ruler } from "lucide-react";
@@ -57,24 +56,25 @@ interface DeltaProps {
 }
 const DeltaBadge = ({ delta, unit, goodDown = true }: DeltaProps) => {
   if (!isFinite(delta) || delta === 0) {
-    return <Badge variant="secondary" className="text-[10px]">— 0 {unit}</Badge>;
+    return (
+      <span className="text-xs text-muted-foreground">sem alteração</span>
+    );
   }
   const isPositive = delta > 0;
   const isGood = goodDown ? !isPositive : isPositive;
   const Icon = isPositive ? TrendingUp : TrendingDown;
   return (
-    <Badge
-      variant="outline"
-      className={`text-[10px] gap-1 border-0 ${
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
         isGood
-          ? "bg-emerald-500/15 text-emerald-400"
-          : "bg-primary/15 text-primary"
+          ? "bg-emerald-500/15 text-emerald-500"
+          : "bg-rose-500/15 text-rose-500"
       }`}
     >
       <Icon className="w-3 h-3" />
       {isPositive ? "+" : ""}
       {delta.toFixed(1)} {unit}
-    </Badge>
+    </span>
   );
 };
 
@@ -180,6 +180,26 @@ export const ProgressDashboard = () => {
     }));
   }, [points, metric]);
 
+  const yDomain = useMemo(() => {
+    if (chartData.length === 0) return ["auto", "auto"] as [number | string, number | string];
+    const values = chartData.map((d) => d[metric] as number).filter(Boolean);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min;
+    const padding = Math.max(range * 1.5, 1.5);
+    return [
+      parseFloat((min - padding).toFixed(1)),
+      parseFloat((max + padding).toFixed(1)),
+    ] as [number, number];
+  }, [chartData, metric]);
+
+  const activeColor = useMemo(() => {
+    if (chartData.length < 2) return "hsl(var(--primary))";
+    const delta = chartData[chartData.length - 1][metric] - chartData[0][metric];
+    const isImproving = metric === "gordura" || metric === "cintura" ? delta < 0 : delta < 0;
+    return isImproving ? "hsl(142 71% 45%)" : "hsl(var(--primary))";
+  }, [chartData, metric]);
+
   // Streak: número de check-ins consecutivos (até 14 dias entre eles)
   const streak = useMemo(() => {
     const sorted = [...(checkIns || [])]
@@ -218,6 +238,22 @@ export const ProgressDashboard = () => {
           <h3 className="font-semibold text-foreground">Sem dados ainda</h3>
           <p className="text-sm text-muted-foreground mt-1">
             Envie sua Anamnese para iniciar a linha do tempo.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (points.length < 2) {
+    return (
+      <Card className="bg-card/60 border-border/60">
+        <CardContent className="p-6 text-center space-y-2">
+          <div className="w-10 h-10 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+            <TrendingUp className="w-5 h-5 text-primary" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">Aguardando 1º check-in</p>
+          <p className="text-xs text-muted-foreground">
+            Seu baseline está registrado. Envie um check-in para ver sua evolução no gráfico.
           </p>
         </CardContent>
       </Card>
@@ -283,21 +319,15 @@ export const ProgressDashboard = () => {
             </Tabs>
           </div>
 
-          <div className="h-[260px] w-full">
+          <div className="h-[240px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 24, right: 12, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradMetric" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    <stop offset="0%" stopColor={activeColor} stopOpacity={0.2} />
+                    <stop offset="85%" stopColor={activeColor} stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                  strokeOpacity={0.15}
-                  vertical={false}
-                />
                 <XAxis
                   dataKey="label"
                   stroke="hsl(var(--muted-foreground))"
@@ -305,19 +335,40 @@ export const ProgressDashboard = () => {
                   tickLine={false}
                   axisLine={false}
                 />
-                <YAxis hide domain={["dataMin - 1", "dataMax + 1"]} />
-                <Tooltip content={<CustomTooltip metric={metric} />} cursor={{ stroke: "hsl(var(--primary))", strokeOpacity: 0.3, strokeWidth: 1 }} />
+                <YAxis hide domain={yDomain as [number, number]} />
+                <Tooltip content={<CustomTooltip metric={metric} />} cursor={{ stroke: activeColor, strokeOpacity: 0.3, strokeWidth: 1 }} />
                 <Area
-                  type="monotone"
+                  type="monotoneX"
                   dataKey={metric}
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2.5}
+                  stroke={activeColor}
+                  strokeWidth={2}
                   fill="url(#gradMetric)"
                   isAnimationActive
-                  animationDuration={600}
-                  dot={{ r: 3, fill: "hsl(var(--primary))", strokeWidth: 0 }}
-                  activeDot={{ r: 5, fill: "hsl(var(--primary))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
-                />
+                  animationDuration={500}
+                  dot={(props: unknown) => {
+                    const { cx, cy, index } = props as { cx: number; cy: number; index: number };
+                    const isLast = index === chartData.length - 1;
+                    return (
+                      <circle
+                        key={`dot-${index}`}
+                        cx={cx}
+                        cy={cy}
+                        r={isLast ? 6 : 4}
+                        fill={isLast ? activeColor : "hsl(var(--background))"}
+                        stroke={activeColor}
+                        strokeWidth={isLast ? 0 : 2}
+                      />
+                    );
+                  }}
+                  activeDot={{ r: 7, fill: activeColor, stroke: "hsl(var(--background))", strokeWidth: 2 }}
+                >
+                  <LabelList
+                    dataKey={metric}
+                    position="top"
+                    style={{ fontSize: "10px", fill: "hsl(var(--muted-foreground))", fontWeight: 500 }}
+                    formatter={(v: number) => v.toFixed(1)}
+                  />
+                </Area>
               </AreaChart>
             </ResponsiveContainer>
           </div>
