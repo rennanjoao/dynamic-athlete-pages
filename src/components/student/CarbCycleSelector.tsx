@@ -1,14 +1,12 @@
 /**
- * CarbCycleSelector.tsx — Botões para o aluno alternar manualmente
- * entre Carbo Alto / Base / Carbo Baixo na visualização da dieta do dia.
- *
+ * CarbCycleSelector.tsx — Botões: Carbo Alto / Base / Off (Baixo).
  * Só aparece se o coach ativou ciclo de carbo no protocolo.
  */
 
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
-export type CarbMode = "high" | "base" | "low";
+export type CarbMode = "high" | "base" | "off" | "low";
 
 interface Props {
   value: CarbMode;
@@ -19,15 +17,17 @@ interface Props {
 const options: { id: CarbMode; label: string; icon: typeof TrendingUp; cls: string }[] = [
   { id: "high", label: "Carbo Alto", icon: TrendingUp, cls: "data-[active=true]:bg-emerald-500/20 data-[active=true]:text-emerald-400 data-[active=true]:border-emerald-500/40" },
   { id: "base", label: "Base", icon: Minus, cls: "data-[active=true]:bg-blue-500/20 data-[active=true]:text-blue-400 data-[active=true]:border-blue-500/40" },
-  { id: "low", label: "Carbo Baixo", icon: TrendingDown, cls: "data-[active=true]:bg-amber-500/20 data-[active=true]:text-amber-400 data-[active=true]:border-amber-500/40" },
+  { id: "off", label: "Off / Baixo", icon: TrendingDown, cls: "data-[active=true]:bg-amber-500/20 data-[active=true]:text-amber-400 data-[active=true]:border-amber-500/40" },
 ];
 
 export default function CarbCycleSelector({ value, onChange, className }: Props) {
+  // normaliza valor legacy "low" → "off"
+  const v: CarbMode = value === "low" ? "off" : value;
   return (
     <div className={`flex items-center gap-2 rounded-xl border border-border bg-card/40 p-1.5 ${className ?? ""}`}>
       {options.map((o) => {
         const Icon = o.icon;
-        const active = value === o.id;
+        const active = v === o.id;
         return (
           <Button
             key={o.id}
