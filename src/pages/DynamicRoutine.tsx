@@ -243,7 +243,7 @@ export default function DynamicRoutine() {
   const todayPlan = strategy?.weeklyPlan?.[dayMap[todayIndex]];
   const defaultMode: CarbMode =
     todayPlan?.type === "high" ? "high" :
-    todayPlan?.type === "low" ? "low" : "base";
+    todayPlan?.type === "low" ? "off" : "base";
   const [carbMode, setCarbMode] = useState<CarbMode>(defaultMode);
   useEffect(() => { setCarbMode(defaultMode); }, [defaultMode]);
   const isHighCarb = carbMode === "high";
