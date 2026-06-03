@@ -111,7 +111,7 @@ serve(async (req) => {
         if (trainerUser) {
           const { data: profile } = await adminClient
             .from("profiles")
-            .select("full_name, team_name")
+            .select("full_name, team_name, notification_email, invite_code")
             .eq("user_id", id)
             .single();
 
@@ -122,6 +122,8 @@ serve(async (req) => {
             email: trainerUser.email,
             full_name: profile?.full_name || null,
             team_name: profile?.team_name || null,
+            notification_email: profile?.notification_email || null,
+            invite_code: profile?.invite_code || null,
             role,
             created_at: trainerUser.created_at,
           });
@@ -135,7 +137,7 @@ serve(async (req) => {
 
     // ── CREATE trainer/coach ──
     if (action === "create") {
-      const { email, password, fullName, teamName, role: targetRole } = body;
+      const { email, password, fullName, teamName, notificationEmail, role: targetRole } = body;
       if (!email || !password || !fullName) {
         throw new Error("Email, senha e nome são obrigatórios");
       }
@@ -163,17 +165,31 @@ serve(async (req) => {
       // Ensure a profiles row exists so invite_code/notification_email edits work
       await adminClient
         .from("profiles")
-        .upsert({ user_id: newUser.user.id, full_name: fullName }, { onConflict: "user_id" });
-
-      // Update profile with team_name if provided
-      if (teamName) {
-        await adminClient
-          .from("profiles")
-          .update({ team_name: teamName })
-          .eq("user_id", newUser.user.id);
-      }
+        .upsert({
+          user_id: newUser.user.id,
+          full_name: fullName,
+          team_name: teamName || null,
+          email,
+          notification_email: notificationEmail || email,
+        }, { onConflict: "user_id" });
 
       return new Response(JSON.stringify({ success: true, userId: newUser.user.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── UPDATE PASSWORD ──
+    if (action === "update-password") {
+      const { trainerId, password } = body;
+      if (!trainerId) throw new Error("ID do profissional é obrigatório");
+      if (!password || String(password).length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres");
+
+      const { error } = await adminClient.auth.admin.updateUserById(trainerId, {
+        password: String(password),
+      });
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
