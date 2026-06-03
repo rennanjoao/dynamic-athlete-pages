@@ -11,11 +11,12 @@ import { useCoachStudents, type StudentStatus, type AlertLevel } from "@/hooks/u
 import { useLeads, type Lead } from "@/hooks/useLeads";
 import { useCoachFinances, type FinanceRecord } from "@/hooks/useCoachFinances";
 import {
-  AlertTriangle, CheckCircle2, Search, Filter, Users, Bell, Pencil,
+  AlertTriangle, CheckCircle2, Search, Filter, Users, Pencil,
   Dumbbell, UtensilsCrossed, BarChart3, ClipboardList, ArrowLeft,
   Loader2, Plus, Trash2, DollarSign, UserPlus, Phone, Mail,
   TrendingUp, Calendar, Save, X, User, FileText,
 } from "lucide-react";
+import CoachNotificationBell from "@/components/coach/CoachNotificationBell"; // IMPORT DO SINO DE NOTIFICAÇÃO
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -429,8 +430,6 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   );
 }
 
-// ─── (Vínculo de aluno agora é automático via código de convite na anamnese) ─
-
 // ─── Profile (team name) Dialog ──────────────────────────────────────────────
 
 function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: boolean; onClose: () => void }) {
@@ -650,10 +649,14 @@ export default function CoachDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            
+            {/* COMPONENTE DE NOTIFICAÇÃO (SINO) ADICIONADO AQUI */}
+            <CoachNotificationBell />
+
             {stats.critical > 0 && (
-              <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg">
-                <Bell className="w-3.5 h-3.5" />
-                {stats.critical} aluno{stats.critical > 1 ? "s" : ""} em alerta
+              <div className="hidden sm:flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {stats.critical} crítico{stats.critical > 1 ? "s" : ""}
               </div>
             )}
             <Button variant="outline" size="sm" onClick={() => setShowProfile(true)} className="gap-1.5">
@@ -682,7 +685,7 @@ export default function CoachDashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard label="Total de alunos" value={stats.total} icon={<Users className="w-4 h-4" />} accent="#3B82F6" />
               <StatCard label="Em alerta crítico" value={stats.critical} icon={<AlertTriangle className="w-4 h-4" />} accent="#EF4444" />
-              <StatCard label="Precisam atenção" value={stats.warning} icon={<Bell className="w-4 h-4" />} accent="#F59E0B" />
+              <StatCard label="Precisam atenção" value={stats.warning} icon={<AlertTriangle className="w-4 h-4" />} accent="#F59E0B" />
               <StatCard label="Em dia" value={stats.ok} icon={<CheckCircle2 className="w-4 h-4" />} accent="#10B981" />
             </div>
 
