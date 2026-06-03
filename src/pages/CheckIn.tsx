@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CHECKIN_SECTIONS, CHECKIN_METRICS } from "@/lib/checkInSchema";
+import { notifyCoach } from "@/lib/notifyCoach";
 import { FormField } from "@/components/student/FormField";
 import { useStudentData } from "@/hooks/useStudentData";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,40 @@ export default function CheckIn() {
         payload: { ...data, metrics_raw: metrics },
       });
       if (error) throw error;
+
+      // Notifica o coach por e-mail (best-effort, não bloqueia o aluno).
+      try {
+        const { data: link } = await sb
+          .from("coach_students")
+          .select("coach_id")
+          .eq("student_id", studentId)
+          .eq("status", "active")
+          .maybeSingle();
+        if (link?.coach_id) {
+          const { data: coachProfile } = await sb
+            .from("profiles")
+            .select("notification_email, email, full_name")
+            .eq("user_id", link.coach_id)
+            .maybeSingle();
+          const coachEmail = coachProfile?.notification_email || coachProfile?.email;
+          const anaPayload = (anamnesis?.payload as Record<string, unknown>) || {};
+          const studentName = String(anaPayload.nome ?? "Aluno");
+          const studentEmail = String(anaPayload.email ?? "");
+          if (coachEmail) {
+            void notifyCoach({
+              coachEmail,
+              studentName,
+              studentEmail,
+              kind: "checkin",
+              summary: "Aluno enviou um novo check-in quinzenal.",
+              data: { ...data, ...current_metrics },
+            });
+          }
+        }
+      } catch (notifyErr) {
+        console.warn("notifyCoach falhou (check-in)", notifyErr);
+      }
+
       toast.success("Check-in enviado ao seu coach.");
       qc.invalidateQueries({ queryKey: ["check-ins", studentId] });
       setTimeout(() => navigate("/evolution"), 1000);
