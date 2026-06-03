@@ -458,6 +458,9 @@ Para mais detalhes, solicite o plano completo em HTML! 📧`;
         {/* Gestão de Treinadores */}
         <TrainerManagement />
 
+        {/* Vínculos Aluno × Treinador */}
+        <StudentLinksManagement />
+
         {/* Automação de Alertas */}
         <AlertManager />
 
