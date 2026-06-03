@@ -618,12 +618,18 @@ export default function StudentDashboard() {
       .eq("date", today);
   };
 
-  // Sample macros — replace with real plan values
+  // Macros do plano do coach
+  const proteinGoal = planMacros?.base_protein_g || planMacros?.protein_g || 160;
+  const carbsGoal = planMacros?.base_carbs_g || planMacros?.carbs_g || 250;
+  const fatGoal = planMacros?.base_fat_g || planMacros?.fat_g || 55;
+  const waterGoalL = Number(planMacros?.water_l ?? 2.5);
+  const planCalories = planMacros?.base_calories || planMacros?.calories || 2200;
+
   const macros: Macro[] = [
-    { label: "Proteína", unit: "g", current: 120, goal: 160, color: "#3B82F6", icon: null },
-    { label: "Carboidrato", unit: "g", current: 200, goal: 300, color: "#F59E0B", icon: null },
-    { label: "Gordura", unit: "g", current: 45, goal: 60, color: "#EF4444", icon: null },
-    { label: "Água", unit: "L", current: +(waterMl / 1000).toFixed(1), goal: 2.5, color: "#06B6D4", icon: null },
+    { label: "Proteína", unit: "g", current: 0, goal: proteinGoal, color: "#3B82F6", icon: null },
+    { label: "Carboidrato", unit: "g", current: 0, goal: carbsGoal, color: "#F59E0B", icon: null },
+    { label: "Gordura", unit: "g", current: 0, goal: fatGoal, color: "#EF4444", icon: null },
+    { label: "Água", unit: "L", current: +(waterMl / 1000).toFixed(1), goal: waterGoalL, color: "#06B6D4", icon: null },
   ];
 
   if (isLoading || planLoading) {
