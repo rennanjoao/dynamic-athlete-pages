@@ -10,6 +10,7 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TrainerAlert } from "@/components/student/TrainerAlert";
+import { CheckInReminder } from "@/components/student/CheckInReminder";
 import { ProgressChart } from "@/components/student/ProgressChart";
 import { useStudentData } from "@/hooks/useStudentData";
 import {
@@ -135,8 +136,10 @@ const StudentArea = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-10 max-w-5xl">
+      <main className="container mx-auto px-4 py-8 space-y-6 max-w-5xl">
         <TrainerAlert />
+        <CheckInReminder />
+
 
         <section>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
