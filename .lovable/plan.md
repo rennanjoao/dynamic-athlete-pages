@@ -1,65 +1,80 @@
-# Próximos passos — Feedback, Lembretes, Primeiro Acesso e Emails
+# Cronograma — Master Protocol Builder
 
-## 1. Perguntas do check-in (feedback do aluno)
+## Onde estamos hoje (já concluído)
+- Auth Admin/Coach/Aluno com RLS e AdminGuard
+- `manage-trainers` Edge Function (criação de coachs pelo admin)
+- Notificações via Resend (`notify-coach`) na Anamnese e Check-in
+- Lembrete de 14 dias no Check-in (`CheckInReminder`)
+- Empty states em `WorkoutPlan`, `DynamicRoutine`, `StudentDashboard` (sem dados fake)
+- Coach Dashboard carrega anamnese/plan ao selecionar aluno (`RoutineBuilder` via `useQuery`)
+- Tabela `protocols` já existe (vazia) com `payload JSONB`, `is_template`, RLS Coach/Aluno OK
 
-O formulário em `src/pages/CheckIn.tsx` + `src/lib/checkInSchema.ts` **já espelha o portal HTML** (comentário na linha 5 confirma). As perguntas atuais cobrem: humor, dieta/adesão, água, carboidratos, compulsão, intestino, treino, sono, stress, libido, aparência, temperatura D1-D5, observações + 5 medidas (peso, cintura, quadril, coxa, braço).
+## O que falta — em 5 fases sequenciais
 
-**Ação:** Revisar e limpar a ficha:
-- Garantir que **apenas perguntas** apareçam (sem campos de cadastro — já está assim).
-- Adicionar qualquer pergunta do portal que esteja faltando (vou comparar com o HTML que você enviou — preciso que me reenvie ou confirme se já está completo).
-- Manter o salvamento atual em `check_ins.payload` + `current_metrics`.
+### Fase 1 — Base de dados (✅ já está no formato ideal)
+A tabela `protocols` atual **já tem** todas as colunas que você desenhou no último SQL: `id`, `student_id`, `coach_id`, `name`, `is_template`, `payload jsonb`, `active`, timestamps + RLS de coach/aluno/template.
+**Ação:** nenhuma migration nova. Apenas validar o schema do `payload` (TypeScript) — ver Fase 2.
 
-## 2. Lembrete de 14 dias
+### Fase 2 — Setup Inteligente + Roteamento Novo/Editar
+**Tela:** `ProtocolBuilder.tsx` (acessada do Coach Dashboard ao selecionar aluno).
 
-Hoje não existe nenhuma lógica de lembrete. `check_ins.submitted_at` é lido mas nunca comparado com a data atual.
+1. Ao selecionar aluno → `SELECT * FROM protocols WHERE student_id = X AND is_template = false ORDER BY updated_at DESC LIMIT 1`
+2. Se existir: abre em **Modo Edição** (botão "Atualizar Protocolo")
+3. Se não existir: abre **Modal de Setup**:
+   - Divisão de treino: ABC / ABCD / ABCDE / AB off / livre
+   - Qtd refeições: 3–8
+   - Usa ciclo de carbo? sim/não
+4. "Gerar Base" → monta formulário dinâmico vazio com os blocos certos
+5. Header trava nome/ID do aluno
 
-**Ação:** Em `src/pages/StudentArea.tsx`, logo abaixo do `<TrainerAlert />` (linha ~139), adicionar uma faixa quando `diasDesdeUltimoCheckin >= 14`:
-- Vermelha/âmbar discreta: "Já se passaram X dias desde seu último feedback. Envie um novo para seu coach acompanhar sua evolução." + botão "Enviar feedback".
-- Se nunca enviou e a anamnese já tem 14+ dias, mesma faixa.
-- Dado vem de `useStudentData` (já carrega `checkIns` ordenados desc).
+**Schema do `payload` (Zod):**
+```ts
+{
+  setup: { split: "ABCDE", mealsCount: 5, carbCycle: true },
+  guidelines: { training, diet, weekOrganization, supplementation },
+  workouts: [{ key:"A", focus, exercises:[{name, sets, reps?, cadence?, rest?, notes?}] }],
+  meals: [{ name, time, foods, qtyHighCarb?, qtyLowCarb?, substitutions }],
+  carbCycle: { monday:"high", tuesday:"low", ... }
+}
+```
+Campos opcionais por exercício (reps/cadência/descanso) atendem o caso "diretriz geral" vs "específico por exercício".
 
-## 3. Primeiro acesso limpo (sem protocolo fake)
+### Fase 3 — Templates (Biblioteca do Coach)
+- Botão "Salvar como Template" no ProtocolBuilder → grava com `is_template=true`, `student_id=null`
+- Tela `TemplatesLibrary.tsx` (lista templates do coach)
+- Botão "Importar Template" no ProtocolBuilder → faz clone do `payload` para o aluno selecionado
+- Maior ganho de produtividade real (recomendado priorizar antes do upload)
 
-Hoje o aluno novo vê dados de exemplo hardcoded, o que confunde:
-- `WorkoutPlan.tsx:131` retorna `DEFAULT_PERIODIZATION` (4 dias fake).
-- `DynamicRoutine.tsx:146` retorna `DEFAULT_STRATEGY` (refeições fake).
-- `StudentDashboard.tsx:242` usa `SAMPLE_WORKOUTS` e `SAMPLE_MEALS` hardcoded.
+### Fase 4 — Smart Input (Colar do ChatGPT)
+- Componente `PasteTableInput` em cada bloco (Treino, Dieta)
+- Lê texto colado (TSV/Markdown table) → parseia → preenche linhas do formulário
+- Validação visual antes de aceitar (preview do que vai entrar)
+- Sem dependência de upload de arquivo (mais estável que .xlsx)
 
-**Ação:** Trocar os fallbacks por **empty states** quando não houver `coach_plans` real para o aluno:
-- WorkoutPlan: card "Seu coach ainda está montando seu treino. Avisaremos quando estiver pronto."
-- DynamicRoutine: card "Seu plano alimentar ainda não foi publicado pelo seu coach."
-- StudentDashboard: esconder cards de Treino do Dia / Refeições quando não houver plano publicado, e mostrar um aviso amigável.
-- `ProtocolViewer.tsx` já faz isso corretamente — usar como referência.
+**Opcional:** botão "Baixar modelo .xlsx" só para quem prefere preencher offline — usa `xlsx` (SheetJS). Upload roda o mesmo parser do Smart Input.
 
-## 4. Coach selecionando aluno (auto-load)
+### Fase 5 — Exportação do Aluno (PDF)
+- Página do aluno (`/workout-plan` ou nova `/meu-protocolo`) lê o protocolo ativo
+- Renderização visual interativa (já parcialmente existe)
+- Botão **"Baixar PDF"** usando `jspdf` + `html2canvas` (ou `@react-pdf/renderer` para layout fino)
+- Layout: logo Elite Lab Hub, diretrizes, treinos ABCDE, dieta com colunas Carbo Alto/Baixo, suplementação
+- (Opcional futuro) export HTML/Excel — PDF cobre 95% dos casos
 
-Já funciona: ao clicar em Anamnese / Rotina / Protocolo, o `RoutineBuilder` (linha 61-113) carrega automaticamente `coach_plans` + `anamnesis` via `useQuery` e popula o formulário. Sem cliques extras.
+## Ordem de execução recomendada
+1. **Fase 2** (Builder + Setup + Novo/Editar) — desbloqueia tudo
+2. **Fase 3** (Templates) — maior ROI de tempo do coach
+3. **Fase 5** (PDF do aluno) — entrega valor visível ao aluno
+4. **Fase 4** (Smart Input/colar) — acelera ainda mais
+5. (Opcional) Upload .xlsx + modelo para download
 
-**Ação:** Apenas garantir que a tela inicial do `CoachDashboard` mostre os dados básicos do aluno selecionado (nome, última anamnese, último check-in, plano ativo) num painel resumido ao lado da lista — para o coach ver o panorama antes mesmo de abrir uma aba.
+## Detalhes técnicos
+- Bibliotecas a adicionar: `jspdf`, `html2canvas` (Fase 5); `xlsx` apenas se Fase 4-opcional for feita
+- Validação: Zod schema central em `src/lib/protocolSchema.ts` (importado pelo Builder e pelo viewer do aluno)
+- Estado: React Hook Form + Zod resolver no Builder
+- Persistência: `supabase.from('protocols').upsert(...)` em `payload`
+- RLS já cobre todos os casos (coach do aluno / coach do próprio template / aluno lê o próprio)
 
-## 5. Email Web3Forms para coach (debug)
+## Próximo passo concreto
+Começar **Fase 2**: criar `src/pages/ProtocolBuilder.tsx` + `src/lib/protocolSchema.ts` + rota `/coach/protocol/:studentId`, com o modal de setup (split + refeições + ciclo de carbo) e detecção novo/editar.
 
-Achados em `src/lib/anamnesisSchema.ts`:
-
-- **Bug principal:** `sendCheckinEmail` (linhas 189-233) **nunca é chamado** do `CheckIn.tsx`. O coach não recebe notificação quando aluno envia feedback.
-- **Limitação Web3Forms:** o campo `to_email` (enviar para email do coach) **só funciona no plano Pro**. No plano grátis, tudo vai para o email da conta dona da access_key — provavelmente o motivo dos emails "não chegarem" aos coaches.
-- Chave hardcoded em `src/lib/anamnesisSchema.ts:8` (publicável, mas idealmente em secret).
-
-**Ação:**
-- Chamar `sendCheckinEmail(coach.notification_email || coach.email, payload)` no submit do `CheckIn.tsx`.
-- **Migrar para Resend** (já temos `RESEND_API_KEY` configurado em secrets) via uma edge function `notify-coach` — assim emails saem do nosso domínio, vão para o coach correto e não dependem do plano Web3Forms. Manter Web3Forms como fallback opcional.
-- Edge function aceita `{ coachEmail, subject, html }` e usa Resend API.
-
----
-
-## Ordem de execução
-
-1. Edge function `notify-coach` (Resend) + integrar no submit da anamnese **e** do check-in.
-2. Lembrete de 14 dias no `StudentArea`.
-3. Empty states (remover sample data) em `WorkoutPlan`, `DynamicRoutine`, `StudentDashboard`.
-4. Painel resumo do aluno no `CoachDashboard`.
-5. Revisão final das perguntas do check-in (se você me reenviar o HTML, comparo campo a campo).
-
-## Pergunta antes de implementar
-
-Quer que eu **substitua** o Web3Forms pelo Resend (recomendado, emails confiáveis pelo seu domínio) ou **mantenha** Web3Forms e só conserte a chamada faltando no check-in?
+Confirma que seguimos pela Fase 2 nessa ordem?
