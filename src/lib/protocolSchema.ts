@@ -43,13 +43,41 @@ export const WorkoutDaySchema = z.object({
   exercises: z.array(ExerciseSchema).default([]),
 });
 
+/** Macros por refeição (g). 0 = não aplicável. */
+export const MealMacrosSchema = z.object({
+  carbs: z.number().min(0).default(0),
+  protein: z.number().min(0).default(0),
+  fat: z.number().min(0).default(0),
+});
+
+/** Uma opção de prato dentro da refeição. */
+export const MealOptionSchema = z.object({
+  title: z.string().default(""),
+  items: z.string().default(""), // texto livre dos alimentos
+});
+
+/** Substituições por macro — 2 entradas cada. */
+export const MealSubsSchema = z.object({
+  carb: z.array(z.string()).default(["", ""]),
+  protein: z.array(z.string()).default(["", ""]),
+  fat: z.array(z.string()).default(["", ""]),
+});
+
 export const MealSchema = z.object({
   name: z.string().default(""),
   time: z.string().default(""),
-  foods: z.string().default(""),
+  // novos campos estruturados
+  macros: MealMacrosSchema.default({ carbs: 0, protein: 0, fat: 0 }),
+  options: z.array(MealOptionSchema).default([
+    { title: "Opção 1", items: "" },
+    { title: "Opção 2", items: "" },
+  ]),
+  substitutions: MealSubsSchema.default({ carb: ["", ""], protein: ["", ""], fat: ["", ""] }),
+  notes: z.string().optional().default(""),
+  // legados (mantidos para compat de leitura)
+  foods: z.string().optional().default(""),
   qtyHighCarb: z.string().optional().default(""),
   qtyLowCarb: z.string().optional().default(""),
-  substitutions: z.string().optional().default(""),
 });
 
 export const MacrosBaseSchema = z.object({
@@ -78,7 +106,8 @@ export const ProtocolPayloadSchema = z.object({
   }),
   workouts: z.array(WorkoutDaySchema).default([]),
   meals: z.array(MealSchema).default([]),
-  carbCycle: z.record(z.enum(["high", "low", "off"])).default({}),
+  // base/high/off — multiplicadores: base=1, high=+15%, off=-15%
+  carbCycle: z.record(z.enum(["high", "base", "off", "low"])).default({}),
 });
 
 
@@ -86,13 +115,27 @@ export type ProtocolPayload = z.infer<typeof ProtocolPayloadSchema>;
 export type ExerciseRow = z.infer<typeof ExerciseSchema>;
 export type WorkoutDay = z.infer<typeof WorkoutDaySchema>;
 export type MealRow = z.infer<typeof MealSchema>;
+export type MealMacros = z.infer<typeof MealMacrosSchema>;
 
 export function makeEmptyExercise(): ExerciseRow {
   return { name: "", sets: "", reps: "", cadence: "", rest: "", notes: "" };
 }
 
 export function makeEmptyMeal(name = ""): MealRow {
-  return { name, time: "", foods: "", qtyHighCarb: "", qtyLowCarb: "", substitutions: "" };
+  return {
+    name,
+    time: "",
+    macros: { carbs: 0, protein: 0, fat: 0 },
+    options: [
+      { title: "Opção 1", items: "" },
+      { title: "Opção 2", items: "" },
+    ],
+    substitutions: { carb: ["", ""], protein: ["", ""], fat: ["", ""] },
+    notes: "",
+    foods: "",
+    qtyHighCarb: "",
+    qtyLowCarb: "",
+  };
 }
 
 /** Cria payload base a partir do setup escolhido no modal. */
@@ -117,7 +160,7 @@ export function buildBasePayload(setup: {
       makeEmptyMeal(defaultMealNames[i] ?? `Refeição ${i + 1}`)
     ),
     carbCycle: setup.carbCycle
-      ? WEEKDAYS.reduce((acc, d) => ({ ...acc, [d.key]: "low" as const }), {})
+      ? WEEKDAYS.reduce((acc, d) => ({ ...acc, [d.key]: "base" as const }), {})
       : {},
   });
 }

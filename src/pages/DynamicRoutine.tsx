@@ -32,6 +32,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import CarbCycleSelector, { type CarbMode } from "@/components/student/CarbCycleSelector";
 import ProtocolQuestionButton from "@/components/student/ProtocolQuestionButton";
+import StudentToolbar from "@/components/student/StudentToolbar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -242,7 +243,7 @@ export default function DynamicRoutine() {
   const todayPlan = strategy?.weeklyPlan?.[dayMap[todayIndex]];
   const defaultMode: CarbMode =
     todayPlan?.type === "high" ? "high" :
-    todayPlan?.type === "low" ? "low" : "base";
+    todayPlan?.type === "low" ? "off" : "base";
   const [carbMode, setCarbMode] = useState<CarbMode>(defaultMode);
   useEffect(() => { setCarbMode(defaultMode); }, [defaultMode]);
   const isHighCarb = carbMode === "high";
@@ -332,7 +333,8 @@ export default function DynamicRoutine() {
         {/* Carb cycle manual selector */}
         <CarbCycleSelector value={carbMode} onChange={setCarbMode} />
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <StudentToolbar />
           <ProtocolQuestionButton context="general" variant="button" />
         </div>
 

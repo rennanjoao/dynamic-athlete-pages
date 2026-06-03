@@ -1,95 +1,95 @@
-# Plano — Refinos no Painel do Coach e Área do Aluno
 
-## 1. Painel do Coach — mostrar nome do aluno
-- Em `useCoachStudents.ts`, hoje o nome vem só de `student_profiles.full_name`. Se o aluno não preencheu, mostra "Aluno".
-- Fallback: buscar também em `profiles.full_name` e por fim no email do `auth.users` (via select cruzado). Garantir que sempre exiba algo identificável.
+Baseado no HTML do Leandro, vou expandir o sistema de protocolo do Elite Lab Hub com import/export Excel, refeições estruturadas (2 opções + substituições por macro) e ferramentas do aluno (TACO, FODMAP, Proteínas).
 
-## 2. Regras de alerta por inatividade da anamnese/feedback
-Hoje o `alertLevel` em `useCoachStudents.ts` usa último treino/refeição:
-- 0 dias = ok, 1+ = warning, 3+ = critical
-Mudar para considerar **último check-in (feedback) OU anamnese submitted_at**:
-- ≥ 6 dias → **crítico** (vermelho)
-- ≥ 3 dias → **atenção** (amarelo)
-- < 3 dias → ok
+## 1. Esboço em Excel (coach)
 
-## 3. Sistema de dúvidas no Protocolo
-Nova tabela `protocol_questions`:
+`ProtocolImportExport.tsx` ganha dois novos botões além do JSON:
+
+- **Baixar esboço (.xlsx)** — gera planilha com abas:
+  - `Setup` (split, refeições, ciclo de carbo on/off)
+  - `Macros` (base / alto +15% / baixo −15% calculados por fórmula)
+  - `Treinos` (uma aba por dia do split, colunas: exercício, séries, reps, cadência, descanso, obs)
+  - `Refeições` (linhas com: nome, hora, macros C/P/G, Opção 1, Opção 2, Sub C 1, Sub C 2, Sub P 1, Sub P 2, Sub G 1, Sub G 2, observações)
+  - `Ciclo de Carbo` (Seg–Dom → alto / base / off)
+  - `Diretrizes` (treino, dieta, semana, suplementação)
+- **Importar (.xlsx)** — lê as mesmas abas e converte de volta no `ProtocolPayload`.
+
+Usa biblioteca `xlsx` (SheetJS) no client. Mantém os botões JSON existentes.
+
+## 2. Schema do protocolo (estendido)
+
+`src/lib/protocolSchema.ts`:
+
 ```
-id, student_id, coach_id, protocol_id (nullable),
-context: 'exercise' | 'meal' | 'supplement' | 'general',
-item_ref (texto livre — nome do exercício/refeição/suplemento),
-question (texto),
-status: 'open' | 'answered',
-coach_response, answered_at, created_at, updated_at
+MealMacrosSchema  { c, p, g }              // gramas por macro
+MealOptionSchema  { title, items }         // prato
+MealSubsSchema    { carb: [s1, s2], protein: [s1, s2], fat: [s1, s2] }
+MealSchema (novo)
+  name, time, macros: MealMacrosSchema,
+  options: [opt1, opt2],
+  substitutions: MealSubsSchema,
+  notes
 ```
-RLS:
-- Aluno: insert/select próprias
-- Coach vinculado: select/update das do seu aluno
-- Admin: tudo
 
-**UX no aluno (ProtocolViewer ou novo `StudentProtocolView`):**
-- Cada item (exercício/refeição/suplemento) recebe um ícone 💬 (MessageCircle) com tooltip "Relatar dúvida"
-- Clique abre dialog com textarea + botão Enviar
-- Botão flutuante "Dúvida geral sobre protocolo" no rodapé
+Regra de UI: cada bloco de substituição só aparece se o macro correspondente em `macros` > 0.
 
-**UX no coach:**
-- Novo card no `CoachDashboard` "Dúvidas dos alunos" com badge contador
-- Lista agrupada por aluno, com contexto e item; campo de resposta inline
-- Ao responder, marca `answered` e (opcional) envia email ao aluno via `notify-coach` reaproveitado
+Mantém retrocompatibilidade (`qtyHighCarb`, `qtyLowCarb`, `foods` continuam opcionais para protocolos antigos).
 
-**Email para o coach:**
-- Edge function nova ou extensão da `notify-coach` para enviar quando aluno cria dúvida
-- Assunto: "Nova dúvida de {aluno} — {contexto}"
-- Body: contexto, item, pergunta, link para painel
+## 3. Ciclo de carbo: Base / Alto / Off
 
-## 4. Ciclo de carbo no painel do aluno
-- Hoje `coach_plans.diet_strategy_json` armazena ciclo definido pelo coach
-- Quando o ciclo está ativo, adicionar 3 botões no topo da dieta do aluno: **Carbo Alto / Base / Carbo Baixo**
-- Salvar escolha do dia em `diet_progress` ou local state com persistência por data
-- Macros e quantidades recalculam conforme a estratégia do coach (já existe lógica de high/low; adicionar 'base' usando os valores base do plano)
+- `CarbCycleSelector` passa a aceitar `"base" | "high" | "off"` (renomeio de `low` → `off`).
+- `coach_plans.diet_strategy_json` armazena multiplicadores: alto = +15%, off = −15%, base = 1.0.
+- Visualização da dieta no aluno mostra os macros recalculados conforme o modo selecionado.
 
-## 5. Unificar Rotina + Protocolo
-- Hoje o Coach tem aba "Rotina" (`RoutineBuilder`) e "Protocolo" (`ProtocolBuilder` + `ProtocolEditor`) com sobreposição
-- **Remover aba Rotina** do `CoachDashboard`
-- Mover o que falta para o Protocolo:
-  - **Macros base** (calorias/proteína/carbo/gordura base) → nova seção "Macros base" dentro do `ProtocolBuilder`
-  - Persistir nos campos já existentes `coach_plans.base_calories`, `base_protein_g`, etc., ou migrar para dentro do payload do protocolo
-- A aba "Macros base" do dashboard (se existir como item separado) também sai
+## 4. ProtocolBuilder (coach) — editor da refeição
 
-## 6. Export/Import de esboço do protocolo
-- Botão **"Baixar esboço"** no `ProtocolBuilder` → exporta JSON estruturado (com placeholders e instruções) para o coach editar no PC/IA
-- Botão **"Importar protocolo"** → faz upload do JSON e popula o `ProtocolBuilder` para revisão antes de salvar
-- Formato: JSON simples seguindo `ProtocolPayloadSchema` + comentários inline (#) explicando cada campo
+Para cada refeição:
+- Campos: Nome, Hora, Macros (C/P/G em g)
+- Subseção "Opção 1" e "Opção 2" (título + alimentos)
+- Subseções "Substituição de Carbo / Proteína / Gordura" — só renderiza quando `macros.X > 0`
+- Cada substituição: 2 inputs ("Substituição 1" e "Substituição 2")
 
----
+## 5. ProtocolViewer / DynamicRoutine (aluno)
 
-## Arquivos a criar/editar
+Reescreve o render da refeição para mostrar:
+- 2 opções de prato (cards)
+- Substituições condicionais por macro
+- Quantidades recalculadas pelo modo de carbo ativo
+- Botões fixos no topo da página de dieta:
+  - 🥬 **FODMAPs** (modal)
+  - 🥩 **Proteínas & Lipídios** (modal com tabela TACO resumida)
+  - 🧮 **Calculadora TACO+** (modal)
 
-**Migrações:**
-- Nova migração: criar `protocol_questions` com GRANTs + RLS
+## 6. Ferramentas do aluno
 
-**Edge Functions:**
-- `notify-coach-question` (ou estender `notify-coach`) — email ao coach quando aluno cria dúvida
+Novos componentes em `src/components/student/tools/`:
+- `FoodmapsDialog.tsx` — listas Seguros / Moderar / Restringir (do HTML)
+- `ProteinGuideDialog.tsx` — fontes + tabela TACO de referência
+- `TacoCalculatorDialog.tsx` — entrada de alimentos com sugestões + cálculo por kcal/proteína/carb/gordura usando dataset TACO local
 
-**Componentes novos:**
-- `src/components/student/ProtocolQuestionButton.tsx` (ícone+dialog reutilizável)
-- `src/components/coach/StudentQuestionsPanel.tsx`
-- `src/components/student/CarbCycleSelector.tsx`
-- `src/components/coach/ProtocolImportExport.tsx`
+Dataset: `src/data/tacoFoods.ts` — array compacto (~80 alimentos comuns: arroz, batata-doce, aveia, frango, patinho, ovo, etc.) com `{ name, kcal, p, c, g }` por 100 g.
 
-**Componentes editados:**
-- `src/hooks/useCoachStudents.ts` — nome fallback + regra de alerta (3/6 dias por anamnese/check-in)
-- `src/pages/CoachDashboard.tsx` — remover aba Rotina, adicionar painel de dúvidas
-- `src/components/coach/ProtocolBuilder.tsx` — seção Macros base + botões export/import
-- `src/components/student/ProtocolViewer.tsx` — botões de dúvida em cada item + dúvida geral
-- `src/pages/StudentArea.tsx` ou `DynamicRoutine.tsx` — `CarbCycleSelector` na dieta
+## 7. Build & QA
 
----
+- `bun add xlsx`
+- Testar: gerar .xlsx, abrir no Excel, editar uma refeição, reimportar — payload preserva opções e substituições.
+- Migração de protocolos antigos: loader converte `qtyHighCarb/qtyLowCarb/foods` em `options[0]` automaticamente.
 
-## Confirmações antes de começar
-1. **Email ao coach por dúvida**: posso usar o `notify-coach` existente (Resend) com novo `kind: "question"`?
-2. **Macros base no Protocolo**: manter na tabela `coach_plans` (campos existentes) ou mover tudo para dentro do `payload` do protocolo?
-3. **Aba "Macros base"** atual do dashboard: ela existe como aba separada? Confirmo que deve ser removida e mesclada ao Protocolo.
-4. **Dúvida geral**: deve aparecer em `StudentArea` (dashboard) ou só dentro do `ProtocolViewer`?
+## Arquivos
 
-Se estiver tudo OK, posso seguir direto. Se preferir, ajusto qualquer ponto antes.
+Novos:
+- `src/lib/protocolXlsx.ts` (export/import xlsx)
+- `src/data/tacoFoods.ts`
+- `src/components/student/tools/FoodmapsDialog.tsx`
+- `src/components/student/tools/ProteinGuideDialog.tsx`
+- `src/components/student/tools/TacoCalculatorDialog.tsx`
+- `src/components/student/StudentToolbar.tsx`
+
+Editados:
+- `src/lib/protocolSchema.ts` (MealSchema expandida + back-compat)
+- `src/components/coach/ProtocolImportExport.tsx` (botões xlsx)
+- `src/components/coach/ProtocolBuilder.tsx` (editor de refeição novo)
+- `src/components/student/CarbCycleSelector.tsx` (base/high/off)
+- `src/pages/DynamicRoutine.tsx` + `src/components/student/ProtocolViewer.tsx` (render novo + toolbar)
+
+Confirma para eu seguir?

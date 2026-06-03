@@ -444,52 +444,116 @@ function WorkoutsTab({ payload, setPayload }: { payload: ProtocolPayload; setPay
 }
 
 function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
-  const carbCycle = payload.setup.carbCycle;
   const upd = (i: number, patch: Partial<ProtocolPayload["meals"][number]>) => {
     const next = [...payload.meals];
     next[i] = { ...next[i], ...patch };
     setPayload({ ...payload, meals: next });
+  };
+  const updMacro = (i: number, k: "carbs" | "protein" | "fat", v: number) => {
+    upd(i, { macros: { ...payload.meals[i].macros, [k]: v } });
+  };
+  const updOption = (i: number, oi: 0 | 1, patch: { title?: string; items?: string }) => {
+    const opts = [...payload.meals[i].options];
+    opts[oi] = { ...opts[oi], ...patch };
+    upd(i, { options: opts });
+  };
+  const updSub = (i: number, kind: "carb" | "protein" | "fat", si: 0 | 1, v: string) => {
+    const subs = { ...payload.meals[i].substitutions };
+    const arr = [...(subs[kind] ?? ["", ""])];
+    arr[si] = v;
+    subs[kind] = arr;
+    upd(i, { substitutions: subs });
   };
   const add = () => setPayload({ ...payload, meals: [...payload.meals, makeEmptyMeal(`Refeição ${payload.meals.length + 1}`)] });
   const rm = (i: number) => setPayload({ ...payload, meals: payload.meals.filter((_, idx) => idx !== i) });
 
   return (
     <div className="space-y-3">
-      {payload.meals.map((m, i) => (
-        <Card key={i} className="bg-card/60 border-border p-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.8fr_auto] gap-2">
-            <Input value={m.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-9 text-sm" />
-            <Input value={m.time} onChange={(e) => upd(i, { time: e.target.value })} placeholder="07:00" className="h-9 text-sm" />
-            <button onClick={() => rm(i)} className="text-muted-foreground hover:text-destructive p-2">
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-          <Textarea
-            value={m.foods}
-            onChange={(e) => upd(i, { foods: e.target.value })}
-            placeholder="Alimentos / ingredientes"
-            className="min-h-[60px] text-sm"
-          />
-          {carbCycle ? (
-            <div className="grid grid-cols-2 gap-2">
+      <p className="text-[11px] text-muted-foreground">
+        Defina os macros da refeição. As substituições de cada macro só aparecem para o aluno quando o valor for maior que zero.
+      </p>
+      {payload.meals.map((m, i) => {
+        const subBlocks: { key: "carb" | "protein" | "fat"; label: string; color: string; on: boolean }[] = [
+          { key: "carb", label: "Substituições de Carboidrato", color: "text-amber-500", on: m.macros.carbs > 0 },
+          { key: "protein", label: "Substituições de Proteína", color: "text-blue-500", on: m.macros.protein > 0 },
+          { key: "fat", label: "Substituições de Gordura", color: "text-rose-500", on: m.macros.fat > 0 },
+        ];
+        return (
+          <Card key={i} className="bg-card/60 border-border p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.8fr_auto] gap-2">
+              <Input value={m.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-9 text-sm" />
+              <Input value={m.time} onChange={(e) => upd(i, { time: e.target.value })} placeholder="07:00" className="h-9 text-sm" />
+              <button onClick={() => rm(i)} className="text-muted-foreground hover:text-destructive p-2">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Macros da refeição */}
+            <div className="grid grid-cols-3 gap-2">
               <div>
-                <Label className="text-[10px] uppercase tracking-wider text-emerald-500">Qtd · Carbo ALTO</Label>
-                <Input value={m.qtyHighCarb} onChange={(e) => upd(i, { qtyHighCarb: e.target.value })} placeholder="150g arroz" className="h-8 text-xs mt-1" />
+                <Label className="text-[10px] uppercase tracking-wider text-amber-500">Carbo (g)</Label>
+                <Input type="number" value={m.macros.carbs} onChange={(e) => updMacro(i, "carbs", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
               </div>
               <div>
-                <Label className="text-[10px] uppercase tracking-wider text-amber-500">Qtd · Carbo BAIXO</Label>
-                <Input value={m.qtyLowCarb} onChange={(e) => upd(i, { qtyLowCarb: e.target.value })} placeholder="80g arroz" className="h-8 text-xs mt-1" />
+                <Label className="text-[10px] uppercase tracking-wider text-blue-500">Proteína (g)</Label>
+                <Input type="number" value={m.macros.protein} onChange={(e) => updMacro(i, "protein", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-rose-500">Gordura (g)</Label>
+                <Input type="number" value={m.macros.fat} onChange={(e) => updMacro(i, "fat", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
               </div>
             </div>
-          ) : (
-            <div>
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Quantidades</Label>
-              <Input value={m.qtyHighCarb} onChange={(e) => upd(i, { qtyHighCarb: e.target.value })} placeholder="Ex.: 150g arroz, 200g frango" className="h-8 text-xs mt-1" />
+
+            {/* Opções 1 e 2 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+              {[0, 1].map((oi) => {
+                const opt = m.options[oi] ?? { title: `Opção ${oi + 1}`, items: "" };
+                return (
+                  <div key={oi} className="rounded-lg border border-border/60 p-2 space-y-1.5">
+                    <Input
+                      value={opt.title}
+                      onChange={(e) => updOption(i, oi as 0 | 1, { title: e.target.value })}
+                      placeholder={`Opção ${oi + 1}`}
+                      className="h-8 text-xs font-semibold"
+                    />
+                    <Textarea
+                      value={opt.items}
+                      onChange={(e) => updOption(i, oi as 0 | 1, { items: e.target.value })}
+                      placeholder="Alimentos do prato (ex.: 150g arroz + 200g frango + brócolis)"
+                      className="min-h-[60px] text-xs"
+                    />
+                  </div>
+                );
+              })}
             </div>
-          )}
-          <Input value={m.substitutions} onChange={(e) => upd(i, { substitutions: e.target.value })} placeholder="Substituições" className="h-8 text-xs" />
-        </Card>
-      ))}
+
+            {/* Substituições por macro — só se macro > 0 */}
+            {subBlocks.filter((b) => b.on).map((b) => (
+              <div key={b.key} className="rounded-lg border border-border/60 p-2 space-y-1.5">
+                <Label className={`text-[10px] uppercase tracking-wider ${b.color}`}>{b.label}</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[0, 1].map((si) => (
+                    <Input
+                      key={si}
+                      value={m.substitutions[b.key]?.[si] ?? ""}
+                      onChange={(e) => updSub(i, b.key, si as 0 | 1, e.target.value)}
+                      placeholder={`Substituição ${si + 1}`}
+                      className="h-8 text-xs"
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <Input
+              value={m.notes ?? ""}
+              onChange={(e) => upd(i, { notes: e.target.value })}
+              placeholder="Observações da refeição (opcional)"
+              className="h-8 text-xs"
+            />
+          </Card>
+        );
+      })}
       <Button variant="outline" size="sm" onClick={add}><Plus className="w-3.5 h-3.5 mr-1" /> Refeição</Button>
     </div>
   );
@@ -509,7 +573,7 @@ function WeekCycleTab({ payload, setPayload }: { payload: ProtocolPayload; setPa
       </Card>
     );
   }
-  const upd = (day: string, v: "high" | "low" | "off") =>
+  const upd = (day: string, v: "high" | "base" | "off") =>
     setPayload({ ...payload, carbCycle: { ...payload.carbCycle, [day]: v } });
 
   return (
@@ -519,16 +583,17 @@ function WeekCycleTab({ payload, setPayload }: { payload: ProtocolPayload; setPa
       </p>
       <div className="space-y-2">
         {WEEKDAYS.map((d) => {
-          const v = (payload.carbCycle[d.key] as "high" | "low" | "off") ?? "low";
+          const raw = payload.carbCycle[d.key] ?? "base";
+          const v: "high" | "base" | "off" = raw === "low" ? "off" : (raw as "high" | "base" | "off");
           return (
             <div key={d.key} className="flex items-center gap-3">
               <div className="w-24 text-sm font-medium">{d.label}</div>
-              <Select value={v} onValueChange={(val) => upd(d.key, val as "high" | "low" | "off")}>
+              <Select value={v} onValueChange={(val) => upd(d.key, val as "high" | "base" | "off")}>
                 <SelectTrigger className="h-8 text-xs w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="high" className="text-xs">Carbo Alto</SelectItem>
-                  <SelectItem value="low" className="text-xs">Carbo Baixo</SelectItem>
-                  <SelectItem value="off" className="text-xs">Off / Descanso</SelectItem>
+                  <SelectItem value="base" className="text-xs">Base</SelectItem>
+                  <SelectItem value="off" className="text-xs">Off / Baixo</SelectItem>
                 </SelectContent>
               </Select>
             </div>
