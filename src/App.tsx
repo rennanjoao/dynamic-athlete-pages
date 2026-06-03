@@ -23,6 +23,7 @@ const CheckIn          = lazy(() => import("./pages/CheckIn"));
 const Evolution        = lazy(() => import("./pages/Evolution"));
 const DynamicRoutine   = lazy(() => import("./pages/DynamicRoutine"));
 const WorkoutPlanPage  = lazy(() => import("./pages/WorkoutPlan"));
+const Supplements      = lazy(() => import("./pages/Supplements")); // Nova importação
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,6 +72,7 @@ const App = () => {
               <Route path="/routine"      element={<AnamnesisGuard><DynamicRoutine /></AnamnesisGuard>} />
               <Route path="/workout-plan" element={<AnamnesisGuard><WorkoutPlanPage /></AnamnesisGuard>} />
               <Route path="/daily"        element={<AnamnesisGuard><StudentDashboard /></AnamnesisGuard>} />
+              <Route path="/supplements"  element={<AnamnesisGuard><Supplements /></AnamnesisGuard>} /> {/* Nova rota */}
 
               {/* Coach */}
               <Route path="/coach" element={<AdminGuard requiredRole="coach"><CoachDashboard /></AdminGuard>} />
