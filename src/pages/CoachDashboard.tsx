@@ -236,7 +236,7 @@ function LeadsTab({ coachId }: { coachId: string }) {
                   ))}
                 </SelectContent>
               </Select>
-              <button onClick={() => deleteLead(lead.id)} className="p-1.5 text-muted-foreground hover:text-destructive">
+              <button onClick={() => setDeleteLeadId(lead.id)} className="p-1.5 text-muted-foreground hover:text-destructive">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
