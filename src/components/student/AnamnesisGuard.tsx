@@ -14,9 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-// IMPORTAÇÃO DO SPLASH SCREEN AQUI PARA COBRIR O BLOQUEIO
-import { SplashScreen } from "@/components/student/SplashScreen";
-
 export const AnamnesisGuard = ({ children }: { children: React.ReactNode }) => {
   const { anamnesis, loading } = useStudentData();
   const navigate = useNavigate();
@@ -48,39 +45,30 @@ export const AnamnesisGuard = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // Se o aluno estiver na rota da anamnese, exibe a ficha (com o Splash cobrindo a entrada)
-  if (isAnamnesisRoute) {
-    return (
-      <>
-        <SplashScreen />
-        {children}
-      </>
-    );
-  }
-
   return (
     <>
-      {/* O SPLASH SCREEN AGORA RODA ANTES DE TUDO, INDEPENDENTE DE BLOQUEIO */}
-      <SplashScreen />
+      {hasCompletedAnamnesis || isAnamnesisRoute ? children : null}
 
-      {/* Renderiza a Área do Aluno apenas se a Anamnese estiver preenchida */}
-      {hasCompletedAnamnesis && children}
-
-      {/* O pop-up só aparece/fica interativo por baixo/depois do Splash */}
       <AlertDialog open={isOpen}>
         <AlertDialogContent className="border-primary/30 z-[9000]">
           <AlertDialogHeader>
             <AlertDialogTitle>Ponto de Partida Obrigatório</AlertDialogTitle>
             <AlertDialogDescription>
-              Para liberar o seu painel, rotinas e gráficos de evolução, é estritamente necessário preencher e enviar sua Anamnese inicial. O seu protocolo será montado com base nestes dados.
+              Para liberar o seu painel, rotinas e gráficos de evolução, é
+              estritamente necessário preencher e enviar sua Anamnese inicial.
+              O seu protocolo será montado com base nestes dados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-4">
-            <Button variant="outline" onClick={handleLogoutOrHome} className="w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={handleLogoutOrHome}
+              className="w-full sm:w-auto"
+            >
               Voltar ao Início
             </Button>
-            <AlertDialogAction 
-              onClick={() => navigate("/anamnesis")} 
+            <AlertDialogAction
+              onClick={() => navigate("/anamnesis")}
               className="w-full sm:w-auto font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Preencher Anamnese Agora
