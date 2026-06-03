@@ -21,6 +21,20 @@ interface Trainer {
   invite_code?: string | null;
 }
 
+interface ProfileInviteInfo {
+  user_id: string;
+  invite_code: string | null;
+  notification_email: string | null;
+}
+
+interface ManageTrainersResponse {
+  trainers?: Trainer[];
+  error?: string;
+}
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message || fallback : fallback;
+
 export const TrainerManagement = () => {
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [showDialog, setShowDialog] = useState(false);
@@ -37,20 +51,20 @@ export const TrainerManagement = () => {
   useEffect(() => { loadTrainers(); }, []);
 
   const loadTrainers = async () => {
-    const { data, error } = await supabase.functions.invoke("manage-trainers", {
+    const { data, error } = await supabase.functions.invoke<ManageTrainersResponse>("manage-trainers", {
       body: { action: "list" },
     });
     
     if (!error && data?.trainers) {
       // Fazemos um fetch extra na tabela profiles para garantir compatibilidade com dados antigos.
-      const ids = data.trainers.map((t: any) => t.id);
+      const ids = data.trainers.map((t) => t.id);
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, invite_code, notification_email')
         .in('user_id', ids);
 
-      const mergedTrainers = data.trainers.map((t: any) => {
-        const profile = profiles?.find(p => p.user_id === t.id);
+      const mergedTrainers = data.trainers.map((t) => {
+        const profile = (profiles as ProfileInviteInfo[] | null)?.find(p => p.user_id === t.id);
         return {
           ...t,
           invite_code: t.invite_code || profile?.invite_code || null,
@@ -92,8 +106,8 @@ export const TrainerManagement = () => {
       setNewTrainer({ email: "", password: "", fullName: "", teamName: "", notificationEmail: "", role: "coach" });
       setShowDialog(false);
       loadTrainers();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Erro ao criar"));
     } finally {
       setIsLoading(false);
     }
@@ -108,7 +122,7 @@ export const TrainerManagement = () => {
       if (error) throw error;
       toast.success("Email de notificação atualizado!");
       loadTrainers();
-    } catch (error: any) {
+    } catch {
       toast.error("Erro ao atualizar email");
     }
   };
@@ -131,8 +145,8 @@ export const TrainerManagement = () => {
       
       toast.success("Código de convite salvo!");
       loadTrainers();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar código");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Erro ao salvar código"));
     }
   };
 
@@ -145,8 +159,8 @@ export const TrainerManagement = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("Senha atualizada com sucesso!");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar senha");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Erro ao atualizar senha"));
     }
   };
 
@@ -160,8 +174,8 @@ export const TrainerManagement = () => {
       if (data?.error) throw new Error(data.error);
       toast.success("Profissional removido");
       loadTrainers();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao remover");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Erro ao remover"));
     }
   };
 
