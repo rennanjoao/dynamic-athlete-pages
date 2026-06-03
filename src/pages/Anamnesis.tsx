@@ -162,27 +162,34 @@ const Anamnesis = () => {
   // ETAPA 2: SUBMETER ANAMNESE E CRIAR CONTA
   const handleSubmit = useCallback(async () => {
     if (!coach) return;
-    if (!g("nome") || !g("email") || !g("senha")) { showToast("Preencha Nome, E-mail e crie sua Senha."); return; }
-    if (g("senha").length < 6) { showToast("A senha deve ter no mínimo 6 caracteres."); return; }
+    if (!g("nome")) { showToast("Preencha seu nome."); return; }
+    if (!loggedUserId) {
+      if (!g("email") || !g("senha")) { showToast("Preencha Nome, E-mail e crie sua Senha."); return; }
+      if (g("senha").length < 6) { showToast("A senha deve ter no mínimo 6 caracteres."); return; }
+    }
     if (!gender) { showToast("Selecione seu gênero."); return; }
 
     setSaving(true);
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: g("email"),
-        password: g("senha"),
-        options: { data: { full_name: g("nome") } }
-      });
-
-      if (authError || !authData.user) throw new Error(authError?.message === "User already registered" ? "Este e-mail já está cadastrado." : "Erro ao criar conta.");
+      let studentId = loggedUserId;
+      if (!studentId) {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: g("email"),
+          password: g("senha"),
+          options: { data: { full_name: g("nome") } }
+        });
+        if (authError || !authData.user) throw new Error(authError?.message === "User already registered" ? "Este e-mail já está cadastrado." : "Erro ao criar conta.");
+        studentId = authData.user.id;
+      }
 
       const fotos: Record<string, string> = {};
       for (const [key, file] of Object.entries(fotoFiles)) {
         if (file) { try { fotos[key] = await uploadToCloudinary(file); } catch { fotos[key] = ""; } }
       }
 
+      const coachIdOrNull = coach.id || null;
       const payload: Record<string, unknown> = {
-        ...d, gender, tpm: tpm.join(", "), queda_capilar_f: quedaF.join(", "), ...groups, fotos, coach_id: coach.id,
+        ...d, gender, tpm: tpm.join(", "), queda_capilar_f: quedaF.join(", "), ...groups, fotos, coach_id: coachIdOrNull,
       };
 
       const baseline: Record<string, number> = {};
@@ -191,19 +198,30 @@ const Anamnesis = () => {
         if (!isNaN(n)) baseline[k] = n;
       });
 
-      await (supabase.from("anamnesis") as any).insert({
-        student_id: authData.user.id,
-        coach_id: coach.id,
+      await (supabase.from("anamnesis") as any).upsert({
+        student_id: studentId,
+        coach_id: coachIdOrNull,
         payload,
         baseline_metrics: baseline,
         submitted_at: new Date().toISOString(),
-      });
+      }, { onConflict: "student_id" });
 
-      await supabase.from("coach_students").insert({
-        coach_id: coach.id,
-        student_id: authData.user.id,
-        status: "active",
-      });
+      // Cria vínculo só se houver coach e ainda não existir
+      if (coachIdOrNull) {
+        const { data: existingLink } = await supabase
+          .from("coach_students")
+          .select("id")
+          .eq("coach_id", coachIdOrNull)
+          .eq("student_id", studentId)
+          .maybeSingle();
+        if (!existingLink) {
+          await supabase.from("coach_students").insert({
+            coach_id: coachIdOrNull,
+            student_id: studentId,
+            status: "active",
+          });
+        }
+      }
 
       if (coach.email) await sendAnamnesisEmail(payload, gender, tpm, quedaF, fotos, coach.email);
 
@@ -214,7 +232,7 @@ const Anamnesis = () => {
     } finally {
       setSaving(false);
     }
-  }, [d, gender, tpm, quedaF, groups, fotoFiles, coach]);
+  }, [d, gender, tpm, quedaF, groups, fotoFiles, coach, loggedUserId]);
 
   const chBtn = (id: string) => cn("px-5 py-2.5 rounded-xl text-sm font-bold border-2 transition-all", gender === id ? "border-primary bg-primary/15 text-primary" : "border-border/50 text-muted-foreground hover:border-primary/40");
 
