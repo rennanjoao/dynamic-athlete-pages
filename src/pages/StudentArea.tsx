@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { TrainerAlert } from "@/components/student/TrainerAlert";
 import { CheckInReminder } from "@/components/student/CheckInReminder";
 import { ProgressDashboard } from "@/components/student/ProgressDashboard";
+import StudentToolbar from "@/components/student/StudentToolbar";
 import { useStudentData } from "@/hooks/useStudentData";
 import {
   ClipboardList,
