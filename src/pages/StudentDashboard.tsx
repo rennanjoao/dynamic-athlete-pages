@@ -26,6 +26,7 @@ import {
   ClipboardList,
   Apple,
   BarChart3,
+  Sparkles,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -479,6 +480,28 @@ export default function StudentDashboard() {
     });
   }, []);
 
+  // Verifica se o coach já publicou plano (treino + dieta) — caso contrário,
+  // não mostra dados de exemplo para não confundir o aluno.
+  const { data: planRow, isLoading: planLoading } = useQuery({
+    queryKey: ["coach-plan-presence", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coach_plans")
+        .select("workout_periodization_json, diet_strategy_json")
+        .eq("student_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data ?? null;
+    },
+    staleTime: 60_000,
+  });
+  const hasPlan =
+    !!planRow &&
+    (Object.keys(planRow.workout_periodization_json ?? {}).length > 0 ||
+      Object.keys(planRow.diet_strategy_json ?? {}).length > 0);
+
   const { data, isLoading } = useDailyState(userId);
   const toggle = useToggleItem(userId);
   const saveScore = useSaveScore(userId);
@@ -572,12 +595,39 @@ export default function StudentDashboard() {
     navigate("/");
   };
 
-  if (isLoading) {
+  if (isLoading || planLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-muted-foreground">Carregando seu plano...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Sem plano publicado pelo coach → empty state (não exibe SAMPLE_*)
+  if (!hasPlan) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="max-w-md w-full rounded-2xl border border-dashed border-border p-8 text-center space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+            <Sparkles className="w-7 h-7 text-primary" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground">
+            Seu protocolo está sendo montado
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Seu coach está analisando sua anamnese e em breve vai liberar seu
+            plano de treino, alimentação e suplementação. Assim que estiver
+            pronto, você verá tudo aqui.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <Button onClick={() => navigate("/student-area")}>Voltar à Área do Aluno</Button>
+            <Button variant="outline" onClick={() => navigate("/check-in")}>
+              Enviar um feedback ao coach
+            </Button>
+          </div>
         </div>
       </div>
     );

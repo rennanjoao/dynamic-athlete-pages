@@ -1,67 +1,65 @@
-## Problemas identificados
+# Próximos passos — Feedback, Lembretes, Primeiro Acesso e Emails
 
-### 1. Coach não consegue logar como coach
-- `src/pages/Auth.tsx` redireciona **qualquer usuário logado** para `/student-area`, sem checar a role.
-- `src/pages/AdminLogin.tsx` só aceita role `admin` (faz signOut se não for admin).
-- Resultado: um coach que tenta logar tanto em `/auth` quanto em `/admin-login` acaba caindo em `/student-area` ou sendo deslogado.
+## 1. Perguntas do check-in (feedback do aluno)
 
-### 2. Código de convite dá inválido
-- A função `get_coach_by_invite_code` (no Postgres) faz:
-  ```sql
-  SELECT user_id, full_name, notification_email
-  FROM profiles
-  WHERE invite_code = p_code AND role = 'coach'
-  ```
-- A coluna `role` **não existe** em `profiles` (roles estão na tabela `user_roles`). A chamada retorna `400: column "role" does not exist` (visível nos logs de rede).
+O formulário em `src/pages/CheckIn.tsx` + `src/lib/checkInSchema.ts` **já espelha o portal HTML** (comentário na linha 5 confirma). As perguntas atuais cobrem: humor, dieta/adesão, água, carboidratos, compulsão, intestino, treino, sono, stress, libido, aparência, temperatura D1-D5, observações + 5 medidas (peso, cintura, quadril, coxa, braço).
 
-### 3. Aluno já logado é forçado a preencher anamnese, mas a tela exige código + signup
-- A anamnese (`/anamnesis`) começa pelo passo "code" → digitar código do coach → criar nova conta. Não há caminho para um aluno já autenticado preencher a anamnese diretamente.
-- O `AnamnesisGuard` empurra alunos logados sem anamnese para `/anamnesis`, onde eles caem no fluxo de "primeiro acesso" e ficam presos.
+**Ação:** Revisar e limpar a ficha:
+- Garantir que **apenas perguntas** apareçam (sem campos de cadastro — já está assim).
+- Adicionar qualquer pergunta do portal que esteja faltando (vou comparar com o HTML que você enviou — preciso que me reenvie ou confirme se já está completo).
+- Manter o salvamento atual em `check_ins.payload` + `current_metrics`.
 
-## Plano de correção
+## 2. Lembrete de 14 dias
 
-### A. Login do coach (após login, decidir rota pela role)
-Atualizar `src/pages/Auth.tsx` para, após `signInWithPassword` e no `onAuthStateChange`/`getSession` inicial:
-1. Chamar `supabase.rpc("has_role", { _user_id, _role: "admin" })` → se true, navegar para `/admin`.
-2. Senão, `has_role(..., "coach")` → se true, navegar para `/coach`.
-3. Caso contrário → `/student-area`.
+Hoje não existe nenhuma lógica de lembrete. `check_ins.submitted_at` é lido mas nunca comparado com a data atual.
 
-Isso permite que admin e coach usem a tela padrão de login. `/admin-login` continua existindo para acesso direto da área restrita.
+**Ação:** Em `src/pages/StudentArea.tsx`, logo abaixo do `<TrainerAlert />` (linha ~139), adicionar uma faixa quando `diasDesdeUltimoCheckin >= 14`:
+- Vermelha/âmbar discreta: "Já se passaram X dias desde seu último feedback. Envie um novo para seu coach acompanhar sua evolução." + botão "Enviar feedback".
+- Se nunca enviou e a anamnese já tem 14+ dias, mesma faixa.
+- Dado vem de `useStudentData` (já carrega `checkIns` ordenados desc).
 
-### B. Corrigir função `get_coach_by_invite_code`
-Migration recriando a função para juntar `profiles` com `user_roles`:
-```sql
-CREATE OR REPLACE FUNCTION public.get_coach_by_invite_code(p_code text)
-RETURNS TABLE(coach_id uuid, coach_name text, notification_email text)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT p.user_id, p.full_name, p.notification_email
-  FROM profiles p
-  JOIN user_roles ur ON ur.user_id = p.user_id
-  WHERE p.invite_code = p_code
-    AND ur.role = 'coach'::app_role
-  LIMIT 1;
-END;
-$$;
-```
+## 3. Primeiro acesso limpo (sem protocolo fake)
 
-### C. Anamnese para aluno já autenticado
-Ajustar `src/pages/Anamnesis.tsx`:
-1. No mount, verificar `supabase.auth.getUser()`.
-2. Se houver sessão **e** ainda não houver anamnese (`anamnesis` vazio para esse `student_id`):
-   - Pular o passo "code" e o bloco de signup (nome/email/senha).
-   - Tentar carregar o `coach_id` a partir de `coach_students` (status `active`) — se não houver, ainda permitir preencher sem coach.
-   - Mostrar o formulário direto (`step = "form"`); no submit, usar `auth.uid()` como `student_id`, sem criar conta nova nem inserir em `coach_students` (a menos que ainda não exista vínculo).
-3. Se **não** houver sessão, manter o fluxo atual de "primeiro acesso" (código → signup → anamnese).
+Hoje o aluno novo vê dados de exemplo hardcoded, o que confunde:
+- `WorkoutPlan.tsx:131` retorna `DEFAULT_PERIODIZATION` (4 dias fake).
+- `DynamicRoutine.tsx:146` retorna `DEFAULT_STRATEGY` (refeições fake).
+- `StudentDashboard.tsx:242` usa `SAMPLE_WORKOUTS` e `SAMPLE_MEALS` hardcoded.
 
-Não mexer no `AnamnesisGuard`: ele continua redirecionando para `/anamnesis`, e agora a página sabe atender tanto novos quanto já logados.
+**Ação:** Trocar os fallbacks por **empty states** quando não houver `coach_plans` real para o aluno:
+- WorkoutPlan: card "Seu coach ainda está montando seu treino. Avisaremos quando estiver pronto."
+- DynamicRoutine: card "Seu plano alimentar ainda não foi publicado pelo seu coach."
+- StudentDashboard: esconder cards de Treino do Dia / Refeições quando não houver plano publicado, e mostrar um aviso amigável.
+- `ProtocolViewer.tsx` já faz isso corretamente — usar como referência.
 
-## Arquivos afetados
+## 4. Coach selecionando aluno (auto-load)
 
-- `src/pages/Auth.tsx` — roteamento por role após login.
-- `src/pages/Anamnesis.tsx` — modo "aluno já logado".
-- Nova migration SQL — recriar `get_coach_by_invite_code`.
+Já funciona: ao clicar em Anamnese / Rotina / Protocolo, o `RoutineBuilder` (linha 61-113) carrega automaticamente `coach_plans` + `anamnesis` via `useQuery` e popula o formulário. Sem cliques extras.
 
-Sem mudanças em RLS, edge functions ou em `AdminLogin`/`AdminGuard`.
+**Ação:** Apenas garantir que a tela inicial do `CoachDashboard` mostre os dados básicos do aluno selecionado (nome, última anamnese, último check-in, plano ativo) num painel resumido ao lado da lista — para o coach ver o panorama antes mesmo de abrir uma aba.
+
+## 5. Email Web3Forms para coach (debug)
+
+Achados em `src/lib/anamnesisSchema.ts`:
+
+- **Bug principal:** `sendCheckinEmail` (linhas 189-233) **nunca é chamado** do `CheckIn.tsx`. O coach não recebe notificação quando aluno envia feedback.
+- **Limitação Web3Forms:** o campo `to_email` (enviar para email do coach) **só funciona no plano Pro**. No plano grátis, tudo vai para o email da conta dona da access_key — provavelmente o motivo dos emails "não chegarem" aos coaches.
+- Chave hardcoded em `src/lib/anamnesisSchema.ts:8` (publicável, mas idealmente em secret).
+
+**Ação:**
+- Chamar `sendCheckinEmail(coach.notification_email || coach.email, payload)` no submit do `CheckIn.tsx`.
+- **Migrar para Resend** (já temos `RESEND_API_KEY` configurado em secrets) via uma edge function `notify-coach` — assim emails saem do nosso domínio, vão para o coach correto e não dependem do plano Web3Forms. Manter Web3Forms como fallback opcional.
+- Edge function aceita `{ coachEmail, subject, html }` e usa Resend API.
+
+---
+
+## Ordem de execução
+
+1. Edge function `notify-coach` (Resend) + integrar no submit da anamnese **e** do check-in.
+2. Lembrete de 14 dias no `StudentArea`.
+3. Empty states (remover sample data) em `WorkoutPlan`, `DynamicRoutine`, `StudentDashboard`.
+4. Painel resumo do aluno no `CoachDashboard`.
+5. Revisão final das perguntas do check-in (se você me reenviar o HTML, comparo campo a campo).
+
+## Pergunta antes de implementar
+
+Quer que eu **substitua** o Web3Forms pelo Resend (recomendado, emails confiáveis pelo seu domínio) ou **mantenha** Web3Forms e só conserte a chamada faltando no check-in?

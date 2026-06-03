@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { uploadToCloudinary, sendAnamnesisEmail, NEURO_SLIDERS } from "@/lib/anamnesisSchema";
+import { notifyCoach } from "@/lib/notifyCoach";
 import { cn } from "@/lib/utils";
 import { ShieldCheck, ArrowRight } from "lucide-react";
 
@@ -233,7 +234,20 @@ const Anamnesis = () => {
         }
       }
 
-      if (coach.email) await sendAnamnesisEmail(payload, gender, tpm, quedaF, fotos, coach.email);
+      if (coach.email) {
+        // Resend via edge function (principal)
+        await notifyCoach({
+          coachEmail: coach.email,
+          studentName: String(payload.nome ?? ""),
+          studentEmail: String(payload.email ?? ""),
+          kind: "anamnesis",
+          summary: `Aluno enviou anamnese completa (${Object.keys(payload).length} campos).`,
+          data: { ...payload, genero: gender, tpm: tpm.join(", "), queda_capilar: quedaF.join(", ") },
+          photos: fotos,
+        });
+        // Fallback Web3Forms (best-effort, não bloqueia)
+        sendAnamnesisEmail(payload, gender, tpm, quedaF, fotos, coach.email).catch(() => {});
+      }
 
       setStep("done");
     } catch (e: any) {

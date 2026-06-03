@@ -153,7 +153,7 @@ function useDietStrategy(userId: string) {
       if (data?.diet_strategy_json && Object.keys(data.diet_strategy_json).length > 0) {
         return data.diet_strategy_json as unknown as DietStrategy;
       }
-      return DEFAULT_STRATEGY;
+      return null; // empty state — sem estratégia publicada
     },
     staleTime: 5 * 60_000,
     enabled: !!userId,
@@ -249,8 +249,37 @@ export default function DynamicRoutine() {
     );
   }
 
-  const meals = strategy?.meals ?? DEFAULT_STRATEGY.meals;
-  const weeklyPlan = strategy?.weeklyPlan ?? DEFAULT_STRATEGY.weeklyPlan;
+  if (!strategy) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b px-4 py-3 flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-bold text-foreground">Rotina Dinâmica</h1>
+            <p className="text-xs text-muted-foreground">Aguardando seu coach</p>
+          </div>
+        </header>
+        <main className="max-w-lg mx-auto px-4 py-12">
+          <Card className="border-dashed">
+            <CardContent className="p-8 text-center space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <Apple className="w-6 h-6 text-primary" />
+              </div>
+              <h2 className="text-base font-bold text-foreground">Sua estratégia ainda não foi publicada</h2>
+              <p className="text-sm text-muted-foreground">
+                Seu coach está montando seu plano alimentar com base na anamnese. Assim que estiver pronto, aparece aqui.
+              </p>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  const meals = strategy.meals;
+  const weeklyPlan = strategy.weeklyPlan;
 
   return (
     <div className="min-h-screen bg-background">
