@@ -20,9 +20,9 @@ const FeatureCard = ({ icon: Icon, title, description, delay }: { icon: any; tit
   </motion.div>
 );
 
-const StatBlock = ({ value, label }: { value: string; label: string }) => (
+const StatBlock = ({ value, label, noTranslate }: { value: string; label: string; noTranslate?: boolean }) => (
   <div className="text-center">
-    <p className="text-3xl font-extrabold text-gradient">{value}</p>
+    <p className="text-3xl font-extrabold text-gradient" translate={noTranslate ? "no" : undefined}>{value}</p>
     <p className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">{label}</p>
   </div>
 );
