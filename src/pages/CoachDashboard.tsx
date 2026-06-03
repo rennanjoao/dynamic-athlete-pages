@@ -36,7 +36,7 @@ import { toast } from "sonner";
 
 const AnamnesisViewer = lazy(() => import("@/components/anamnesis/AnamnesisViewer"));
 const RoutineBuilder = lazy(() => import("@/components/coach/RoutineBuilder"));
-const ProtocolEditor = lazy(() => import("@/components/coach/ProtocolEditor"));
+const ProtocolBuilder = lazy(() => import("@/components/coach/ProtocolBuilder"));
 
 type CoachView = "list" | "anamnesis" | "routine" | "protocol";
 
