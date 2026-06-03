@@ -21,42 +21,50 @@ export const AdminGuard = ({ children, requiredRole = "admin" }: Props) => {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const check = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (!session) {
-        navigate(requiredRole === "coach" ? "/auth" : "/admin-login");
+      if (!user) {
+        navigate("/admin-login", { replace: true });
         return;
       }
 
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id);
+      const [{ data: isAdmin }, { data: isCoach }] = await Promise.all([
+        supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }),
+        supabase.rpc("has_role", { _user_id: user.id, _role: "coach" }),
+      ]);
 
-      const userRoles = (roles?.map((r) => r.role) ?? []) as string[];
       const hasAccess =
-        userRoles.includes("admin") ||
-        (requiredRole === "coach" && userRoles.includes("coach"));
+        Boolean(isAdmin) ||
+        (requiredRole === "coach" && Boolean(isCoach));
 
       if (!hasAccess) {
-        navigate(requiredRole === "coach" ? "/student-area" : "/admin-login");
+        await supabase.auth.signOut();
+        navigate("/admin-login", { replace: true });
         return;
       }
 
-      setAuthorized(true);
-      setChecking(false);
+      if (mounted) {
+        setAuthorized(true);
+        setChecking(false);
+      }
     };
 
     check();
+
+    return () => {
+      mounted = false;
+    };
   }, [navigate, requiredRole]);
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
-        <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
