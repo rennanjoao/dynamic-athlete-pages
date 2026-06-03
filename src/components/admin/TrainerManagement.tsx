@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { UserPlus, Users, Trash2, Shield, Mail, Key, Dices } from "lucide-react";
+import { UserPlus, Users, Trash2, Shield, Mail, Key, Dices, LockKeyhole } from "lucide-react";
 
 interface Trainer {
   id: string;
@@ -42,17 +42,20 @@ export const TrainerManagement = () => {
     });
     
     if (!error && data?.trainers) {
-      // Fazemos um fetch extra na tabela profiles para garantir que pegamos os códigos de convite,
-      // independente do que a Edge Function retornar por padrão.
+      // Fazemos um fetch extra na tabela profiles para garantir compatibilidade com dados antigos.
       const ids = data.trainers.map((t: any) => t.id);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, invite_code')
+        .select('user_id, invite_code, notification_email')
         .in('user_id', ids);
 
       const mergedTrainers = data.trainers.map((t: any) => {
         const profile = profiles?.find(p => p.user_id === t.id);
-        return { ...t, invite_code: profile?.invite_code || null };
+        return {
+          ...t,
+          invite_code: t.invite_code || profile?.invite_code || null,
+          notification_email: t.notification_email || profile?.notification_email || null,
+        };
       });
 
       setTrainers(mergedTrainers);
@@ -133,6 +136,20 @@ export const TrainerManagement = () => {
     }
   };
 
+  const handleUpdatePassword = async (trainerId: string, password: string) => {
+    try {
+      if (password.length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres");
+      const { data, error } = await supabase.functions.invoke("manage-trainers", {
+        body: { action: "update-password", trainerId, password },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Senha atualizada com sucesso!");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar senha");
+    }
+  };
+
   const handleDeleteTrainer = async (trainerId: string) => {
     if (!confirm("Tem certeza que deseja remover este profissional?")) return;
     try {
@@ -174,6 +191,7 @@ export const TrainerManagement = () => {
               onDelete={handleDeleteTrainer}
               onUpdateEmail={handleUpdateNotificationEmail}
               onUpdateCode={handleUpdateInviteCode}
+              onUpdatePassword={handleUpdatePassword}
             />
           ))}
         </div>
@@ -190,8 +208,8 @@ export const TrainerManagement = () => {
               <Select value={newTrainer.role} onValueChange={(v) => setNewTrainer({ ...newTrainer, role: v as "coach" | "user" })}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="coach">Coach</SelectItem>
-                  <SelectItem value="user">Treinador</SelectItem>
+                  <SelectItem value="coach">Coach / Treinador</SelectItem>
+                  <SelectItem value="user">Aluno</SelectItem>
                 </SelectContent>
               </Select>
             </div>
