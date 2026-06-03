@@ -89,7 +89,7 @@ export const MacrosBaseSchema = z.object({
   goal: z.string().default("hipertrofia"),
 });
 
-export const ProtocolPayloadSchema = z.object({
+const ProtocolPayloadObject = z.object({
   setup: z.object({
     split: z.string().default("ABC"),
     mealsCount: z.number().int().min(2).max(10).default(5),
@@ -107,8 +107,64 @@ export const ProtocolPayloadSchema = z.object({
   workouts: z.array(WorkoutDaySchema).default([]),
   meals: z.array(MealSchema).default([]),
   // base/high/off — multiplicadores: base=1, high=+15%, off=-15%
-  carbCycle: z.record(z.enum(["high", "base", "off", "low"])).default({}),
+  // Tolerante: aceita strings descritivas e infere o modo por palavras-chave,
+  // preservando o texto original em `carbCycleNotes`.
+  carbCycle: z.preprocess((val) => {
+    if (!val || typeof val !== "object") return {};
+    const out: Record<string, "high" | "base" | "off" | "low"> = {};
+    for (const [k, raw] of Object.entries(val as Record<string, unknown>)) {
+      const v = String(raw ?? "").toLowerCase().trim();
+      const key = k.toLowerCase();
+      if (["high", "base", "off", "low"].includes(v)) {
+        out[k] = v as "high" | "base" | "off" | "low";
+        continue;
+      }
+      // inferir por palavras-chave
+      let inferred: "high" | "base" | "off" | "low" = "base";
+      if (/\b(alto|high|\+\s*15|aumento|carga)\b/.test(v)) inferred = "high";
+      else if (/\b(off|descanso|rest|reduzido|baixo|low|-\s*15)\b/.test(v)) inferred = "off";
+      else if (/\b(base|normal|manuten)/.test(v)) inferred = "base";
+      else if (["high", "base", "off", "low"].includes(key)) {
+        inferred = key as "high" | "base" | "off" | "low";
+      }
+      out[k] = inferred;
+    }
+    return out;
+  }, z.record(z.enum(["high", "base", "off", "low"])).default({})),
+  // Texto original descritivo de cada entrada do ciclo de carbo (quando vier livre).
+  carbCycleNotes: z.preprocess((val) => {
+    if (!val || typeof val !== "object") return {};
+    const out: Record<string, string> = {};
+    for (const [k, raw] of Object.entries(val as Record<string, unknown>)) {
+      if (typeof raw === "string" && raw.trim()) out[k] = raw;
+    }
+    return out;
+  }, z.record(z.string()).default({})),
 });
+
+/**
+ * Schema tolerante: aceita payloads JSON externos (ex.: gerados por IA) com
+ * campos extras ou strings descritivas e adapta-os ao formato interno sem
+ * descartar nada. O texto original de cada entrada do ciclo de carbo é
+ * copiado para `carbCycleNotes` antes da coerção para enum.
+ */
+export const ProtocolPayloadSchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== "object") return raw;
+  const obj = raw as Record<string, unknown>;
+  const cc = obj.carbCycle;
+  if (cc && typeof cc === "object" && !Array.isArray(cc)) {
+    const existingNotes = (obj.carbCycleNotes && typeof obj.carbCycleNotes === "object")
+      ? { ...(obj.carbCycleNotes as Record<string, unknown>) }
+      : {};
+    for (const [k, v] of Object.entries(cc as Record<string, unknown>)) {
+      if (typeof v === "string" && !["high", "base", "off", "low"].includes(v.toLowerCase().trim())) {
+        if (!existingNotes[k]) existingNotes[k] = v;
+      }
+    }
+    return { ...obj, carbCycleNotes: existingNotes };
+  }
+  return obj;
+}, ProtocolPayloadObject);
 
 
 export type ProtocolPayload = z.infer<typeof ProtocolPayloadSchema>;
