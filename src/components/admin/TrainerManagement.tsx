@@ -347,6 +347,24 @@ function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode, onUpdatePa
         </div>
       )}
 
+      {editingPassword && (
+        <div className="flex gap-2 items-center pt-1 border-t border-border/20 mt-2">
+          <div className="flex-1">
+            <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Nova senha de acesso</p>
+            <Input
+              type="password"
+              value={passwordVal}
+              onChange={e => setPasswordVal(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              className="h-8 text-xs"
+            />
+          </div>
+          <Button size="sm" className="mt-4 h-8 text-xs" onClick={() => { onUpdatePassword(trainer.id, passwordVal); setPasswordVal(""); setEditingPassword(false); }}>
+            Salvar
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
         <p className="text-[10px] text-muted-foreground flex items-center gap-1">
           <Mail className="w-3 h-3" />
