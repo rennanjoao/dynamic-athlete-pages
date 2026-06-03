@@ -73,8 +73,7 @@ const Index = () => {
             <div className="grid grid-cols-3 gap-8">
               <StatBlock value="10+" label="Modalidades" />
               <StatBlock value="100%" label="Personalizado" />
-              <StatBlock value="24/7" label="Acesso" />
-            </div>
+          <StatBlock value="24/7" label="Acesso" noTranslate />            </div>
           </motion.div>
         </div>
       </header>
