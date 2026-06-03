@@ -138,7 +138,7 @@ function useWorkoutPlan(userId: string) {
       if (data?.workout_periodization_json && Object.keys(data.workout_periodization_json).length > 0) {
         return data.workout_periodization_json as unknown as WorkoutPeriodization;
       }
-      return DEFAULT_PERIODIZATION;
+      return null; // empty state — sem plano publicado pelo coach
     },
     staleTime: 5 * 60_000,
     enabled: !!userId,
@@ -168,7 +168,36 @@ export default function WorkoutPlan() {
     );
   }
 
-  const periodization = plan ?? DEFAULT_PERIODIZATION;
+  if (!plan) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b px-4 py-3 flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-bold text-foreground">Plano de Treino</h1>
+            <p className="text-xs text-muted-foreground">Aguardando seu coach</p>
+          </div>
+        </header>
+        <main className="max-w-lg mx-auto px-4 py-12">
+          <Card className="border-dashed">
+            <CardContent className="p-8 text-center space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <Dumbbell className="w-6 h-6 text-primary" />
+              </div>
+              <h2 className="text-base font-bold text-foreground">Seu treino ainda não foi publicado</h2>
+              <p className="text-sm text-muted-foreground">
+                Seu coach está montando sua periodização. Assim que estiver pronta, ela aparece aqui automaticamente.
+              </p>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  const periodization = plan;
   const currentWeek = periodization.currentWeek ?? 1;
   const currentDirective = periodization.weeklyDirectives.find((w) => w.week === currentWeek);
 

@@ -153,7 +153,7 @@ function useDietStrategy(userId: string) {
       if (data?.diet_strategy_json && Object.keys(data.diet_strategy_json).length > 0) {
         return data.diet_strategy_json as unknown as DietStrategy;
       }
-      return DEFAULT_STRATEGY;
+      return null; // empty state — sem estratégia publicada
     },
     staleTime: 5 * 60_000,
     enabled: !!userId,
