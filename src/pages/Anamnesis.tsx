@@ -1,9 +1,9 @@
 /**
  * Anamnesis.tsx
  * 12 seções fiéis ao portal__2_.html
- * Seletor de coach → salva no Supabase + envia email para notification_email do coach
+ * Cadastro automático via Código do Coach acoplado ao envio da Anamnese.
  */
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 
 /* ── tipos ─────────────────────────────────────────────────── */
 type ChoiceGroup = Record<string, string>;
-interface Coach { id: string; full_name: string | null; team_name: string | null; notification_email: string | null; }
 
 /* ── helpers de UI ─────────────────────────────────────────── */
 function Choices({ options, group, state, setState, cols = 3 }: {
@@ -92,8 +91,6 @@ const Anamnesis = () => {
   const [quedaF, setQuedaF] = useState<string[]>([]);
   const [groups, setGroups] = useState<ChoiceGroup>({});
   const [toast, setToast] = useState("");
-  const [coaches, setCoaches] = useState<Coach[]>([]);
-  const [selectedCoachId, setSelectedCoachId] = useState<string>("");
 
   const [fotoFiles, setFotoFiles] = useState<Record<string, File | null>>({ frente: null, lateral_dir: null, lateral_esq: null, costas: null });
   const [fotoPreviews, setFotoPreviews] = useState<Record<string, string | null>>({ frente: null, lateral_dir: null, lateral_esq: null, costas: null });
@@ -103,21 +100,6 @@ const Anamnesis = () => {
   const g = (k: string) => d[k] ?? "";
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3500); };
-
-  // Carrega lista de coaches
-  useEffect(() => {
-    const loadCoaches = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("manage-trainers", { body: { action: "list" } });
-        if (!error && data?.trainers) {
-          setCoaches(data.trainers.filter((t: any) => t.role === "coach"));
-        }
-      } catch {
-        // fallback silencioso
-      }
-    };
-    loadCoaches();
-  }, []);
 
   function toggleMulti(arr: string[], setArr: (a: string[]) => void, val: string, solo?: boolean) {
     if (solo) { setArr(arr.includes(val) ? [] : [val]); return; }
@@ -132,77 +114,92 @@ const Anamnesis = () => {
   }
 
   const handleSubmit = useCallback(async () => {
+    // Novas validações obrigatórias para o Cadastro
+    if (!g("codigo_convite")) { showToast("Insira o código do treinador."); return; }
     if (!g("nome")) { showToast("Nome obrigatório."); return; }
     if (!g("email") || !g("email").includes("@")) { showToast("E-mail inválido."); return; }
+    if (!g("senha") || g("senha").length < 6) { showToast("Crie uma senha de no mínimo 6 caracteres."); return; }
     if (!gender) { showToast("Selecione seu gênero."); return; }
-    if (!selectedCoachId) { showToast("Selecione seu coach."); return; }
 
     setSaving(true);
     try {
-      // Upload fotos
+      // 1. Valida o código do Coach no banco via RPC
+      const { data: coachData, error: rpcError } = await supabase.rpc('get_coach_by_invite_code', { p_code: g("codigo_convite").trim() });
+      if (rpcError || !coachData || coachData.length === 0) {
+        throw new Error("Código de treinador inválido ou inexistente.");
+      }
+      const validCoachId = coachData[0].coach_id;
+      const coachEmail = coachData[0].notification_email;
+
+      // 2. Cria a conta do Aluno
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: g("email"),
+        password: g("senha"),
+        options: { data: { full_name: g("nome") } }
+      });
+      if (authError || !authData.user) {
+        throw new Error(authError?.message === "User already registered" ? "Este e-mail já está cadastrado." : "Erro ao criar conta.");
+      }
+
+      // 3. Upload fotos
       const fotos: Record<string, string> = {};
       for (const [key, file] of Object.entries(fotoFiles)) {
         if (file) { try { fotos[key] = await uploadToCloudinary(file); } catch { fotos[key] = ""; } }
       }
 
-      // Payload completo
+      // 4. Prepara Payload
       const payload: Record<string, unknown> = {
         ...d, gender,
         tpm: tpm.join(", "),
         queda_capilar_f: quedaF.join(", "),
         ...groups,
         fotos,
-        coach_id: selectedCoachId,
+        coach_id: validCoachId,
       };
 
-      // Salva no Supabase
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const baseline: Record<string, number> = {};
-        const bKeys = ["altura", "peso", "cintura", "quadril", "braco_d", "braco_e", "coxa_d", "coxa_e", "pant_d", "pant_e"];
-        for (const k of bKeys) {
-          const n = parseFloat(String(payload[k] ?? ""));
-          if (!isNaN(n)) baseline[k] = n;
-        }
-        await (supabase.from("anamnesis") as any).upsert({
-          student_id: user.id,
-          coach_id: selectedCoachId,
-          payload,
-          baseline_metrics: baseline,
-          submitted_at: new Date().toISOString(),
-        }, { onConflict: "student_id" });
-
-        // Vincula aluno ao coach
-        await supabase.from("coach_students").upsert({
-          coach_id: selectedCoachId,
-          student_id: user.id,
-          status: "active",
-        }, { onConflict: "coach_id,student_id" });
+      const baseline: Record<string, number> = {};
+      const bKeys = ["altura", "peso", "cintura", "quadril", "braco_d", "braco_e", "coxa_d", "coxa_e", "pant_d", "pant_e"];
+      for (const k of bKeys) {
+        const n = parseFloat(String(payload[k] ?? ""));
+        if (!isNaN(n)) baseline[k] = n;
       }
 
-      // Busca email de notificação do coach selecionado
-      const coach = coaches.find(c => c.id === selectedCoachId);
-      const coachEmail = coach?.notification_email || "";
+      // 5. Salva a Anamnese vinculada ao novo usuário
+      await (supabase.from("anamnesis") as any).insert({
+        student_id: authData.user.id,
+        coach_id: validCoachId,
+        payload,
+        baseline_metrics: baseline,
+        submitted_at: new Date().toISOString(),
+      });
 
+      // 6. Vincula aluno ao coach na tabela coach_students
+      await supabase.from("coach_students").insert({
+        coach_id: validCoachId,
+        student_id: authData.user.id,
+        status: "active",
+      });
+
+      // 7. Dispara email pro coach
       if (coachEmail) {
         await sendAnamnesisEmail(payload, gender, tpm, quedaF, fotos, coachEmail);
       }
 
       setDone(true);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      showToast("Erro ao enviar. Tente novamente.");
+      showToast(e.message || "Erro ao enviar. Tente novamente.");
     } finally {
       setSaving(false);
     }
-  }, [d, gender, tpm, quedaF, groups, fotoFiles, selectedCoachId, coaches]);
+  }, [d, gender, tpm, quedaF, groups, fotoFiles]);
 
   if (done) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center gap-5">
       <div className="w-16 h-16 rounded-full border border-primary bg-primary/10 flex items-center justify-center text-2xl">✓</div>
-      <h2 className="text-2xl font-bold text-foreground">Anamnese enviada!</h2>
-      <p className="text-muted-foreground text-sm max-w-xs">Obrigado(a), <span className="text-primary font-bold">{g("nome").split(" ")[0]}</span>. Seu coach receberá seus dados e entrará em contato em breve.</p>
-      <Button onClick={() => navigate("/student-area")}>Voltar à área do aluno</Button>
+      <h2 className="text-2xl font-bold text-foreground">Conta criada e Anamnese enviada!</h2>
+      <p className="text-muted-foreground text-sm max-w-xs">Obrigado(a), <span className="text-primary font-bold">{g("nome").split(" ")[0]}</span>. Seu coach receberá seus dados e você já possui acesso à plataforma.</p>
+      <Button onClick={() => navigate("/student-area")}>Acessar minha área</Button>
     </div>
   );
 
@@ -213,8 +210,8 @@ const Anamnesis = () => {
     <div className="min-h-screen bg-background pb-20">
       {/* Topbar */}
       <div className="sticky top-0 z-50 flex items-center justify-between px-5 py-3 bg-background/90 backdrop-blur border-b border-border/40">
-        <span className="font-bold text-sm text-primary tracking-widest uppercase">Anamnese</span>
-        <Button variant="outline" size="sm" onClick={() => { setD({}); setGender(""); setGroups({}); setSelectedCoachId(""); showToast("Limpo."); }}>Limpar</Button>
+        <span className="font-bold text-sm text-primary tracking-widest uppercase">Anamnese de Ingresso</span>
+        <Button variant="outline" size="sm" onClick={() => { setD({}); setGender(""); setGroups({}); showToast("Limpo."); }}>Limpar</Button>
       </div>
 
       <div className="max-w-xl mx-auto px-4 py-6 space-y-8">
@@ -222,12 +219,25 @@ const Anamnesis = () => {
         {/* 01 — Quem é você */}
         <section>
           <SecHead num="01" title="Quem é você" />
-          <Card label="Dados pessoais">
+          
+          {/* CÓDIGO DO COACH - Substituiu o seletor antigo */}
+          <Card label="Vínculo de Treinamento">
+            <Field label="Código do Treinador (Obrigatório)">
+              <FiInput name="codigo_convite" placeholder="Ex: ELITE2026" value={g("codigo_convite")} onChange={(v) => set("codigo_convite")(v.toUpperCase())} />
+            </Field>
+            <p className="text-[10px] text-muted-foreground mt-1">Insira o código fornecido pelo seu coach para vincular sua conta automaticamente.</p>
+          </Card>
+
+          <Card label="Dados pessoais e Acesso">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2"><Field label="Nome completo"><FiInput name="nome" placeholder="Seu nome completo" value={g("nome")} onChange={set("nome")} /></Field></div>
               <Field label="Data de nascimento"><FiInput name="data_nasc" type="date" value={g("data_nasc")} onChange={set("data_nasc")} /></Field>
               <Field label="WhatsApp"><FiInput name="whatsapp" type="tel" placeholder="(11) 99999-9999" value={g("whatsapp")} onChange={set("whatsapp")} /></Field>
-              <div className="col-span-2"><Field label="E-mail"><FiInput name="email" type="email" placeholder="voce@email.com" value={g("email")} onChange={set("email")} /></Field></div>
+              
+              {/* E-MAIL E SENHA PARA CADASTRO */}
+              <div className="col-span-2"><Field label="E-mail (Login)"><FiInput name="email" type="email" placeholder="voce@email.com" value={g("email")} onChange={set("email")} /></Field></div>
+              <div className="col-span-2"><Field label="Crie uma Senha"><FiInput name="senha" type="password" placeholder="Mínimo 6 caracteres" value={g("senha")} onChange={set("senha")} /></Field></div>
+              
               <div className="col-span-2"><Field label="Cidade / Estado"><FiInput name="cidade" placeholder="Ex: São Paulo / SP" value={g("cidade")} onChange={set("cidade")} /></Field></div>
             </div>
           </Card>
@@ -236,36 +246,6 @@ const Anamnesis = () => {
               <button type="button" onClick={() => setGender("F")} className={chBtn("F")}>♀ Feminino</button>
               <button type="button" onClick={() => setGender("M")} className={chBtn("M")}>♂ Masculino</button>
             </div>
-          </Card>
-
-          {/* Seletor de Coach */}
-          <Card label="Selecione seu Coach">
-            {coaches.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-2">Carregando coaches...</p>
-            ) : (
-              <div className="space-y-2">
-                {coaches.map(coach => (
-                  <button key={coach.id} type="button"
-                    onClick={() => setSelectedCoachId(coach.id)}
-                    className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left",
-                      selectedCoachId === coach.id
-                        ? "border-primary bg-primary/10"
-                        : "border-border/40 hover:border-primary/30 bg-card"
-                    )}>
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                      {(coach.full_name ?? "?")[0].toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{coach.full_name ?? "Coach"}</p>
-                      {coach.team_name && <p className="text-xs text-muted-foreground">{coach.team_name}</p>}
-                    </div>
-                    {selectedCoachId === coach.id && (
-                      <span className="ml-auto text-primary text-base">✓</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
           </Card>
         </section>
 
@@ -540,7 +520,7 @@ const Anamnesis = () => {
 
         {/* Botão enviar */}
         <Button size="lg" className="w-full h-14 text-base font-bold glow-primary" onClick={handleSubmit} disabled={saving}>
-          {saving ? "Enviando..." : "Enviar Anamnese"}
+          {saving ? "Enviando e cadastrando..." : "Finalizar Cadastro e Enviar"}
         </Button>
       </div>
 
