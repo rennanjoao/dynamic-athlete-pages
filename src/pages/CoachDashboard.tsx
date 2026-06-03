@@ -772,6 +772,23 @@ export default function CoachDashboard() {
             </DialogContent>
           )}
         </Dialog>
+
+        <AlertDialog open={!!unlinkTarget} onOpenChange={(o) => !o && setUnlinkTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Desvincular aluno?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {unlinkTarget?.name} perderá acesso ao protocolo. Você pode reativar o vínculo manualmente depois.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmUnlink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Desvincular
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
