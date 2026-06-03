@@ -776,7 +776,7 @@ export default function CoachDashboard() {
                 <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-sm text-muted-foreground">
                   {students.length === 0
-                    ? "Nenhum aluno vinculado. Clique em 'Vincular Aluno' para começar."
+                    ? "Nenhum aluno vinculado ainda. Compartilhe seu código de convite — o aluno será vinculado automaticamente ao enviar a anamnese."
                     : "Nenhum aluno encontrado com os filtros atuais."}
                 </p>
               </div>
