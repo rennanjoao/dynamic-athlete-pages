@@ -60,11 +60,12 @@ const AdminLogin = () => {
 
       await supabase.auth.signOut();
       toast.error("Acesso negado. Esta conta não tem permissão de administrador ou coach.");
-    } catch (error: any) {
-      if (error.message.includes("Invalid login credentials")) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("Invalid login credentials")) {
         toast.error("Credenciais inválidas");
       } else {
-        toast.error(error.message || "Erro ao fazer login");
+        toast.error(message || "Erro ao fazer login");
       }
     } finally {
       setIsLoading(false);
