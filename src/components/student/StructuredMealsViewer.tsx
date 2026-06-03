@@ -1,45 +1,52 @@
-/**
- * StructuredMealsViewer.tsx
- * Renderiza refeições do Protocolo Master (payload.meals):
- *  - 2 opções de prato (escolha pelo aluno)
- *  - Macros (C/P/G) da refeição
- *  - Substituições por macro — só aparecem se o macro > 0
- *  - Aplica multiplicador do ciclo de carbo (Alto +15% / Base / Off -15%)
- */
-
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Apple, Clock, Repeat } from "lucide-react";
+import { Apple, Clock, Repeat, CheckCircle2 } from "lucide-react";
 import CarbCycleSelector, { type CarbMode } from "@/components/student/CarbCycleSelector";
-import { ProtocolPayloadSchema, type ProtocolPayload, type MealRow } from "@/lib/protocolSchema";
+import { useState } from "react";
 
-interface Props {
-  payload: ProtocolPayload;
-}
+// Aceita qualquer estrutura flexível sem quebrar
+export default function StructuredMealsViewer({ payload }: { payload: any }) {
+  const [mode, setMode] = useState<CarbMode>("base");
 
-const CARB_MULT: Record<CarbMode, number> = { high: 1.15, base: 1, off: 0.85, low: 0.85 };
+  // Força a leitura do payload bruto caso o schema falhe
+  const safeData = payload || {};
+  const meals = Array.isArray(safeData.meals) ? safeData.meals : [];
+  const hasCarbCycle = safeData.setup?.carbCycle === true;
 
-function adjustedCarbs(meal: MealRow, mode: CarbMode) {
-  return Math.round(meal.macros.carbs * CARB_MULT[mode]);
-}
-
-function MealCard({ meal, mode }: { meal: MealRow; mode: CarbMode }) {
-  const [opt, setOpt] = useState<"0" | "1">("0");
-  const option = meal.options[Number(opt)] ?? meal.options[0];
-  const c = adjustedCarbs(meal, mode);
-  const p = meal.macros.protein;
-  const f = meal.macros.fat;
-  const subs = meal.substitutions;
-
-  const hasCarbSubs = c > 0 && subs.carb.some((s) => s.trim());
-  const hasProteinSubs = p > 0 && subs.protein.some((s) => s.trim());
-  const hasFatSubs = f > 0 && subs.fat.some((s) => s.trim());
+  if (meals.length === 0) return null;
 
   return (
-    <Card className="bg-card/60 border-border">
-      <CardHeader className="pb-2">
+    <div className="space-y-4">
+      {hasCarbCycle && <CarbCycleSelector value={mode} onChange={setMode} />}
+      {meals.map((meal: any, i: number) => (
+        <MealCard key={i} meal={meal} mode={mode} />
+      ))}
+    </div>
+  );
+}
+
+const CARB_MULT: Record<string, number> = { high: 1.15, base: 1, off: 0.85, low: 0.85 };
+
+function MealCard({ meal, mode }: { meal: any; mode: string }) {
+  // Extração defensiva de dados (se não existir, assume 0 ou vazio)
+  const c = Math.round((meal.macros?.carbs || 0) * (CARB_MULT[mode] || 1));
+  const p = meal.macros?.protein || 0;
+  const f = meal.macros?.fat || 0;
+  
+  const subsCarb = Array.isArray(meal.substitutions?.carb) ? meal.substitutions.carb : [];
+  const subsProt = Array.isArray(meal.substitutions?.protein) ? meal.substitutions.protein : [];
+  const subsFat = Array.isArray(meal.substitutions?.fat) ? meal.substitutions.fat : [];
+
+  const hasCarbSubs = c > 0 && subsCarb.some((s: string) => s && s.trim() !== "");
+  const hasProteinSubs = p > 0 && subsProt.some((s: string) => s && s.trim() !== "");
+  const hasFatSubs = f > 0 && subsFat.some((s: string) => s && s.trim() !== "");
+  
+  const options = Array.isArray(meal.options) ? meal.options : [];
+  const validOptions = options.filter((opt: any) => opt?.items && opt.items.trim() !== "");
+
+  return (
+    <Card className="bg-card/60 border-border overflow-hidden">
+      <CardHeader className="pb-3 border-b border-border/50 bg-muted/10">
         <CardTitle className="flex items-center justify-between gap-2 text-base">
           <span className="flex items-center gap-2">
             <Apple className="w-4 h-4 text-primary" />
@@ -61,45 +68,39 @@ function MealCard({ meal, mode }: { meal: MealRow; mode: CarbMode }) {
           {f > 0 && <Badge variant="outline" className="text-rose-500 border-rose-500/40">{f}g Gordura</Badge>}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Opções de prato */}
-        <Tabs value={opt} onValueChange={(v) => setOpt(v as "0" | "1")}>
-          <TabsList className="grid grid-cols-2 w-full">
-            <TabsTrigger value="0" className="text-xs">{meal.options[0]?.title || "Opção 1"}</TabsTrigger>
-            <TabsTrigger value="1" className="text-xs">{meal.options[1]?.title || "Opção 2"}</TabsTrigger>
-          </TabsList>
-          <TabsContent value="0" className="mt-3">
-            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-              {meal.options[0]?.items || <span className="text-muted-foreground italic">Sem itens cadastrados.</span>}
-            </p>
-          </TabsContent>
-          <TabsContent value="1" className="mt-3">
-            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-              {meal.options[1]?.items || <span className="text-muted-foreground italic">Sem itens cadastrados.</span>}
-            </p>
-          </TabsContent>
-        </Tabs>
+      
+      <CardContent className="space-y-4 pt-4">
+        {validOptions.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {validOptions.map((opt: any, idx: number) => (
+              <div key={idx} className="p-3 rounded-md bg-background border border-border/60 space-y-2">
+                <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {opt.title || `Opção ${idx + 1}`}
+                </h4>
+                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed pl-5">
+                  {opt.items}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground italic">Opções não detalhadas nesta refeição.</p>
+        )}
 
-        {/* Substituições condicionais */}
         {(hasCarbSubs || hasProteinSubs || hasFatSubs) && (
-          <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3 mt-4 space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
               <Repeat className="w-3.5 h-3.5 text-primary" /> Substituições
             </div>
-            {hasCarbSubs && (
-              <SubRow label="Carbo" color="text-amber-600" items={subs.carb} />
-            )}
-            {hasProteinSubs && (
-              <SubRow label="Proteína" color="text-blue-600" items={subs.protein} />
-            )}
-            {hasFatSubs && (
-              <SubRow label="Gordura" color="text-rose-500" items={subs.fat} />
-            )}
+            {hasCarbSubs && <SubRow label="Carbo" color="text-amber-600" items={subsCarb} />}
+            {hasProteinSubs && <SubRow label="Proteína" color="text-blue-600" items={subsProt} />}
+            {hasFatSubs && <SubRow label="Gordura" color="text-rose-500" items={subsFat} />}
           </div>
         )}
 
         {meal.notes && (
-          <p className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2">
+          <p className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2 mt-2">
             {meal.notes}
           </p>
         )}
@@ -109,28 +110,12 @@ function MealCard({ meal, mode }: { meal: MealRow; mode: CarbMode }) {
 }
 
 function SubRow({ label, color, items }: { label: string; color: string; items: string[] }) {
-  const valid = items.filter((s) => s.trim());
+  const valid = items.filter((s) => s && s.trim() !== "");
+  if (valid.length === 0) return null;
   return (
     <div className="text-xs">
       <span className={`font-semibold ${color}`}>{label}:</span>{" "}
       <span className="text-muted-foreground">{valid.join("  •  ")}</span>
-    </div>
-  );
-}
-
-export default function StructuredMealsViewer({ payload }: Props) {
-  const parsed = ProtocolPayloadSchema.safeParse(payload);
-  const safe = parsed.success ? parsed.data : null;
-  const [mode, setMode] = useState<CarbMode>("base");
-
-  if (!safe || safe.meals.length === 0) return null;
-
-  return (
-    <div className="space-y-3">
-      {safe.setup.carbCycle && <CarbCycleSelector value={mode} onChange={setMode} />}
-      {safe.meals.map((meal, i) => (
-        <MealCard key={i} meal={meal} mode={mode} />
-      ))}
     </div>
   );
 }
