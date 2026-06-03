@@ -7,7 +7,7 @@ import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Upload, FileSpreadsheet, FileJson } from "lucide-react";
 import { ProtocolPayloadSchema, type ProtocolPayload } from "@/lib/protocolSchema";
-import { exportProtocolXlsx, importProtocolXlsx } from "@/lib/protocolXlsx";
+import { exportProtocolXlsx, importProtocolXlsx, ProtocolXlsxError } from "@/lib/protocolXlsx";
 import { toast } from "sonner";
 
 interface Props {
