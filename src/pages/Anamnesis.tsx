@@ -324,8 +324,8 @@ const Anamnesis = () => {
           <Card label="Dados Pessoais e Acesso">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2"><Field label="Nome completo"><FiInput name="nome" placeholder="Seu nome completo" value={g("nome")} onChange={set("nome")} /></Field></div>
-              <div className="col-span-2"><Field label="E-mail (Para Login)"><FiInput name="email" type="email" placeholder="voce@email.com" value={g("email")} onChange={set("email")} /></Field></div>
-              <div className="col-span-2"><Field label="Crie uma Senha"><FiInput name="senha" type="password" placeholder="Mínimo 6 caracteres" value={g("senha")} onChange={set("senha")} /></Field></div>
+              {!loggedUserId && <div className="col-span-2"><Field label="E-mail (Para Login)"><FiInput name="email" type="email" placeholder="voce@email.com" value={g("email")} onChange={set("email")} /></Field></div>}
+              {!loggedUserId && <div className="col-span-2"><Field label="Crie uma Senha"><FiInput name="senha" type="password" placeholder="Mínimo 6 caracteres" value={g("senha")} onChange={set("senha")} /></Field></div>}
               <Field label="Data de nascimento"><FiInput name="data_nasc" type="date" value={g("data_nasc")} onChange={set("data_nasc")} /></Field>
               <Field label="WhatsApp"><FiInput name="whatsapp" type="tel" placeholder="(11) 99999-9999" value={g("whatsapp")} onChange={set("whatsapp")} /></Field>
               <div className="col-span-2"><Field label="Cidade / Estado"><FiInput name="cidade" placeholder="Ex: São Paulo / SP" value={g("cidade")} onChange={set("cidade")} /></Field></div>
