@@ -169,7 +169,7 @@ const StudentArea = () => {
             </p>
           </div>
 
-          <ProgressChart />
+          <ProgressDashboard />
         </section>
       </main>
     </div>
