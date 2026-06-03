@@ -255,16 +255,19 @@ export const TrainerManagement = () => {
 };
 
 /* ── Linha do treinador com edição inline ─────────── */
-function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode }: {
+function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode, onUpdatePassword }: {
   trainer: Trainer;
   onDelete: (id: string) => void;
   onUpdateEmail: (id: string, email: string) => void;
   onUpdateCode: (id: string, code: string) => void;
+  onUpdatePassword: (id: string, password: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editingCode, setEditingCode] = useState(false);
+  const [editingPassword, setEditingPassword] = useState(false);
   const [emailVal, setEmailVal] = useState(trainer.notification_email || trainer.email || "");
   const [codeVal, setCodeVal] = useState(trainer.invite_code || "");
+  const [passwordVal, setPasswordVal] = useState("");
 
   const generateRandomCode = () => {
     setCodeVal(Math.random().toString(36).substring(2, 8).toUpperCase());
@@ -279,7 +282,7 @@ function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode }: {
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium">{trainer.full_name || "Sem nome"}</p>
               <Badge variant={trainer.role === "coach" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                {trainer.role === "coach" ? "Coach" : "Treinador"}
+                {trainer.role === "coach" ? "Coach" : "Aluno"}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -288,11 +291,14 @@ function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode }: {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => { setEditingCode(!editingCode); setEditing(false); }} title="Editar código de convite">
+          <Button variant="ghost" size="sm" onClick={() => { setEditingCode(!editingCode); setEditing(false); setEditingPassword(false); }} title="Editar código de convite">
             <Key className="w-4 h-4 text-muted-foreground" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => { setEditing(!editing); setEditingCode(false); }} title="Editar email de notificação">
+          <Button variant="ghost" size="sm" onClick={() => { setEditing(!editing); setEditingCode(false); setEditingPassword(false); }} title="Editar email de notificação">
             <Mail className="w-4 h-4 text-muted-foreground" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => { setEditingPassword(!editingPassword); setEditing(false); setEditingCode(false); }} title="Alterar senha de acesso">
+            <LockKeyhole className="w-4 h-4 text-muted-foreground" />
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onDelete(trainer.id)} className="text-destructive hover:text-destructive">
             <Trash2 className="w-4 h-4" />
