@@ -135,39 +135,43 @@ export function StudentLinksManagement() {
     if (!newCoachId) return;
     setBusy(studentId);
     try {
-      await supabase
+      const { error: deactErr } = await supabase
         .from("coach_students")
         .update({ status: "inactive" })
         .eq("student_id", studentId)
         .eq("status", "active")
         .neq("coach_id", newCoachId);
+      if (deactErr) throw deactErr;
 
-      const { data: existing } = await supabase
+      const { data: existing, error: selErr } = await supabase
         .from("coach_students")
         .select("id, status")
         .eq("coach_id", newCoachId)
         .eq("student_id", studentId)
         .maybeSingle();
+      if (selErr) throw selErr;
 
       if (existing) {
         if (existing.status !== "active") {
-          await supabase
+          const { error: upErr } = await supabase
             .from("coach_students")
             .update({ status: "active" })
             .eq("id", existing.id);
+          if (upErr) throw upErr;
         }
       } else {
-        const { error } = await supabase
+        const { error: insErr } = await supabase
           .from("coach_students")
           .insert({ coach_id: newCoachId, student_id: studentId, status: "active" });
-        if (error) throw error;
+        if (insErr) throw insErr;
       }
       toast.success("Vínculo atualizado");
       setPendingCoach((p) => ({ ...p, [studentId]: "" }));
       setOpenFor(null);
       await load();
     } catch (e: any) {
-      toast.error(e.message ?? "Erro ao vincular");
+      console.error("linkStudent error:", e);
+      toast.error(e.message || e.details || "Erro ao vincular");
     } finally {
       setBusy(null);
     }
