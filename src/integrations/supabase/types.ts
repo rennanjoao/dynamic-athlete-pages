@@ -219,22 +219,7 @@ export type Database = {
           student_id?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "coach_finances_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "coach_finances_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       coach_leads: {
         Row: {
@@ -273,15 +258,7 @@ export type Database = {
           updated_at?: string
           whatsapp?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "coach_leads_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       coach_plans: {
         Row: {
@@ -374,22 +351,7 @@ export type Database = {
           student_id?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "coach_students_coach_id_fkey"
-            columns: ["coach_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "coach_students_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       daily_alerts: {
         Row: {
