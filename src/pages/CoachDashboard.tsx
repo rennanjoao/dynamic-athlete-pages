@@ -182,12 +182,15 @@ function LeadsTab({ coachId }: { coachId: string }) {
     toast.success("Status atualizado");
   };
 
-  const deleteLead = async (id: string) => {
-    if (!confirm("Remover lead?")) return;
-    await supabase.from("coach_leads").delete().eq("id", id);
+  const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const confirmDeleteLead = async () => {
+    if (!deleteLeadId) return;
+    await supabase.from("coach_leads").delete().eq("id", deleteLeadId);
     qc.invalidateQueries({ queryKey: ["coach-leads"] });
     toast.success("Lead removido");
+    setDeleteLeadId(null);
   };
+
 
   const statusLabels: Record<string, { label: string; cls: string }> = {
     new: { label: "Novo", cls: "bg-blue-100 text-blue-700" },
