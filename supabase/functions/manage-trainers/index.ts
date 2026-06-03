@@ -7,6 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type UserRoleRow = { user_id: string; role: "user" | "coach" | "admin" };
+type ListedUser = { id: string; email?: string | null; created_at?: string };
+
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : "Erro inesperado";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -60,8 +65,8 @@ serve(async (req) => {
       });
       if (listErr) throw listErr;
 
-      const match = list.users.find(
-        (u: any) => (u.email || "").toLowerCase() === String(email).toLowerCase()
+      const match = (list.users as ListedUser[]).find(
+        (u) => (u.email || "").toLowerCase() === String(email).toLowerCase()
       );
       if (!match) {
         return new Response(JSON.stringify({ student: null }), {
@@ -101,8 +106,9 @@ serve(async (req) => {
         .select("user_id, role")
         .in("role", ["user", "coach"]);
 
-      const userIds = (roles || [])
-        .map((r: any) => r.user_id)
+      const roleRows = (roles || []) as UserRoleRow[];
+      const userIds = roleRows
+        .map((r) => r.user_id)
         .filter((id: string) => id !== user.id);
 
       const trainers = [];
@@ -111,17 +117,19 @@ serve(async (req) => {
         if (trainerUser) {
           const { data: profile } = await adminClient
             .from("profiles")
-            .select("full_name, team_name")
+            .select("full_name, team_name, notification_email, invite_code")
             .eq("user_id", id)
             .single();
 
-          const role = roles?.find((r: any) => r.user_id === id)?.role || "user";
+          const role = roleRows.find((r) => r.user_id === id)?.role || "user";
 
           trainers.push({
             id: trainerUser.id,
             email: trainerUser.email,
             full_name: profile?.full_name || null,
             team_name: profile?.team_name || null,
+            notification_email: profile?.notification_email || null,
+            invite_code: profile?.invite_code || null,
             role,
             created_at: trainerUser.created_at,
           });
@@ -135,7 +143,7 @@ serve(async (req) => {
 
     // ── CREATE trainer/coach ──
     if (action === "create") {
-      const { email, password, fullName, teamName, role: targetRole } = body;
+      const { email, password, fullName, teamName, notificationEmail, role: targetRole } = body;
       if (!email || !password || !fullName) {
         throw new Error("Email, senha e nome são obrigatórios");
       }
@@ -163,17 +171,31 @@ serve(async (req) => {
       // Ensure a profiles row exists so invite_code/notification_email edits work
       await adminClient
         .from("profiles")
-        .upsert({ user_id: newUser.user.id, full_name: fullName }, { onConflict: "user_id" });
-
-      // Update profile with team_name if provided
-      if (teamName) {
-        await adminClient
-          .from("profiles")
-          .update({ team_name: teamName })
-          .eq("user_id", newUser.user.id);
-      }
+        .upsert({
+          user_id: newUser.user.id,
+          full_name: fullName,
+          team_name: teamName || null,
+          email,
+          notification_email: notificationEmail || email,
+        }, { onConflict: "user_id" });
 
       return new Response(JSON.stringify({ success: true, userId: newUser.user.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── UPDATE PASSWORD ──
+    if (action === "update-password") {
+      const { trainerId, password } = body;
+      if (!trainerId) throw new Error("ID do profissional é obrigatório");
+      if (!password || String(password).length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres");
+
+      const { error } = await adminClient.auth.admin.updateUserById(trainerId, {
+        password: String(password),
+      });
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -220,8 +242,8 @@ serve(async (req) => {
     }
 
     throw new Error("Ação inválida");
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: errorMessage(error) }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

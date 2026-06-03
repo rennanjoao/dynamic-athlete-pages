@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { UserPlus, Users, Trash2, Shield, Mail, Key, Dices } from "lucide-react";
+import { UserPlus, Users, Trash2, Shield, Mail, Key, Dices, LockKeyhole } from "lucide-react";
 
 interface Trainer {
   id: string;
@@ -20,6 +20,20 @@ interface Trainer {
   created_at: string;
   invite_code?: string | null;
 }
+
+interface ProfileInviteInfo {
+  user_id: string;
+  invite_code: string | null;
+  notification_email: string | null;
+}
+
+interface ManageTrainersResponse {
+  trainers?: Trainer[];
+  error?: string;
+}
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message || fallback : fallback;
 
 export const TrainerManagement = () => {
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -37,22 +51,25 @@ export const TrainerManagement = () => {
   useEffect(() => { loadTrainers(); }, []);
 
   const loadTrainers = async () => {
-    const { data, error } = await supabase.functions.invoke("manage-trainers", {
+    const { data, error } = await supabase.functions.invoke<ManageTrainersResponse>("manage-trainers", {
       body: { action: "list" },
     });
     
     if (!error && data?.trainers) {
-      // Fazemos um fetch extra na tabela profiles para garantir que pegamos os códigos de convite,
-      // independente do que a Edge Function retornar por padrão.
-      const ids = data.trainers.map((t: any) => t.id);
+      // Fazemos um fetch extra na tabela profiles para garantir compatibilidade com dados antigos.
+      const ids = data.trainers.map((t) => t.id);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, invite_code')
+        .select('user_id, invite_code, notification_email')
         .in('user_id', ids);
 
-      const mergedTrainers = data.trainers.map((t: any) => {
-        const profile = profiles?.find(p => p.user_id === t.id);
-        return { ...t, invite_code: profile?.invite_code || null };
+      const mergedTrainers = data.trainers.map((t) => {
+        const profile = (profiles as ProfileInviteInfo[] | null)?.find(p => p.user_id === t.id);
+        return {
+          ...t,
+          invite_code: t.invite_code || profile?.invite_code || null,
+          notification_email: t.notification_email || profile?.notification_email || null,
+        };
       });
 
       setTrainers(mergedTrainers);
@@ -89,8 +106,8 @@ export const TrainerManagement = () => {
       setNewTrainer({ email: "", password: "", fullName: "", teamName: "", notificationEmail: "", role: "coach" });
       setShowDialog(false);
       loadTrainers();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Erro ao criar"));
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +122,7 @@ export const TrainerManagement = () => {
       if (error) throw error;
       toast.success("Email de notificação atualizado!");
       loadTrainers();
-    } catch (error: any) {
+    } catch {
       toast.error("Erro ao atualizar email");
     }
   };
@@ -128,8 +145,22 @@ export const TrainerManagement = () => {
       
       toast.success("Código de convite salvo!");
       loadTrainers();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar código");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Erro ao salvar código"));
+    }
+  };
+
+  const handleUpdatePassword = async (trainerId: string, password: string) => {
+    try {
+      if (password.length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres");
+      const { data, error } = await supabase.functions.invoke("manage-trainers", {
+        body: { action: "update-password", trainerId, password },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Senha atualizada com sucesso!");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Erro ao atualizar senha"));
     }
   };
 
@@ -143,8 +174,8 @@ export const TrainerManagement = () => {
       if (data?.error) throw new Error(data.error);
       toast.success("Profissional removido");
       loadTrainers();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao remover");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Erro ao remover"));
     }
   };
 
@@ -174,6 +205,7 @@ export const TrainerManagement = () => {
               onDelete={handleDeleteTrainer}
               onUpdateEmail={handleUpdateNotificationEmail}
               onUpdateCode={handleUpdateInviteCode}
+              onUpdatePassword={handleUpdatePassword}
             />
           ))}
         </div>
@@ -190,8 +222,8 @@ export const TrainerManagement = () => {
               <Select value={newTrainer.role} onValueChange={(v) => setNewTrainer({ ...newTrainer, role: v as "coach" | "user" })}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="coach">Coach</SelectItem>
-                  <SelectItem value="user">Treinador</SelectItem>
+                  <SelectItem value="coach">Coach / Treinador</SelectItem>
+                  <SelectItem value="user">Aluno</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -237,16 +269,19 @@ export const TrainerManagement = () => {
 };
 
 /* ── Linha do treinador com edição inline ─────────── */
-function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode }: {
+function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode, onUpdatePassword }: {
   trainer: Trainer;
   onDelete: (id: string) => void;
   onUpdateEmail: (id: string, email: string) => void;
   onUpdateCode: (id: string, code: string) => void;
+  onUpdatePassword: (id: string, password: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editingCode, setEditingCode] = useState(false);
+  const [editingPassword, setEditingPassword] = useState(false);
   const [emailVal, setEmailVal] = useState(trainer.notification_email || trainer.email || "");
   const [codeVal, setCodeVal] = useState(trainer.invite_code || "");
+  const [passwordVal, setPasswordVal] = useState("");
 
   const generateRandomCode = () => {
     setCodeVal(Math.random().toString(36).substring(2, 8).toUpperCase());
@@ -261,7 +296,7 @@ function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode }: {
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium">{trainer.full_name || "Sem nome"}</p>
               <Badge variant={trainer.role === "coach" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                {trainer.role === "coach" ? "Coach" : "Treinador"}
+                {trainer.role === "coach" ? "Coach" : "Aluno"}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -270,11 +305,14 @@ function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode }: {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => { setEditingCode(!editingCode); setEditing(false); }} title="Editar código de convite">
+          <Button variant="ghost" size="sm" onClick={() => { setEditingCode(!editingCode); setEditing(false); setEditingPassword(false); }} title="Editar código de convite">
             <Key className="w-4 h-4 text-muted-foreground" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => { setEditing(!editing); setEditingCode(false); }} title="Editar email de notificação">
+          <Button variant="ghost" size="sm" onClick={() => { setEditing(!editing); setEditingCode(false); setEditingPassword(false); }} title="Editar email de notificação">
             <Mail className="w-4 h-4 text-muted-foreground" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => { setEditingPassword(!editingPassword); setEditing(false); setEditingCode(false); }} title="Alterar senha de acesso">
+            <LockKeyhole className="w-4 h-4 text-muted-foreground" />
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onDelete(trainer.id)} className="text-destructive hover:text-destructive">
             <Trash2 className="w-4 h-4" />
@@ -318,6 +356,24 @@ function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode }: {
             </div>
           </div>
           <Button size="sm" className="mt-4 h-8 text-xs" onClick={() => { onUpdateCode(trainer.id, codeVal); setEditingCode(false); }}>
+            Salvar
+          </Button>
+        </div>
+      )}
+
+      {editingPassword && (
+        <div className="flex gap-2 items-center pt-1 border-t border-border/20 mt-2">
+          <div className="flex-1">
+            <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Nova senha de acesso</p>
+            <Input
+              type="password"
+              value={passwordVal}
+              onChange={e => setPasswordVal(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              className="h-8 text-xs"
+            />
+          </div>
+          <Button size="sm" className="mt-4 h-8 text-xs" onClick={() => { onUpdatePassword(trainer.id, passwordVal); setPasswordVal(""); setEditingPassword(false); }}>
             Salvar
           </Button>
         </div>

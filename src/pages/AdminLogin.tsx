@@ -15,16 +15,34 @@ const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const routeByRole = async (userId: string) => {
+    const [{ data: isAdmin }, { data: isCoach }] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "coach" }),
+    ]);
+
+    if (isAdmin) {
+      toast.success("Bem-vindo, administrador!");
+      navigate("/admin", { replace: true });
+      return true;
+    }
+
+    if (isCoach) {
+      toast.success("Bem-vindo, coach!");
+      navigate("/coach", { replace: true });
+      return true;
+    }
+
+    return false;
+  };
+
   useEffect(() => {
     const checkExistingSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "admin" });
-      if (isAdmin) { navigate("/admin"); return; }
-      const { data: isCoach } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "coach" });
-      if (isCoach) navigate("/coach");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) await routeByRole(user.id);
     };
     checkExistingSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -37,33 +55,17 @@ const AdminLogin = () => {
       });
       if (authError) throw authError;
 
-      const { data: isAdmin } = await supabase.rpc("has_role", {
-        _user_id: authData.user.id,
-        _role: "admin",
-      });
-      if (isAdmin) {
-        toast.success("Bem-vindo, administrador!");
-        navigate("/admin");
-        return;
-      }
-
-      const { data: isCoach } = await supabase.rpc("has_role", {
-        _user_id: authData.user.id,
-        _role: "coach",
-      });
-      if (isCoach) {
-        toast.success("Bem-vindo, coach!");
-        navigate("/coach");
-        return;
-      }
+      const canAccess = await routeByRole(authData.user.id);
+      if (canAccess) return;
 
       await supabase.auth.signOut();
       toast.error("Acesso negado. Esta conta não tem permissão de administrador ou coach.");
-    } catch (error: any) {
-      if (error.message.includes("Invalid login credentials")) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("Invalid login credentials")) {
         toast.error("Credenciais inválidas");
       } else {
-        toast.error(error.message || "Erro ao fazer login");
+        toast.error(message || "Erro ao fazer login");
       }
     } finally {
       setIsLoading(false);
@@ -95,8 +97,8 @@ const AdminLogin = () => {
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 glow-primary">
               <Shield className="w-7 h-7 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-1">Área Administrativa</h1>
-            <p className="text-sm text-muted-foreground">Acesso restrito para administradores</p>
+            <h1 className="text-2xl font-bold text-foreground mb-1">Área Administrativa e Treinador</h1>
+            <p className="text-sm text-muted-foreground">Admin entra no painel geral; coach entra na área do treinador.</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -131,7 +133,7 @@ const AdminLogin = () => {
               </div>
             </div>
             <Button type="submit" className="w-full rounded-xl h-11 glow-primary" disabled={isLoading}>
-              {isLoading ? "Verificando..." : "Acessar Painel"}
+              {isLoading ? "Verificando..." : "Entrar"}
             </Button>
           </form>
         </div>
