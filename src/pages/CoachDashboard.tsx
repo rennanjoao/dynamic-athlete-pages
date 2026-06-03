@@ -620,7 +620,7 @@ export default function CoachDashboard() {
             ) : view === "routine" ? (
               <RoutineBuilder studentId={selectedStudent.id} studentName={selectedStudent.name} onClose={goBack} />
             ) : (
-              <ProtocolEditor studentId={selectedStudent.id} studentName={selectedStudent.name} />
+              <ProtocolBuilder studentId={selectedStudent.id} studentName={selectedStudent.name} />
             )}
           </Suspense>
         </main>
