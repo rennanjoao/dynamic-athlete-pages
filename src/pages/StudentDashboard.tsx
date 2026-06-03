@@ -582,7 +582,7 @@ export default function StudentDashboard() {
   const dietScore = totalMeals > 0
     ? Math.round((mealsCompleted / totalMeals) * SCORE_WEIGHTS.diet)
     : 0;
-  const waterGoalMl = 2500;
+  const waterGoalMl = Number(planMacros?.water_l ?? 2.5) * 1000;
   const waterScore = waterMl >= waterGoalMl ? SCORE_WEIGHTS.water : Math.round((waterMl / waterGoalMl) * SCORE_WEIGHTS.water);
   const sleepScore = sleepChecked ? SCORE_WEIGHTS.sleep : 0;
   const todayScore = workoutScore + dietScore + waterScore + sleepScore;
