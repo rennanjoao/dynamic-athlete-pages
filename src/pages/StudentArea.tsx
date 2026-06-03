@@ -159,6 +159,13 @@ const StudentArea = () => {
           </div>
         </section>
 
+        <section>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Ferramentas Nutricionais
+          </h2>
+          <StudentToolbar />
+        </section>
+
         <section className="pt-4">
           <div className="flex flex-col items-center justify-center text-center mb-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary mb-3">
