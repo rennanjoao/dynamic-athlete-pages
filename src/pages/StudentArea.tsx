@@ -170,10 +170,6 @@ Para forçar a sobreposição absoluta na tela e travar o scroll do usuário at�
 
 ### 1. Correção do Splash Screen (Prioridade Máxima de Tela)
 Se você ainda não criou o arquivo, crie-o agora. Substitua/Cole todo o conteúdo em **`src/components/student/SplashScreen.tsx`**:
-### 1. Correção do Splash Screen...
-```tsx
-import { useState, useEffect } from "react";
-import { Sparkles } from "lucide-react";
 ```
 
 Tudo isso precisa ser **deletado** do arquivo. É conteúdo de markdown que não pertence ao código.
