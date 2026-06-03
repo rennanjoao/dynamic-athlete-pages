@@ -89,7 +89,7 @@ export const MacrosBaseSchema = z.object({
   goal: z.string().default("hipertrofia"),
 });
 
-export const ProtocolPayloadSchema = z.object({
+const ProtocolPayloadObject = z.object({
   setup: z.object({
     split: z.string().default("ABC"),
     mealsCount: z.number().int().min(2).max(10).default(5),
