@@ -727,18 +727,18 @@ export default function CoachDashboard() {
           {editingStudent && (
             <DialogContent className="max-w-sm">
               <DialogHeader>
-                <DialogTitle className="text-base font-bold">Editar Plano — {editingStudent.name}</DialogTitle>
+                <DialogTitle className="text-base font-bold">Editar Protocolo — {editingStudent.name}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-1">
-                <p className="text-sm text-muted-foreground">Use o RoutineBuilder para editar o plano completo de dieta e treino.</p>
+                <p className="text-sm text-muted-foreground">Abra o Protocolo para editar macros base, dieta, treino, ciclo e diretrizes.</p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditingStudent(null)}>Cancelar</Button>
                   <Button size="sm" className="flex-1" onClick={() => {
                     setSelectedStudent(editingStudent);
-                    setView("routine");
+                    setView("protocol");
                     setEditingStudent(null);
                   }}>
-                    <Dumbbell className="w-3.5 h-3.5 mr-1.5" /> Abrir Rotina
+                    <FileText className="w-3.5 h-3.5 mr-1.5" /> Abrir Protocolo
                   </Button>
                 </div>
               </div>
