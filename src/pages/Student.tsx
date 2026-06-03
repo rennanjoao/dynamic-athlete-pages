@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { ThemeToggle } from "@/components/ThemeToggle";
+
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, User, Calendar, Target, TrendingDown, Flame } from "lucide-react";
 import { toast } from "sonner";
@@ -86,7 +86,6 @@ const Student = () => {
 
   return (
     <div className="min-h-screen pb-12">
-      <ThemeToggle />
 
       {/* Header */}
       <header className="gradient-primary text-white py-12 px-6 text-center relative shadow-lg animate-fade-in-down">

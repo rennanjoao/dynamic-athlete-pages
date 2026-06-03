@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ThemeToggle } from "@/components/ThemeToggle";
+
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -443,7 +443,6 @@ Para mais detalhes, solicite o plano completo em HTML! 📧`;
 
   return (
     <div className="min-h-screen pb-12">
-      <ThemeToggle />
 
       <header className="gradient-primary text-white py-12 px-6 text-center relative shadow-lg">
         <Link to="/" className="absolute left-6 top-6 flex items-center gap-2 text-white/90 hover:text-white">

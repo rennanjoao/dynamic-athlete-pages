@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { ThemeToggle } from "@/components/ThemeToggle";
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TrainerAlert } from "@/components/student/TrainerAlert";
@@ -128,7 +128,6 @@ const StudentArea = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" /> Sair
             </Button>
