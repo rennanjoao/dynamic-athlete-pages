@@ -18,13 +18,11 @@ const AdminLogin = () => {
   useEffect(() => {
     const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data } = await supabase.rpc("has_role", {
-          _user_id: session.user.id,
-          _role: "admin",
-        });
-        if (data) navigate("/admin");
-      }
+      if (!session) return;
+      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "admin" });
+      if (isAdmin) { navigate("/admin"); return; }
+      const { data: isCoach } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "coach" });
+      if (isCoach) navigate("/coach");
     };
     checkExistingSession();
   }, [navigate]);
@@ -39,19 +37,28 @@ const AdminLogin = () => {
       });
       if (authError) throw authError;
 
-      const { data: isAdmin, error: roleError } = await supabase.rpc("has_role", {
+      const { data: isAdmin } = await supabase.rpc("has_role", {
         _user_id: authData.user.id,
         _role: "admin",
       });
-
-      if (roleError || !isAdmin) {
-        await supabase.auth.signOut();
-        toast.error("Acesso negado. Área restrita para administradores.");
+      if (isAdmin) {
+        toast.success("Bem-vindo, administrador!");
+        navigate("/admin");
         return;
       }
 
-      toast.success("Bem-vindo, administrador!");
-      navigate("/admin");
+      const { data: isCoach } = await supabase.rpc("has_role", {
+        _user_id: authData.user.id,
+        _role: "coach",
+      });
+      if (isCoach) {
+        toast.success("Bem-vindo, coach!");
+        navigate("/coach");
+        return;
+      }
+
+      await supabase.auth.signOut();
+      toast.error("Acesso negado. Esta conta não tem permissão de administrador ou coach.");
     } catch (error: any) {
       if (error.message.includes("Invalid login credentials")) {
         toast.error("Credenciais inválidas");
