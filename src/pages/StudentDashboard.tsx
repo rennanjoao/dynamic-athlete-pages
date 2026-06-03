@@ -479,6 +479,28 @@ export default function StudentDashboard() {
     });
   }, []);
 
+  // Verifica se o coach já publicou plano (treino + dieta) — caso contrário,
+  // não mostra dados de exemplo para não confundir o aluno.
+  const { data: planRow, isLoading: planLoading } = useQuery({
+    queryKey: ["coach-plan-presence", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coach_plans")
+        .select("workout_periodization_json, diet_strategy_json")
+        .eq("student_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data ?? null;
+    },
+    staleTime: 60_000,
+  });
+  const hasPlan =
+    !!planRow &&
+    (Object.keys(planRow.workout_periodization_json ?? {}).length > 0 ||
+      Object.keys(planRow.diet_strategy_json ?? {}).length > 0);
+
   const { data, isLoading } = useDailyState(userId);
   const toggle = useToggleItem(userId);
   const saveScore = useSaveScore(userId);
