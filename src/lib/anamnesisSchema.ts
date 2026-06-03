@@ -23,6 +23,95 @@ export const BASELINE_KEYS = [
   "braco_d","braco_e","coxa_d","coxa_e","pant_d","pant_e",
 ] as const;
 
+export interface AnamnesisField { key: string; label: string; type?: string; placeholder?: string; options?: string[]; step?: string | number; half?: boolean; [k: string]: unknown }
+export interface AnamnesisSection { id: string; title: string; fields: AnamnesisField[] }
+export type FieldDef = AnamnesisField;
+export type SectionDef = AnamnesisSection;
+
+export const ANAMNESIS_SECTIONS: AnamnesisSection[] = [
+  { id: "identificacao", title: "Quem é você", fields: [
+    { key: "nome", label: "Nome completo" },
+    { key: "data_nasc", label: "Data de nascimento" },
+    { key: "whatsapp", label: "WhatsApp" },
+    { key: "email", label: "E-mail" },
+    { key: "cidade", label: "Cidade / Estado" },
+  ]},
+  { id: "composicao", title: "Ponto de partida", fields: [
+    { key: "altura", label: "Altura (cm)" },
+    { key: "peso", label: "Peso (kg)" },
+    { key: "cintura", label: "Cintura (cm)" },
+    { key: "quadril", label: "Quadril (cm)" },
+    { key: "braco_d", label: "Braço D (cm)" },
+    { key: "braco_e", label: "Braço E (cm)" },
+    { key: "coxa_d", label: "Coxa D (cm)" },
+    { key: "coxa_e", label: "Coxa E (cm)" },
+    { key: "pant_d", label: "Pant. D (cm)" },
+    { key: "pant_e", label: "Pant. E (cm)" },
+    { key: "hist_peso", label: "Histórico de peso" },
+  ]},
+  { id: "objetivos", title: "Para onde quer chegar", fields: [
+    { key: "meta_peso", label: "Peso alvo (kg)" },
+    { key: "meta_prazo", label: "Prazo (meses)" },
+    { key: "meta_prioridade", label: "Prioridade" },
+    { key: "objetivos", label: "Objetivos detalhados" },
+  ]},
+  { id: "rotina", title: "Sua rotina real", fields: [
+    { key: "profissao", label: "Profissão e horário" },
+    { key: "estudos", label: "Estudos" },
+    { key: "horario_dormir", label: "Dorme às" },
+    { key: "horario_acordar", label: "Acorda às" },
+  ]},
+  { id: "treino", title: "Histórico de treino", fields: [
+    { key: "anos_treino", label: "Anos treinando" },
+    { key: "nivel_treino", label: "Nível" },
+    { key: "atividades", label: "Atividades atuais" },
+    { key: "horarios_treino", label: "Horários dos treinos" },
+    { key: "dias_treino", label: "Dias/semana" },
+    { key: "duracao_sessao", label: "Duração máxima" },
+    { key: "tem_academia", label: "Academia?" },
+    { key: "equipamentos", label: "Equipamentos" },
+    { key: "descanso_treino", label: "Tempo sem treinar" },
+    { key: "pump", label: "Pump no treino" },
+    { key: "lesoes", label: "Lesões" },
+  ]},
+  { id: "substancias", title: "Histórico de substâncias", fields: [
+    { key: "remedios", label: "Remédios prescritos" },
+    { key: "drogas", label: "Drogas lícitas/ilícitas" },
+    { key: "hormonios", label: "Hormônios / anabolizantes" },
+    { key: "estimulantes", label: "Estimulantes" },
+    { key: "suplementacao", label: "Suplementação atual" },
+  ]},
+  { id: "alimentacao", title: "Alimentação & digestão", fields: [
+    { key: "hidratacao", label: "Água/dia" },
+    { key: "recordatorio", label: "Recordatório alimentar" },
+    { key: "disponibilidade_alim", label: "Disponibilidade alimentar" },
+    { key: "alergias", label: "Alergias / intolerâncias" },
+    { key: "rel_comida", label: "Relação com comida" },
+    { key: "compulsao_estado", label: "Compulsão alimentar" },
+    { key: "compulsao_horario", label: "Horário/gatilho" },
+    { key: "fezes", label: "Consistência das fezes" },
+    { key: "gastrico", label: "Refluxo / gastrite / azia" },
+    { key: "obs_fezes", label: "Obs. intestino" },
+  ]},
+  { id: "sono", title: "Descanso & recuperação", fields: [
+    { key: "tempo_sono", label: "Tempo para dormir" },
+    { key: "pico_cansaco", label: "Pico de cansaço" },
+    { key: "acorda_descansado", label: "Acorda descansado?" },
+    { key: "acorda_noite", label: "Acorda à noite?" },
+    { key: "sintomas_noturnos", label: "Sintomas noturnos" },
+    { key: "hrv", label: "HRV" },
+  ]},
+  { id: "neuro", title: "Como você se sente", fields: [
+    ...NEURO_SLIDERS.map(s => ({ key: s.key, label: s.label })),
+    { key: "obs_neuro", label: "Observações" },
+  ]},
+  { id: "clinico", title: "Histórico clínico", fields: [
+    { key: "exames", label: "Exames recentes" },
+    { key: "doencas", label: "Doenças" },
+    { key: "familiar", label: "Histórico familiar" },
+  ]},
+];
+
 export function extractBaseline(payload: Record<string, unknown>) {
   const b: Record<string, number> = {};
   for (const k of BASELINE_KEYS) {

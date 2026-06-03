@@ -164,7 +164,7 @@ const Anamnesis = () => {
           const n = parseFloat(String(payload[k] ?? ""));
           if (!isNaN(n)) baseline[k] = n;
         }
-        await supabase.from("anamnesis").upsert({
+        await (supabase.from("anamnesis") as any).upsert({
           student_id: user.id,
           coach_id: selectedCoachId,
           payload,
