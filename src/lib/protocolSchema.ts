@@ -142,6 +142,30 @@ const ProtocolPayloadObject = z.object({
   }, z.record(z.string()).default({})),
 });
 
+/**
+ * Schema tolerante: aceita payloads JSON externos (ex.: gerados por IA) com
+ * campos extras ou strings descritivas e adapta-os ao formato interno sem
+ * descartar nada. O texto original de cada entrada do ciclo de carbo é
+ * copiado para `carbCycleNotes` antes da coerção para enum.
+ */
+export const ProtocolPayloadSchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== "object") return raw;
+  const obj = raw as Record<string, unknown>;
+  const cc = obj.carbCycle;
+  if (cc && typeof cc === "object" && !Array.isArray(cc)) {
+    const existingNotes = (obj.carbCycleNotes && typeof obj.carbCycleNotes === "object")
+      ? { ...(obj.carbCycleNotes as Record<string, unknown>) }
+      : {};
+    for (const [k, v] of Object.entries(cc as Record<string, unknown>)) {
+      if (typeof v === "string" && !["high", "base", "off", "low"].includes(v.toLowerCase().trim())) {
+        if (!existingNotes[k]) existingNotes[k] = v;
+      }
+    }
+    return { ...obj, carbCycleNotes: existingNotes };
+  }
+  return obj;
+}, ProtocolPayloadObject);
+
 
 export type ProtocolPayload = z.infer<typeof ProtocolPayloadSchema>;
 export type ExerciseRow = z.infer<typeof ExerciseSchema>;
