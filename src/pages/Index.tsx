@@ -1,9 +1,8 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users, Plus, Dumbbell, UtensilsCrossed, ArrowRight, Zap, Shield, TrendingUp, Sparkles, Key } from "lucide-react";
+import { Users, Dumbbell, UtensilsCrossed, ArrowRight, Zap, Shield, TrendingUp, Sparkles, Key } from "lucide-react";
 import { motion } from "framer-motion";
 import { InfoChatBot } from "@/components/landing/InfoChatBot";
-import RankingTeaser from "@/components/gamification/RankingTeaser";
 
 const FeatureCard = ({ icon: Icon, title, description, delay }: { icon: any; title: string; description: string; delay: number }) => (
   <motion.div
@@ -100,7 +99,7 @@ const Index = () => {
               <Link to="/anamnesis" className="w-full sm:w-auto">
                 <Button size="lg" className="w-full gap-2 rounded-xl px-8 h-14 text-base font-bold glow-primary">
                   <Key className="w-5 h-5" />
-                  Primeiro Acesso
+                  Primeiro Acesso (Código)
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
@@ -145,12 +144,6 @@ const Index = () => {
           <FeatureCard icon={UtensilsCrossed} title="Estratégias Nutricionais" description="Diretrizes e recomendações alimentares para apoiar seus objetivos de emagrecimento, saúde e performance." delay={0.2} />
           <FeatureCard icon={TrendingUp} title="Painel de Evolução" description="Visualize sua evolução através de métricas corporais, registros fotográficos e indicadores de performance ao longo do processo." delay={0.3} />
         </div>
-      </section>
-
-      <section className="max-w-6xl mx-auto px-6 pb-12">
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="max-w-md mx-auto">
-          <RankingTeaser />
-        </motion.div>
       </section>
 
       <section className="max-w-6xl mx-auto px-6 pb-12">
