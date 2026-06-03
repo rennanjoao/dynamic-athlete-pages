@@ -2,22 +2,21 @@
  * App.tsx — Roteamento.
  *
  * Rotas:
- *   /               → Landing (Index)
- *   /auth           → Login / cadastro aluno
- *   /student        → Página pública do aluno (id=?)
- *   /student-area   → Área do Aluno (hub: anamnese, check-in, evolução, treino, dieta)
- *   /anamnesis      → Anamnese
- *   /check-in       → Feedback / check-in periódico
- *   /evolution      → Painel de Evolução
- *   /routine        → Estratégia nutricional
- *   /workout-plan   → Treino do dia
- *   /coach          → Dashboard do coach (alert-first)
- *   /admin-login    → Login admin
- *   /admin          → Painel admin
+ * /                → Landing (Index)
+ * /auth            → Login / cadastro aluno
+ * /student         → Página pública do aluno (id=?)
+ * /student-area    → Área do Aluno (hub: anamnese, check-in, evolução, treino, dieta)
+ * /anamnesis       → Anamnese
+ * /check-in        → Feedback / check-in periódico
+ * /evolution       → Painel de Evolução
+ * /routine         → Estratégia nutricional
+ * /workout-plan    → Treino do dia
+ * /coach           → Dashboard do coach (alert-first)
+ * /admin-login     → Login admin
+ * /admin           → Painel admin
  */
 
-import { lazy, Suspense, useState, useCallback } from "react";
-import { AnimatePresence } from "framer-motion";
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,16 +25,15 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminGuard } from "./components/admin/AdminGuard";
 import { AnamnesisGuard } from "./components/student/AnamnesisGuard";
 import { NavigationControls } from "@/components/NavigationControls";
-import { SplashScreen } from "@/components/SplashScreen";
 
 // Lazy-loaded pages (split bundle por rota)
-const Index       = lazy(() => import("./pages/Index"));
-const Student     = lazy(() => import("./pages/Student"));
-const Admin       = lazy(() => import("./pages/Admin"));
-const AdminLogin  = lazy(() => import("./pages/AdminLogin"));
-const Auth        = lazy(() => import("./pages/Auth"));
-const StudentArea = lazy(() => import("./pages/StudentArea"));
-const NotFound    = lazy(() => import("./pages/NotFound"));
+const Index        = lazy(() => import("./pages/Index"));
+const Student      = lazy(() => import("./pages/Student"));
+const Admin        = lazy(() => import("./pages/Admin"));
+const AdminLogin   = lazy(() => import("./pages/AdminLogin"));
+const Auth         = lazy(() => import("./pages/Auth"));
+const StudentArea  = lazy(() => import("./pages/StudentArea"));
+const NotFound     = lazy(() => import("./pages/NotFound"));
 
 // Novas páginas refatoradas
 const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
@@ -66,23 +64,13 @@ function PageLoader() {
 }
 
 const App = () => {
-  const [splashDone, setSplashDone] = useState(false);
-  const handleSplashFinish = useCallback(() => setSplashDone(true), []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
 
-        {/* Splash — AnimatePresence garante a saída animada */}
-        <AnimatePresence>
-          {!splashDone && (
-            <SplashScreen onFinish={handleSplashFinish} />
-          )}
-        </AnimatePresence>
-
-        {/* App principal (renderiza embaixo durante o splash) */}
+        {/* App principal */}
         <BrowserRouter>
           <NavigationControls />
           <Suspense fallback={<PageLoader />}>
