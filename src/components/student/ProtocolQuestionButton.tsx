@@ -28,10 +28,10 @@ export default function ProtocolQuestionButton({ context, itemRef, studentName, 
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const [coachEmail, setCoachEmail] = useState<string | null>(null);
+  const [coachData, setCoachData] = useState<{ id: string; email: string | null } | null>(null);
 
   useEffect(() => {
-    if (!open || coachEmail) return;
+    if (!open || coachData) return;
     (async () => {
       try {
         const { data: session } = await supabase.auth.getSession();
@@ -40,33 +40,52 @@ export default function ProtocolQuestionButton({ context, itemRef, studentName, 
         const { data: link } = await supabase.from("coach_students").select("coach_id").eq("student_id", uid).eq("status", "active").maybeSingle();
         if (link?.coach_id) {
           const { data: profile } = await supabase.from("profiles").select("notification_email, email").eq("user_id", link.coach_id).maybeSingle();
-          setCoachEmail(profile?.notification_email || profile?.email || null);
+          setCoachData({ id: link.coach_id, email: profile?.notification_email || profile?.email || null });
         }
       } catch (e) {
         console.warn("Aviso: Coach lookup falhou.", e);
       }
     })();
-  }, [open, coachEmail]);
+  }, [open, coachData]);
 
   const send = async () => {
     if (!text.trim()) { toast.error("Escreva sua dúvida"); return; }
     setSending(true);
     try {
-      if (coachEmail) {
-        await notifyCoach({
-          coachEmail, studentName, studentEmail, kind: "question",
-          subject: `Dúvida sobre ${contextLabels[context]} — ${studentName ?? "Aluno"}`,
-          summary: text.trim(),
-          data: { contexto: contextLabels[context], item: itemRef || "—" },
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.session?.user?.id;
+
+      if (coachData?.id) {
+        // 1. INSERE NO BANCO (Isso faz o painel do Coach apitar em tempo real)
+        const { error: dbError } = await supabase.from("coach_notifications").insert({
+          coach_id: coachData.id,
+          student_id: uid,
+          student_name: studentName || "Aluno",
+          context: contextLabels[context],
+          message: text.trim()
         });
+        if (dbError) throw dbError;
+
+        // 2. DISPARA O EMAIL (Edge Function)
+        if (coachData.email) {
+          await notifyCoach({
+            coachEmail: coachData.email,
+            studentName,
+            studentEmail,
+            kind: "question",
+            subject: `Dúvida sobre ${contextLabels[context]} — ${studentName ?? "Aluno"}`,
+            summary: text.trim(),
+            data: { contexto: contextLabels[context], item: itemRef || "—" },
+          });
+        }
       }
       
-      toast.success("Dúvida registrada e enviada ao seu treinador!");
+      toast.success("Dúvida enviada ao seu treinador!");
       
-      // AVISO DA IA APÓS ENVIAR A DÚVIDA
+      // Aviso da IA
       setTimeout(() => {
         toast("A IA também pode te ajudar!", {
-          description: "Use o botão de Chat no canto da tela para obter suporte instantâneo sobre seu protocolo 24h por dia.",
+          description: "Use o botão de Chat para obter suporte sobre seu protocolo instantaneamente.",
           icon: <Bot className="w-5 h-5 text-primary" />,
           duration: 8000,
         });
@@ -75,6 +94,7 @@ export default function ProtocolQuestionButton({ context, itemRef, studentName, 
       setText("");
       setOpen(false);
     } catch (e) {
+      console.error(e);
       toast.error("Erro ao enviar. Tente novamente.");
     } finally {
       setSending(false);
@@ -87,7 +107,7 @@ export default function ProtocolQuestionButton({ context, itemRef, studentName, 
         <Button variant="outline" className="w-full mt-4 border-dashed border-primary/50 text-primary hover:bg-primary/5" onClick={() => setOpen(true)}>
           <MessageCircle className="w-4 h-4 mr-2" /> Tenho uma dúvida sobre {contextLabels[context].toLowerCase()}
         </Button>
-        <QuestionDialog open={open} setOpen={setOpen} text={text} setText={setText} send={send} sending={sending} context={context} itemRef={itemRef} />
+        <QuestionDialog open={open} setOpen={setOpen} text={text} setText={setText} send={send} sending={sending} context={context} />
       </>
     );
   }
@@ -97,19 +117,19 @@ export default function ProtocolQuestionButton({ context, itemRef, studentName, 
       <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center justify-center p-2 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors">
         <MessageCircle className="w-4 h-4" />
       </button>
-      <QuestionDialog open={open} setOpen={setOpen} text={text} setText={setText} send={send} sending={sending} context={context} itemRef={itemRef} />
+      <QuestionDialog open={open} setOpen={setOpen} text={text} setText={setText} send={send} sending={sending} context={context} />
     </>
   );
 }
 
-function QuestionDialog({ open, setOpen, text, setText, send, sending, context, itemRef }: any) {
+function QuestionDialog({ open, setOpen, text, setText, send, sending, context }: any) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle>Relatar Dúvida</DialogTitle>
           <DialogDescription className="text-xs">
-            Sua dúvida sobre <strong>{contextLabels[context as Context]}</strong> será enviada diretamente para o painel e e-mail do seu treinador.
+            Sua dúvida sobre <strong>{contextLabels[context as Context]}</strong> será enviada para o painel do seu treinador.
           </DialogDescription>
         </DialogHeader>
         <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Descreva sua dúvida detalhadamente..." className="min-h-[120px] text-sm" />
