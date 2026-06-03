@@ -81,10 +81,17 @@ export default function ProtocolImportExport({ payload, studentName, onImport }:
     try {
       const parsed = await importProtocolXlsx(file);
       onImport(parsed);
-      toast.success("Planilha importada. Revise e salve.");
+      toast.success(`Planilha importada — ${parsed.meals.length} refeição(ões). Revise e salve.`);
     } catch (err) {
       console.error("import xlsx error", err);
-      toast.error("Excel inválido: " + (err instanceof Error ? err.message : "formato"));
+      if (err instanceof ProtocolXlsxError) {
+        toast.error(err.message, {
+          description: err.details.length ? err.details.join(" • ") : undefined,
+          duration: 7000,
+        });
+      } else {
+        toast.error("Excel inválido: " + (err instanceof Error ? err.message : "formato desconhecido"));
+      }
     } finally {
       if (xlsxRef.current) xlsxRef.current.value = "";
     }
