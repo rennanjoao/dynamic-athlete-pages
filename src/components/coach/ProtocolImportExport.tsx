@@ -63,8 +63,33 @@ export default function ProtocolImportExport({ payload, studentName, onImport }:
     try {
       const text = await file.text();
       const raw = JSON.parse(text);
+      // aceita { payload: {...} } ou o próprio payload na raiz
       const candidate = raw?.payload && typeof raw.payload === "object" ? raw.payload : raw;
-      const parsed = ProtocolPayloadSchema.parse(candidate);
+      // Tenta primeiro o schema estrito (com preprocess tolerante embutido).
+      // Se falhar, faz parse parcial e completa com defaults para nunca
+      // bloquear a importação por campos descritivos extras.
+      let parsed: ProtocolPayload;
+      const safe = ProtocolPayloadSchema.safeParse(candidate);
+      if (safe.success) {
+        parsed = safe.data;
+      } else {
+        // fallback: mantém apenas campos válidos por seção
+        const fallback = ProtocolPayloadSchema.parse({
+          setup: candidate?.setup ?? {},
+          macros: candidate?.macros ?? {},
+          guidelines: candidate?.guidelines ?? {},
+          workouts: Array.isArray(candidate?.workouts) ? candidate.workouts : [],
+          meals: Array.isArray(candidate?.meals) ? candidate.meals : [],
+          carbCycle: candidate?.carbCycle ?? {},
+          carbCycleNotes: candidate?.carbCycleNotes ?? {},
+        });
+        parsed = fallback;
+        const issues = safe.error.issues.slice(0, 3).map((i) => i.path.join(".") || "raiz").join(", ");
+        toast.warning("Importado com adaptações", {
+          description: `Alguns campos vieram fora do padrão e foram normalizados (${issues}). Revise antes de salvar.`,
+          duration: 6000,
+        });
+      }
       onImport(parsed);
       toast.success("Esboço JSON importado. Revise e salve.");
     } catch (err) {
