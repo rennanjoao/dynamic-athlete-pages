@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { TrainerAlert } from "@/components/student/TrainerAlert";
 import { CheckInReminder } from "@/components/student/CheckInReminder";
 import { ProgressDashboard } from "@/components/student/ProgressDashboard";
+import StudentToolbar from "@/components/student/StudentToolbar";
 import { useStudentData } from "@/hooks/useStudentData";
 import {
   ClipboardList,
@@ -156,6 +157,13 @@ const StudentArea = () => {
               </Link>
             ))}
           </div>
+        </section>
+
+        <section>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Ferramentas Nutricionais
+          </h2>
+          <StudentToolbar />
         </section>
 
         <section className="pt-4">

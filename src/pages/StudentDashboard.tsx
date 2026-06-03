@@ -501,6 +501,43 @@ export default function StudentDashboard() {
     (Object.keys(planRow.workout_periodization_json ?? {}).length > 0 ||
       Object.keys(planRow.diet_strategy_json ?? {}).length > 0);
 
+  // Macros do plano real (vindo de coach_plans)
+  const { data: planMacros } = useQuery({
+    queryKey: ["plan-macros", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coach_plans")
+        .select("base_calories, base_protein_g, base_carbs_g, base_fat_g, water_l, calories, protein_g, carbs_g, fat_g")
+        .eq("student_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data ?? null;
+    },
+    staleTime: 60_000,
+  });
+
+  // Nome real do aluno (anamnese)
+  const { data: anamnesisData } = useQuery({
+    queryKey: ["anamnesis-name", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anamnesis")
+        .select("payload")
+        .eq("student_id", userId)
+        .maybeSingle();
+      return data ?? null;
+    },
+    staleTime: 5 * 60_000,
+  });
+  const firstName = (() => {
+    const payload = anamnesisData?.payload as Record<string, unknown> | null;
+    const nome = payload?.nome as string | undefined;
+    return nome ? nome.split(" ")[0] : null;
+  })();
+
   const { data, isLoading } = useDailyState(userId);
   const toggle = useToggleItem(userId);
   const saveScore = useSaveScore(userId);
@@ -545,7 +582,7 @@ export default function StudentDashboard() {
   const dietScore = totalMeals > 0
     ? Math.round((mealsCompleted / totalMeals) * SCORE_WEIGHTS.diet)
     : 0;
-  const waterGoalMl = 2500;
+  const waterGoalMl = Number(planMacros?.water_l ?? 2.5) * 1000;
   const waterScore = waterMl >= waterGoalMl ? SCORE_WEIGHTS.water : Math.round((waterMl / waterGoalMl) * SCORE_WEIGHTS.water);
   const sleepScore = sleepChecked ? SCORE_WEIGHTS.sleep : 0;
   const todayScore = workoutScore + dietScore + waterScore + sleepScore;
@@ -581,12 +618,18 @@ export default function StudentDashboard() {
       .eq("date", today);
   };
 
-  // Sample macros — replace with real plan values
+  // Macros do plano do coach
+  const proteinGoal = planMacros?.base_protein_g || planMacros?.protein_g || 160;
+  const carbsGoal = planMacros?.base_carbs_g || planMacros?.carbs_g || 250;
+  const fatGoal = planMacros?.base_fat_g || planMacros?.fat_g || 55;
+  const waterGoalL = Number(planMacros?.water_l ?? 2.5);
+  const planCalories = planMacros?.base_calories || planMacros?.calories || 2200;
+
   const macros: Macro[] = [
-    { label: "Proteína", unit: "g", current: 120, goal: 160, color: "#3B82F6", icon: null },
-    { label: "Carboidrato", unit: "g", current: 200, goal: 300, color: "#F59E0B", icon: null },
-    { label: "Gordura", unit: "g", current: 45, goal: 60, color: "#EF4444", icon: null },
-    { label: "Água", unit: "L", current: +(waterMl / 1000).toFixed(1), goal: 2.5, color: "#06B6D4", icon: null },
+    { label: "Proteína", unit: "g", current: 0, goal: proteinGoal, color: "#3B82F6", icon: null },
+    { label: "Carboidrato", unit: "g", current: 0, goal: carbsGoal, color: "#F59E0B", icon: null },
+    { label: "Gordura", unit: "g", current: 0, goal: fatGoal, color: "#EF4444", icon: null },
+    { label: "Água", unit: "L", current: +(waterMl / 1000).toFixed(1), goal: waterGoalL, color: "#06B6D4", icon: null },
   ];
 
   if (isLoading || planLoading) {
@@ -633,7 +676,7 @@ export default function StudentDashboard() {
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-base font-bold text-foreground">Olá, Aluno 👋</h1>
+            <h1 className="text-base font-bold text-foreground">{firstName ? `Olá, ${firstName} 👋` : "Meu dia"}</h1>
             <p className="text-xs text-muted-foreground">
               {new Date().toLocaleDateString("pt-BR", {
                 weekday: "long",
@@ -692,7 +735,7 @@ export default function StudentDashboard() {
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-orange-400" />
             <h2 className="text-sm font-semibold text-foreground">Macros de Hoje</h2>
-            <Badge variant="secondary" className="ml-auto text-xs">2.100 kcal</Badge>
+            <Badge variant="secondary" className="ml-auto text-xs">{planCalories.toLocaleString("pt-BR")} kcal</Badge>
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             {macros.map((m) => (

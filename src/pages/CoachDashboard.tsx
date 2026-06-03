@@ -32,6 +32,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 const AnamnesisViewer = lazy(() => import("@/components/anamnesis/AnamnesisViewer"));
@@ -177,12 +182,15 @@ function LeadsTab({ coachId }: { coachId: string }) {
     toast.success("Status atualizado");
   };
 
-  const deleteLead = async (id: string) => {
-    if (!confirm("Remover lead?")) return;
-    await supabase.from("coach_leads").delete().eq("id", id);
+  const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const confirmDeleteLead = async () => {
+    if (!deleteLeadId) return;
+    await supabase.from("coach_leads").delete().eq("id", deleteLeadId);
     qc.invalidateQueries({ queryKey: ["coach-leads"] });
     toast.success("Lead removido");
+    setDeleteLeadId(null);
   };
+
 
   const statusLabels: Record<string, { label: string; cls: string }> = {
     new: { label: "Novo", cls: "bg-blue-100 text-blue-700" },
@@ -228,7 +236,7 @@ function LeadsTab({ coachId }: { coachId: string }) {
                   ))}
                 </SelectContent>
               </Select>
-              <button onClick={() => deleteLead(lead.id)} className="p-1.5 text-muted-foreground hover:text-destructive">
+              <button onClick={() => setDeleteLeadId(lead.id)} className="p-1.5 text-muted-foreground hover:text-destructive">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -253,6 +261,19 @@ function LeadsTab({ coachId }: { coachId: string }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteLeadId} onOpenChange={(o) => !o && setDeleteLeadId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover lead?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteLead} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -552,6 +573,7 @@ export default function CoachDashboard() {
   const [selectedStudent, setSelectedStudent] = useState<StudentStatus | null>(null);
   
   const [showProfile, setShowProfile] = useState(false);
+  const [unlinkTarget, setUnlinkTarget] = useState<StudentStatus | null>(null);
   const qc = useQueryClient();
 
   const { data: students = [], isLoading } = useCoachStudents(coachId);
@@ -575,14 +597,19 @@ export default function CoachDashboard() {
 
   const goBack = () => { setView("list"); setSelectedStudent(null); };
 
-  const handleUnlink = async (student: StudentStatus) => {
-    if (!confirm(`Desvincular ${student.name}?`)) return;
+  const handleUnlink = (student: StudentStatus) => {
+    setUnlinkTarget(student);
+  };
+
+  const confirmUnlink = async () => {
+    if (!unlinkTarget) return;
     await supabase.from("coach_students")
       .update({ status: "inactive" })
       .eq("coach_id", coachId)
-      .eq("student_id", student.id);
+      .eq("student_id", unlinkTarget.id);
     qc.invalidateQueries({ queryKey: ["coach-students"] });
     toast.success("Aluno desvinculado");
+    setUnlinkTarget(null);
   };
 
   // Detail views
@@ -745,6 +772,23 @@ export default function CoachDashboard() {
             </DialogContent>
           )}
         </Dialog>
+
+        <AlertDialog open={!!unlinkTarget} onOpenChange={(o) => !o && setUnlinkTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Desvincular aluno?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {unlinkTarget?.name} perderá acesso ao protocolo. Você pode reativar o vínculo manualmente depois.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmUnlink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Desvincular
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );

@@ -28,6 +28,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import StudentToolbar from "@/components/student/StudentToolbar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -218,6 +219,7 @@ export default function WorkoutPlan() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-5">
+        <StudentToolbar />
         {/* Current week directive */}
         {currentDirective && (
           <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-4 text-white">
