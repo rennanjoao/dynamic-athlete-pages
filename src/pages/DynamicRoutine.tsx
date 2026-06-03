@@ -26,11 +26,12 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
-  ChevronRight,
   Loader2,
   ArrowLeft,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import CarbCycleSelector, { type CarbMode } from "@/components/student/CarbCycleSelector";
+import ProtocolQuestionButton from "@/components/student/ProtocolQuestionButton";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -239,7 +240,12 @@ export default function DynamicRoutine() {
   const todayIndex = new Date().getDay(); // 0=Sun
   const dayMap = [6, 0, 1, 2, 3, 4, 5]; // JS Sunday=0 → our index
   const todayPlan = strategy?.weeklyPlan?.[dayMap[todayIndex]];
-  const isHighCarb = todayPlan?.type === "high";
+  const defaultMode: CarbMode =
+    todayPlan?.type === "high" ? "high" :
+    todayPlan?.type === "low" ? "low" : "base";
+  const [carbMode, setCarbMode] = useState<CarbMode>(defaultMode);
+  useEffect(() => { setCarbMode(defaultMode); }, [defaultMode]);
+  const isHighCarb = carbMode === "high";
 
   if (isLoading) {
     return (
@@ -322,6 +328,15 @@ export default function DynamicRoutine() {
             </div>
           </div>
         )}
+
+        {/* Carb cycle manual selector */}
+        <CarbCycleSelector value={carbMode} onChange={setCarbMode} />
+
+        <div className="flex justify-end">
+          <ProtocolQuestionButton context="general" variant="button" />
+        </div>
+
+
 
         {/* Meal Tabs R1-R4 */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>

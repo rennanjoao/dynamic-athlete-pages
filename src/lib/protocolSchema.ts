@@ -52,11 +52,23 @@ export const MealSchema = z.object({
   substitutions: z.string().optional().default(""),
 });
 
+export const MacrosBaseSchema = z.object({
+  calories: z.number().int().min(0).default(2200),
+  protein: z.number().int().min(0).default(160),
+  carbs: z.number().int().min(0).default(250),
+  fat: z.number().int().min(0).default(55),
+  water: z.number().min(0).default(2.5),
+  goal: z.string().default("hipertrofia"),
+});
+
 export const ProtocolPayloadSchema = z.object({
   setup: z.object({
     split: z.string().default("ABC"),
     mealsCount: z.number().int().min(2).max(10).default(5),
     carbCycle: z.boolean().default(false),
+  }),
+  macros: MacrosBaseSchema.default({
+    calories: 2200, protein: 160, carbs: 250, fat: 55, water: 2.5, goal: "hipertrofia",
   }),
   guidelines: z.object({
     training: z.string().default(""),
@@ -68,6 +80,7 @@ export const ProtocolPayloadSchema = z.object({
   meals: z.array(MealSchema).default([]),
   carbCycle: z.record(z.enum(["high", "low", "off"])).default({}),
 });
+
 
 export type ProtocolPayload = z.infer<typeof ProtocolPayloadSchema>;
 export type ExerciseRow = z.infer<typeof ExerciseSchema>;
@@ -93,6 +106,7 @@ export function buildBasePayload(setup: {
 
   return ProtocolPayloadSchema.parse({
     setup,
+    macros: { calories: 2200, protein: 160, carbs: 250, fat: 55, water: 2.5, goal: "hipertrofia" },
     guidelines: { training: "", diet: "", weekOrganization: "", supplementation: "" },
     workouts: splitDef.days.map((k) => ({
       key: k,

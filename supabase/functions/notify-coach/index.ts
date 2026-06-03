@@ -12,7 +12,7 @@ interface NotifyBody {
   coachEmail: string;
   studentName?: string;
   studentEmail?: string;
-  kind: "anamnesis" | "checkin";
+  kind: "anamnesis" | "checkin" | "question";
   subject?: string;
   summary?: string;          // texto plano resumido
   data?: Record<string, unknown>; // dados estruturados (renderizados em <pre>)
@@ -27,7 +27,11 @@ function escapeHtml(s: string) {
 }
 
 function renderHtml(body: NotifyBody): string {
-  const title = body.kind === "anamnesis" ? "Nova Anamnese" : "Novo Check-in";
+  const title =
+    body.kind === "anamnesis" ? "Nova Anamnese" :
+    body.kind === "checkin" ? "Novo Check-in" :
+    "Nova Dúvida do Aluno";
+
   const studentLine = body.studentName
     ? `<p style="margin:0 0 4px 0"><strong>Aluno:</strong> ${escapeHtml(body.studentName)}</p>`
     : "";
@@ -109,7 +113,10 @@ Deno.serve(async (req: Request) => {
       body.subject ||
       (body.kind === "anamnesis"
         ? `Nova Anamnese — ${body.studentName ?? "Aluno"}`
-        : `Novo Check-in — ${body.studentName ?? "Aluno"}`);
+        : body.kind === "checkin"
+          ? `Novo Check-in — ${body.studentName ?? "Aluno"}`
+          : `Nova Dúvida — ${body.studentName ?? "Aluno"}`);
+
 
     const html = renderHtml(body);
 

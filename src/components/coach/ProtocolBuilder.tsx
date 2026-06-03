@@ -28,13 +28,14 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Save, Plus, Trash2, FileText, Dumbbell, UtensilsCrossed,
-  Calendar, Sparkles,
+  Calendar, Sparkles, BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   ProtocolPayloadSchema, ProtocolPayload, SPLIT_OPTIONS, WEEKDAYS,
   buildBasePayload, makeEmptyExercise, makeEmptyMeal, type SplitValue,
 } from "@/lib/protocolSchema";
+import ProtocolImportExport from "./ProtocolImportExport";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb: any = supabase;
@@ -184,12 +185,17 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
               <p className="text-sm font-semibold text-foreground truncate">{studentName}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${
               isEditMode ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
             }`}>
               {isEditMode ? "Modo Edição" : "Novo Protocolo"}
             </span>
+            <ProtocolImportExport
+              payload={payload}
+              studentName={studentName}
+              onImport={(p) => { setPayload(p); setProtocolId(protocolId); }}
+            />
             <Button variant="outline" size="sm" onClick={() => setSetupOpen(true)}>
               <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Recriar Base
             </Button>
@@ -225,13 +231,19 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
           </Card>
 
           {/* Tabs principais */}
-          <Tabs defaultValue="guidelines">
-            <TabsList className="grid grid-cols-4 w-full sm:w-[520px]">
+          <Tabs defaultValue="macros">
+            <TabsList className="grid grid-cols-5 w-full sm:w-[640px]">
+              <TabsTrigger value="macros"><BarChart3 className="w-3.5 h-3.5 mr-1" />Macros</TabsTrigger>
               <TabsTrigger value="guidelines"><FileText className="w-3.5 h-3.5 mr-1" />Diretrizes</TabsTrigger>
               <TabsTrigger value="workouts"><Dumbbell className="w-3.5 h-3.5 mr-1" />Treino</TabsTrigger>
               <TabsTrigger value="diet"><UtensilsCrossed className="w-3.5 h-3.5 mr-1" />Dieta</TabsTrigger>
               <TabsTrigger value="cycle"><Calendar className="w-3.5 h-3.5 mr-1" />Semana</TabsTrigger>
             </TabsList>
+
+            {/* Macros base */}
+            <TabsContent value="macros" className="mt-4">
+              <MacrosTab payload={payload} setPayload={setPayload} />
+            </TabsContent>
 
             {/* Diretrizes */}
             <TabsContent value="guidelines" className="mt-4">
@@ -314,6 +326,39 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
 }
 
 // ─── Sub-tabs ───────────────────────────────────────────────────────────────
+
+function MacrosTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
+  const m = payload.macros;
+  const upd = (k: keyof typeof m, v: number | string) =>
+    setPayload({ ...payload, macros: { ...m, [k]: v } as typeof m });
+  return (
+    <Card className="bg-card/60 border-border p-4">
+      <p className="text-xs text-muted-foreground mb-3">
+        Base calórica e macros do protocolo. Esses valores aparecem para o aluno e servem de referência para ciclo de carbo.
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div><Label className="text-xs">Calorias</Label><Input type="number" value={m.calories} onChange={(e) => upd("calories", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div><Label className="text-xs">Proteína (g)</Label><Input type="number" value={m.protein} onChange={(e) => upd("protein", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div><Label className="text-xs">Carbo (g)</Label><Input type="number" value={m.carbs} onChange={(e) => upd("carbs", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div><Label className="text-xs">Gordura (g)</Label><Input type="number" value={m.fat} onChange={(e) => upd("fat", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div><Label className="text-xs">Água (L)</Label><Input type="number" step="0.1" value={m.water} onChange={(e) => upd("water", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div>
+          <Label className="text-xs">Objetivo</Label>
+          <Select value={m.goal} onValueChange={(v) => upd("goal", v)}>
+            <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hipertrofia">Hipertrofia</SelectItem>
+              <SelectItem value="emagrecimento">Emagrecimento</SelectItem>
+              <SelectItem value="recomposicao">Recomposição</SelectItem>
+              <SelectItem value="performance">Performance</SelectItem>
+              <SelectItem value="manter">Manutenção</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 function GuidelinesTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
   const upd = (k: keyof ProtocolPayload["guidelines"], v: string) =>

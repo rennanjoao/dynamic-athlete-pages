@@ -35,10 +35,9 @@ import {
 import { toast } from "sonner";
 
 const AnamnesisViewer = lazy(() => import("@/components/anamnesis/AnamnesisViewer"));
-const RoutineBuilder = lazy(() => import("@/components/coach/RoutineBuilder"));
 const ProtocolBuilder = lazy(() => import("@/components/coach/ProtocolBuilder"));
 
-type CoachView = "list" | "anamnesis" | "routine" | "protocol";
+type CoachView = "list" | "anamnesis" | "protocol";
 
 function useCoachId() {
   const [coachId, setCoachId] = useState<string | null>(null);
@@ -75,26 +74,23 @@ function AlertBadge({ level }: { level: AlertLevel }) {
 }
 
 function StudentRow({
-  student, onEdit, onAnamnesis, onRoutine, onProtocol, onUnlink,
+  student, onEdit, onAnamnesis, onProtocol, onUnlink,
 }: {
   student: StudentStatus;
   onEdit: (s: StudentStatus) => void;
   onAnamnesis: (s: StudentStatus) => void;
-  onRoutine: (s: StudentStatus) => void;
   onProtocol: (s: StudentStatus) => void;
   onUnlink: (s: StudentStatus) => void;
 }) {
   const lastActivity =
     student.daysInactive === 0 ? "Hoje" :
     student.daysInactive === 1 ? "Ontem" :
-    student.daysInactive >= 999 ? "Nunca" :
-    `${student.daysInactive}d atrás`;
+    student.daysInactive >= 999 ? "Sem registro" :
+    `${student.daysInactive}d sem registro`;
 
-  // Prevenção contra undefined
   const safeName = student.name || "Aluno";
   const initials = safeName.split(" ").slice(0, 2).map((n) => n[0] || "").join("");
-  
-  // Extração segura do peso caso a API devolva um objeto JSON
+
   let displayWeight: string | number | undefined;
   if (typeof student.currentWeight === 'object' && student.currentWeight !== null) {
       displayWeight = (student.currentWeight as any).peso || (student.currentWeight as any).weight || undefined;
@@ -118,25 +114,22 @@ function StudentRow({
         </div>
         <p className="text-xs text-muted-foreground truncate">{student.goal || "Objetivo não definido"} · {lastActivity}</p>
       </div>
-      
+
       {displayWeight !== undefined && displayWeight !== null && (
         <div className="hidden sm:block text-right shrink-0">
           <p className="text-xs text-muted-foreground">Peso</p>
           <p className="text-sm font-semibold text-foreground">{displayWeight} kg</p>
         </div>
       )}
-      
+
       <div className="flex items-center gap-1 shrink-0">
         <button onClick={() => onAnamnesis(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors" title="Ver Anamnese">
           <ClipboardList className="w-4 h-4" />
         </button>
-        <button onClick={() => onRoutine(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors" title="Criar Rotina">
-          <Dumbbell className="w-4 h-4" />
-        </button>
         <button onClick={() => onProtocol(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors" title="Protocolo">
           <FileText className="w-4 h-4" />
         </button>
-        <button onClick={() => onEdit(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors" title="Editar Plano">
+        <button onClick={() => onEdit(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors" title="Editar Protocolo">
           <Pencil className="w-4 h-4" />
         </button>
         <button onClick={() => onUnlink(student)} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-destructive transition-colors" title="Desvincular">
@@ -602,7 +595,7 @@ export default function CoachDashboard() {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <h1 className="text-sm font-bold text-foreground">
-              {view === "anamnesis" ? "Anamnese" : view === "routine" ? "Criar Rotina" : "Protocolo"} — {selectedStudent.name || "Aluno"}
+              {view === "anamnesis" ? "Anamnese" : "Protocolo"} — {selectedStudent.name || "Aluno"}
             </h1>
           </div>
         </header>
@@ -610,8 +603,6 @@ export default function CoachDashboard() {
           <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>}>
             {view === "anamnesis" ? (
               <AnamnesisViewer studentId={selectedStudent.id} studentName={selectedStudent.name} />
-            ) : view === "routine" ? (
-              <RoutineBuilder studentId={selectedStudent.id} studentName={selectedStudent.name} onClose={goBack} />
             ) : (
               <ProtocolBuilder studentId={selectedStudent.id} studentName={selectedStudent.name} />
             )}
@@ -711,7 +702,6 @@ export default function CoachDashboard() {
                     student={s}
                     onEdit={setEditingStudent}
                     onAnamnesis={(st) => { setSelectedStudent(st); setView("anamnesis"); }}
-                    onRoutine={(st) => { setSelectedStudent(st); setView("routine"); }}
                     onProtocol={(st) => { setSelectedStudent(st); setView("protocol"); }}
                     onUnlink={handleUnlink}
                   />
@@ -737,18 +727,18 @@ export default function CoachDashboard() {
           {editingStudent && (
             <DialogContent className="max-w-sm">
               <DialogHeader>
-                <DialogTitle className="text-base font-bold">Editar Plano — {editingStudent.name}</DialogTitle>
+                <DialogTitle className="text-base font-bold">Editar Protocolo — {editingStudent.name}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-1">
-                <p className="text-sm text-muted-foreground">Use o RoutineBuilder para editar o plano completo de dieta e treino.</p>
+                <p className="text-sm text-muted-foreground">Abra o Protocolo para editar macros base, dieta, treino, ciclo e diretrizes.</p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditingStudent(null)}>Cancelar</Button>
                   <Button size="sm" className="flex-1" onClick={() => {
                     setSelectedStudent(editingStudent);
-                    setView("routine");
+                    setView("protocol");
                     setEditingStudent(null);
                   }}>
-                    <Dumbbell className="w-3.5 h-3.5 mr-1.5" /> Abrir Rotina
+                    <FileText className="w-3.5 h-3.5 mr-1.5" /> Abrir Protocolo
                   </Button>
                 </div>
               </div>
