@@ -16,6 +16,7 @@ import { TemplateLoadDialog } from "@/components/admin/TemplateLoadDialog";
 import { ProfessionalRegistrationDialog } from "@/components/admin/ProfessionalRegistrationDialog";
 import { SupplementsSection, Supplement } from "@/components/admin/SupplementsSection";
 import { TrainerManagement } from "@/components/admin/TrainerManagement";
+import { StudentLinksManagement } from "@/components/admin/StudentLinksManagement";
 import { AlertManager } from "@/components/admin/AlertManager";
 import { validateSupplement, validateExercise, validateWaterAmount } from "@/utils/validation";
 import { WaterBottle2D } from "@/components/admin/WaterBottle2D";
