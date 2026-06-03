@@ -573,7 +573,7 @@ function WeekCycleTab({ payload, setPayload }: { payload: ProtocolPayload; setPa
       </Card>
     );
   }
-  const upd = (day: string, v: "high" | "low" | "off") =>
+  const upd = (day: string, v: "high" | "base" | "off") =>
     setPayload({ ...payload, carbCycle: { ...payload.carbCycle, [day]: v } });
 
   return (
@@ -583,16 +583,17 @@ function WeekCycleTab({ payload, setPayload }: { payload: ProtocolPayload; setPa
       </p>
       <div className="space-y-2">
         {WEEKDAYS.map((d) => {
-          const v = (payload.carbCycle[d.key] as "high" | "low" | "off") ?? "low";
+          const raw = payload.carbCycle[d.key] ?? "base";
+          const v: "high" | "base" | "off" = raw === "low" ? "off" : (raw as "high" | "base" | "off");
           return (
             <div key={d.key} className="flex items-center gap-3">
               <div className="w-24 text-sm font-medium">{d.label}</div>
-              <Select value={v} onValueChange={(val) => upd(d.key, val as "high" | "low" | "off")}>
+              <Select value={v} onValueChange={(val) => upd(d.key, val as "high" | "base" | "off")}>
                 <SelectTrigger className="h-8 text-xs w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="high" className="text-xs">Carbo Alto</SelectItem>
-                  <SelectItem value="low" className="text-xs">Carbo Baixo</SelectItem>
-                  <SelectItem value="off" className="text-xs">Off / Descanso</SelectItem>
+                  <SelectItem value="base" className="text-xs">Base</SelectItem>
+                  <SelectItem value="off" className="text-xs">Off / Baixo</SelectItem>
                 </SelectContent>
               </Select>
             </div>
