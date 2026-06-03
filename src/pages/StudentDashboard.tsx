@@ -501,6 +501,43 @@ export default function StudentDashboard() {
     (Object.keys(planRow.workout_periodization_json ?? {}).length > 0 ||
       Object.keys(planRow.diet_strategy_json ?? {}).length > 0);
 
+  // Macros do plano real (vindo de coach_plans)
+  const { data: planMacros } = useQuery({
+    queryKey: ["plan-macros", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("coach_plans")
+        .select("base_calories, base_protein_g, base_carbs_g, base_fat_g, water_l, calories, protein_g, carbs_g, fat_g")
+        .eq("student_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data ?? null;
+    },
+    staleTime: 60_000,
+  });
+
+  // Nome real do aluno (anamnese)
+  const { data: anamnesisData } = useQuery({
+    queryKey: ["anamnesis-name", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("anamnesis")
+        .select("payload")
+        .eq("student_id", userId)
+        .maybeSingle();
+      return data ?? null;
+    },
+    staleTime: 5 * 60_000,
+  });
+  const firstName = (() => {
+    const payload = anamnesisData?.payload as Record<string, unknown> | null;
+    const nome = payload?.nome as string | undefined;
+    return nome ? nome.split(" ")[0] : null;
+  })();
+
   const { data, isLoading } = useDailyState(userId);
   const toggle = useToggleItem(userId);
   const saveScore = useSaveScore(userId);
