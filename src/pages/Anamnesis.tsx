@@ -217,20 +217,35 @@ const Anamnesis = () => {
         await (supabase.from("anamnesis") as any).insert(anamnesisRow);
       }
 
-      // Cria vínculo só se houver coach e ainda não existir
+      // Regra: um aluno só pode ter UM coach ativo por vez.
+      // Ao criar/reativar vínculo com um coach, desativa quaisquer vínculos
+      // ativos anteriores com outros coaches (mantém o mais recente).
       if (coachIdOrNull) {
+        await supabase
+          .from("coach_students")
+          .update({ status: "inactive" })
+          .eq("student_id", studentId)
+          .eq("status", "active")
+          .neq("coach_id", coachIdOrNull);
+
         const { data: existingLink } = await supabase
           .from("coach_students")
-          .select("id")
+          .select("id, status")
           .eq("coach_id", coachIdOrNull)
           .eq("student_id", studentId)
           .maybeSingle();
+
         if (!existingLink) {
           await supabase.from("coach_students").insert({
             coach_id: coachIdOrNull,
             student_id: studentId,
             status: "active",
           });
+        } else if (existingLink.status !== "active") {
+          await supabase
+            .from("coach_students")
+            .update({ status: "active" })
+            .eq("id", existingLink.id);
         }
       }
 
