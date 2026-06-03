@@ -329,6 +329,15 @@ export default function DynamicRoutine() {
           </div>
         )}
 
+        {/* Carb cycle manual selector */}
+        <CarbCycleSelector value={carbMode} onChange={setCarbMode} />
+
+        <div className="flex justify-end">
+          <ProtocolQuestionButton context="general" variant="button" />
+        </div>
+
+
+
         {/* Meal Tabs R1-R4 */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-4 w-full">
