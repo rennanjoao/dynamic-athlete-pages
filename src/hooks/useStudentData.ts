@@ -118,6 +118,14 @@ export function useStudentData(explicitStudentId?: string) {
       })
       .on("postgres_changes" as never, { event: "*", schema: "public", table: "protocols", filter: `student_id=eq.${studentId}` }, () => {
         qc.invalidateQueries({ queryKey: ["protocol", studentId] });
+        qc.invalidateQueries({ queryKey: ["diet-strategy", studentId] });
+        qc.invalidateQueries({ queryKey: ["workout-plan", studentId] });
+        qc.invalidateQueries({ queryKey: ["plan-macros", studentId] });
+      })
+      .on("postgres_changes" as never, { event: "*", schema: "public", table: "coach_plans", filter: `student_id=eq.${studentId}` }, () => {
+        qc.invalidateQueries({ queryKey: ["diet-strategy", studentId] });
+        qc.invalidateQueries({ queryKey: ["workout-plan", studentId] });
+        qc.invalidateQueries({ queryKey: ["plan-macros", studentId] });
       })
       .subscribe();
     return () => {

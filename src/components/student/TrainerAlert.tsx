@@ -72,15 +72,12 @@ export const TrainerAlert = () => {
       {/* Estilo embutido para a Animação de Vibração sem mexer no Tailwind Config */}
       <style>
         {`
-          @keyframes vibrate {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-4px) rotate(-3deg); }
-            40% { transform: translateX(4px) rotate(3deg); }
-            60% { transform: translateX(-4px) rotate(-3deg); }
-            80% { transform: translateX(4px) rotate(3deg); }
+          @keyframes softPulse {
+            0%, 100% { transform: translateY(0); box-shadow: 0 0 0 0 hsla(145, 63%, 50%, 0.35); }
+            50% { transform: translateY(-1px); box-shadow: 0 0 0 6px hsla(145, 63%, 50%, 0); }
           }
-          .animate-vibrate {
-            animation: vibrate 0.4s ease-in-out infinite;
+          .animate-soft-pulse {
+            animation: softPulse 2.2s ease-in-out infinite;
           }
         `}
       </style>
@@ -88,7 +85,7 @@ export const TrainerAlert = () => {
       {/* POP-UP 1: ATUALIZAÇÃO DO TREINO / DIETA (Tem prioridade, vibra e aparece no topo) */}
       {protocolUpdateAlert && (
         <Alert 
-          className="mb-6 border backdrop-blur-md animate-vibrate cursor-pointer shadow-lg transition-all" 
+          className="mb-6 border backdrop-blur-md animate-soft-pulse cursor-pointer shadow-lg transition-all" 
           style={{
             backgroundColor: "hsla(145, 63%, 12%, 0.95)",
             borderColor: "hsl(145, 63%, 50%)",

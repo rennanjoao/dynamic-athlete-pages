@@ -239,10 +239,20 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
               { onConflict: "coach_id,student_id" }
             );
           if (planError) {
-            console.warn("Falha ao sincronizar coach_plans:", planError.message);
+            console.error("coach_plans sync error:", planError);
+            toast.error("Protocolo salvo, mas a sincronização com a Dieta/Treino do aluno falhou", {
+              description: planError.message,
+              duration: 9000,
+            });
+          } else {
+            toast.success("Dieta e Treino sincronizados com o aluno");
           }
         } catch (syncErr) {
-          console.warn("Sync coach_plans error:", syncErr);
+          console.error("Sync coach_plans error:", syncErr);
+          toast.error("Falha ao sincronizar com a área do aluno", {
+            description: syncErr instanceof Error ? syncErr.message : String(syncErr),
+            duration: 9000,
+          });
         }
       }
 
