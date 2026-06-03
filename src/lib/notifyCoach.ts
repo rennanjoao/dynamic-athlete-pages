@@ -10,7 +10,7 @@ export interface NotifyCoachInput {
   coachEmail: string;
   studentName?: string;
   studentEmail?: string;
-  kind: "anamnesis" | "checkin";
+  kind: "anamnesis" | "checkin" | "question";
   subject?: string;
   summary?: string;
   data?: Record<string, unknown>;
