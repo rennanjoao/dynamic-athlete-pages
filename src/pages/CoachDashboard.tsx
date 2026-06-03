@@ -762,8 +762,8 @@ export default function CoachDashboard() {
                   <SelectItem value="ok">Em dia</SelectItem>
                 </SelectContent>
               </Select>
-              <Button size="sm" onClick={() => setShowLinkDialog(true)} className="h-9 gap-1.5">
-                <UserPlus className="w-3.5 h-3.5" /> Vincular Aluno
+              <Button size="sm" variant="outline" onClick={() => setShowProfile(true)} className="h-9 gap-1.5">
+                <UserPlus className="w-3.5 h-3.5" /> Meu código de convite
               </Button>
             </div>
 
