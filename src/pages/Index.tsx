@@ -100,7 +100,7 @@ const Index = () => {
               <Link to="/anamnesis" className="w-full sm:w-auto">
                 <Button size="lg" className="w-full gap-2 rounded-xl px-8 h-14 text-base font-bold glow-primary">
                   <Key className="w-5 h-5" />
-                  Primeiro Acesso (Código)
+                  Primeiro Acesso
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
