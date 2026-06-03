@@ -234,7 +234,18 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
     supplementation: findGuide("Suplementação"),
   };
 
-  return ProtocolPayloadSchema.parse({
+  const parsed = ProtocolPayloadSchema.safeParse({
     setup, macros, guidelines, workouts, meals, carbCycle,
   });
+  if (!parsed.success) {
+    const issues = parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(".") || "raiz"}: ${i.message}`);
+    throw new ProtocolXlsxError(
+      "A planilha foi lida mas não bate com o formato do Protocolo Master.",
+      issues,
+    );
+  }
+  if (parsed.data.meals.length === 0) {
+    throw new ProtocolXlsxError("Nenhuma refeição encontrada na aba 'Refeicoes'. Preencha ao menos uma linha.");
+  }
+  return parsed.data;
 }
