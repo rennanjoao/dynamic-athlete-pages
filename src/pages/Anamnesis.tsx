@@ -238,6 +238,14 @@ const Anamnesis = () => {
 
   /* --- RENDERIZAÇÃO CONDICIONAL DAS ETAPAS --- */
 
+  if (bootstrapping) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (step === "code") {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
