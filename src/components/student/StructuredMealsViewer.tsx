@@ -19,7 +19,7 @@ interface Props {
   payload: ProtocolPayload;
 }
 
-const CARB_MULT: Record<CarbMode, number> = { high: 1.15, base: 1, off: 0.85 };
+const CARB_MULT: Record<CarbMode, number> = { high: 1.15, base: 1, off: 0.85, low: 0.85 };
 
 function adjustedCarbs(meal: MealRow, mode: CarbMode) {
   return Math.round(meal.macros.carbs * CARB_MULT[mode]);
