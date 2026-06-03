@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users, Plus, Dumbbell, UtensilsCrossed, ArrowRight, Zap, Shield, TrendingUp, Sparkles } from "lucide-react";
+import { Users, Plus, Dumbbell, UtensilsCrossed, ArrowRight, Zap, Shield, TrendingUp, Sparkles, Key } from "lucide-react";
 import { motion } from "framer-motion";
 import { InfoChatBot } from "@/components/landing/InfoChatBot";
 import RankingTeaser from "@/components/gamification/RankingTeaser";
@@ -43,7 +43,7 @@ const Index = () => {
         style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
           zIndex: 2147483647, backgroundColor: "#0B0B0C", color: "#F5F5F5",
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyItems: "center", justifyContent: "center",
           padding: "32px", textAlign: "center", cursor: "pointer",
           fontFamily: "system-ui, -apple-system, sans-serif",
           animation: "splashOut 0.5s ease forwards 5.5s"
@@ -96,23 +96,34 @@ const Index = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/auth">
-                <Button size="lg" className="gap-2 rounded-xl px-8 h-12 text-base glow-primary">
-                  <Users className="w-5 h-5" />
-                  Área do Aluno
+              {/* NOVO ALUNO: Vai direto validar o código e preencher a ficha */}
+              <Link to="/anamnesis" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full gap-2 rounded-xl px-8 h-14 text-base font-bold glow-primary">
+                  <Key className="w-5 h-5" />
+                  Primeiro Acesso (Código)
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
-              <Link to="/admin-login">
-                <Button variant="outline" size="lg" className="gap-2 rounded-xl px-8 h-12 text-base border-border/50 hover:bg-primary/10 hover:border-primary/30">
-                  <Plus className="w-5 h-5" />
-                  Área do Treinador
+
+              {/* ALUNO EXISTENTE: Vai pro login normal */}
+              <Link to="/auth" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="w-full gap-2 rounded-xl px-8 h-14 text-base font-bold border-border/50 hover:bg-primary/10 hover:border-primary/30 bg-background/50 backdrop-blur-sm">
+                  <Users className="w-5 h-5 text-muted-foreground" />
+                  Já sou aluno (Login)
                 </Button>
+              </Link>
+            </div>
+            
+            {/* COACH: Login Administrativo */}
+            <div className="mt-8">
+              <Link to="/admin-login" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors tracking-widest uppercase">
+                <Shield className="w-3.5 h-3.5" />
+                Acesso Treinador
               </Link>
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.3 }} className="glass rounded-2xl p-8 mt-16 max-w-3xl mx-auto">
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.3 }} className="glass rounded-2xl p-8 mt-16 max-w-3xl mx-auto border border-border/30">
             <div className="grid grid-cols-3 gap-8">
               <StatBlock value="10+" label="Modalidades" />
               <StatBlock value="100%" label="Personalizado" />
