@@ -634,7 +634,7 @@ export default function CoachDashboard() {
   const [editingStudent, setEditingStudent] = useState<StudentStatus | null>(null);
   const [view, setView] = useState<CoachView>("list");
   const [selectedStudent, setSelectedStudent] = useState<StudentStatus | null>(null);
-  const [showProfile_unused] = useState(false); void showProfile_unused;
+  
   const [showProfile, setShowProfile] = useState(false);
   const qc = useQueryClient();
 
