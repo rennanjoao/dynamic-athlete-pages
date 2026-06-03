@@ -149,12 +149,21 @@ serve(async (req) => {
 
       if (createError) throw createError;
 
-      // Set role (coach or user)
+      // Set role (coach or user) — upsert to be resilient even if the
+      // handle_new_user trigger didn't create the default row.
       const assignRole = targetRole === "coach" ? "coach" : "user";
       await adminClient
         .from("user_roles")
-        .update({ role: assignRole })
+        .delete()
         .eq("user_id", newUser.user.id);
+      await adminClient
+        .from("user_roles")
+        .insert({ user_id: newUser.user.id, role: assignRole });
+
+      // Ensure a profiles row exists so invite_code/notification_email edits work
+      await adminClient
+        .from("profiles")
+        .upsert({ user_id: newUser.user.id, full_name: fullName }, { onConflict: "user_id" });
 
       // Update profile with team_name if provided
       if (teamName) {
