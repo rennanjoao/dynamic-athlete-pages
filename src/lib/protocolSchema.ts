@@ -107,7 +107,39 @@ export const ProtocolPayloadSchema = z.object({
   workouts: z.array(WorkoutDaySchema).default([]),
   meals: z.array(MealSchema).default([]),
   // base/high/off — multiplicadores: base=1, high=+15%, off=-15%
-  carbCycle: z.record(z.enum(["high", "base", "off", "low"])).default({}),
+  // Tolerante: aceita strings descritivas e infere o modo por palavras-chave,
+  // preservando o texto original em `carbCycleNotes`.
+  carbCycle: z.preprocess((val) => {
+    if (!val || typeof val !== "object") return {};
+    const out: Record<string, "high" | "base" | "off" | "low"> = {};
+    for (const [k, raw] of Object.entries(val as Record<string, unknown>)) {
+      const v = String(raw ?? "").toLowerCase().trim();
+      const key = k.toLowerCase();
+      if (["high", "base", "off", "low"].includes(v)) {
+        out[k] = v as "high" | "base" | "off" | "low";
+        continue;
+      }
+      // inferir por palavras-chave
+      let inferred: "high" | "base" | "off" | "low" = "base";
+      if (/\b(alto|high|\+\s*15|aumento|carga)\b/.test(v)) inferred = "high";
+      else if (/\b(off|descanso|rest|reduzido|baixo|low|-\s*15)\b/.test(v)) inferred = "off";
+      else if (/\b(base|normal|manuten)/.test(v)) inferred = "base";
+      else if (["high", "base", "off", "low"].includes(key)) {
+        inferred = key as "high" | "base" | "off" | "low";
+      }
+      out[k] = inferred;
+    }
+    return out;
+  }, z.record(z.enum(["high", "base", "off", "low"])).default({})),
+  // Texto original descritivo de cada entrada do ciclo de carbo (quando vier livre).
+  carbCycleNotes: z.preprocess((val) => {
+    if (!val || typeof val !== "object") return {};
+    const out: Record<string, string> = {};
+    for (const [k, raw] of Object.entries(val as Record<string, unknown>)) {
+      if (typeof raw === "string" && raw.trim()) out[k] = raw;
+    }
+    return out;
+  }, z.record(z.string()).default({})),
 });
 
 
