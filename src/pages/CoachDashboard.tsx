@@ -415,84 +415,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   );
 }
 
-// ─── Link Student Dialog ─────────────────────────────────────────────────────
-
-function LinkStudentDialog({ coachId, open, onClose }: { coachId: string; open: boolean; onClose: () => void }) {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const qc = useQueryClient();
-
-  const handleLink = async () => {
-    if (!email) { toast.error("Digite o email do aluno"); return; }
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("manage-trainers", {
-        body: { action: "find-student-by-email", email: email.trim() },
-      });
-      if (error) throw error;
-      const found = (data as { student?: { id: string; email: string; full_name: string } | null })?.student;
-      if (!found) {
-        toast.error("Nenhum aluno encontrado com esse e-mail.");
-        return;
-      }
-
-      const { error: insErr } = await supabase.from("coach_students").insert({
-        coach_id: coachId,
-        student_id: found.id,
-        status: "active",
-      });
-
-      if (insErr) {
-        if (insErr.code === "23505") {
-          // Re-activate if previously inactive
-          await supabase.from("coach_students")
-            .update({ status: "active" })
-            .eq("coach_id", coachId)
-            .eq("student_id", found.id);
-          toast.success(`${found.full_name} reativado.`);
-        } else {
-          throw insErr;
-        }
-      } else {
-        toast.success(`${found.full_name} vinculado com sucesso!`);
-      }
-
-      setEmail("");
-      onClose();
-      qc.invalidateQueries({ queryKey: ["coach-students"] });
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao vincular aluno");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[380px]">
-        <DialogHeader><DialogTitle>Vincular Aluno</DialogTitle></DialogHeader>
-        <div className="space-y-3 py-2">
-          <div>
-            <Label className="text-xs">E-mail do aluno</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="aluno@email.com"
-              className="mt-1 h-9 text-sm"
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              O aluno precisa já ter conta no sistema.
-            </p>
-          </div>
-          <Button onClick={handleLink} disabled={loading} className="w-full">
-            {loading ? "Vinculando..." : "Vincular Aluno"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// ─── (Vínculo de aluno agora é automático via código de convite na anamnese) ─
 
 // ─── Profile (team name) Dialog ──────────────────────────────────────────────
 
@@ -634,7 +557,7 @@ export default function CoachDashboard() {
   const [editingStudent, setEditingStudent] = useState<StudentStatus | null>(null);
   const [view, setView] = useState<CoachView>("list");
   const [selectedStudent, setSelectedStudent] = useState<StudentStatus | null>(null);
-  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  
   const [showProfile, setShowProfile] = useState(false);
   const qc = useQueryClient();
 
@@ -762,8 +685,8 @@ export default function CoachDashboard() {
                   <SelectItem value="ok">Em dia</SelectItem>
                 </SelectContent>
               </Select>
-              <Button size="sm" onClick={() => setShowLinkDialog(true)} className="h-9 gap-1.5">
-                <UserPlus className="w-3.5 h-3.5" /> Vincular Aluno
+              <Button size="sm" variant="outline" onClick={() => setShowProfile(true)} className="h-9 gap-1.5">
+                <UserPlus className="w-3.5 h-3.5" /> Meu código de convite
               </Button>
             </div>
 
@@ -776,7 +699,7 @@ export default function CoachDashboard() {
                 <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-sm text-muted-foreground">
                   {students.length === 0
-                    ? "Nenhum aluno vinculado. Clique em 'Vincular Aluno' para começar."
+                    ? "Nenhum aluno vinculado ainda. Compartilhe seu código de convite — o aluno será vinculado automaticamente ao enviar a anamnese."
                     : "Nenhum aluno encontrado com os filtros atuais."}
                 </p>
               </div>
@@ -808,7 +731,6 @@ export default function CoachDashboard() {
           </TabsContent>
         </Tabs>
 
-        {coachId && <LinkStudentDialog coachId={coachId} open={showLinkDialog} onClose={() => setShowLinkDialog(false)} />}
         {coachId && <ProfileDialog coachId={coachId} open={showProfile} onClose={() => setShowProfile(false)} />}
 
         <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}>
