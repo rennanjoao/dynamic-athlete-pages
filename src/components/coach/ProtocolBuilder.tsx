@@ -327,6 +327,39 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
 
 // ─── Sub-tabs ───────────────────────────────────────────────────────────────
 
+function MacrosTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
+  const m = payload.macros;
+  const upd = (k: keyof typeof m, v: number | string) =>
+    setPayload({ ...payload, macros: { ...m, [k]: v } as typeof m });
+  return (
+    <Card className="bg-card/60 border-border p-4">
+      <p className="text-xs text-muted-foreground mb-3">
+        Base calórica e macros do protocolo. Esses valores aparecem para o aluno e servem de referência para ciclo de carbo.
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div><Label className="text-xs">Calorias</Label><Input type="number" value={m.calories} onChange={(e) => upd("calories", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div><Label className="text-xs">Proteína (g)</Label><Input type="number" value={m.protein} onChange={(e) => upd("protein", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div><Label className="text-xs">Carbo (g)</Label><Input type="number" value={m.carbs} onChange={(e) => upd("carbs", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div><Label className="text-xs">Gordura (g)</Label><Input type="number" value={m.fat} onChange={(e) => upd("fat", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div><Label className="text-xs">Água (L)</Label><Input type="number" step="0.1" value={m.water} onChange={(e) => upd("water", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
+        <div>
+          <Label className="text-xs">Objetivo</Label>
+          <Select value={m.goal} onValueChange={(v) => upd("goal", v)}>
+            <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hipertrofia">Hipertrofia</SelectItem>
+              <SelectItem value="emagrecimento">Emagrecimento</SelectItem>
+              <SelectItem value="recomposicao">Recomposição</SelectItem>
+              <SelectItem value="performance">Performance</SelectItem>
+              <SelectItem value="manter">Manutenção</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function GuidelinesTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
   const upd = (k: keyof ProtocolPayload["guidelines"], v: string) =>
     setPayload({ ...payload, guidelines: { ...payload.guidelines, [k]: v } });
