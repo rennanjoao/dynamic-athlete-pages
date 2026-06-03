@@ -154,8 +154,104 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
         setProtocolId(data.id);
         toast.success("Protocolo criado");
       }
+
+      // ── Sincroniza com coach_plans para que /routine e /workout-plan vejam ──
+      if (coachId) {
+        try {
+          const dietStrategyJson = {
+            meals: (parsed.meals ?? []).map((meal) => ({
+              id: (meal.name || "refeicao").toLowerCase().replace(/\s+/g, "_"),
+              label: meal.name,
+              time: meal.time,
+              macros: meal.macros,
+              items: (meal.options ?? []).map((opt) => ({
+                name: opt.title,
+                quantity: opt.items,
+              })),
+              substitutions: meal.substitutions,
+              notes: meal.notes,
+              highCarbBonus: [],
+              gastricSub: [],
+            })),
+            weeklyPlan: Object.entries(parsed.carbCycle ?? {}).map(([day, type]) => ({
+              day,
+              type: type as string,
+              label:
+                type === "high" ? "Dia Alto" :
+                type === "low" || type === "off" ? "Dia Baixo / Off" :
+                "Base",
+              notes: (parsed.carbCycleNotes ?? {})[day] ?? "",
+            })),
+            carbCycleNotes: parsed.carbCycleNotes ?? {},
+            guidelines: parsed.guidelines,
+            baseCalories: parsed.macros?.calories ?? 2200,
+          };
+
+          const workoutPeriodizationJson = {
+            trainingDays: (parsed.workouts ?? []).map((w) => ({
+              id: w.key,
+              label: w.focus,
+              exercises: (w.exercises ?? []).map((ex) => ({
+                name: ex.name,
+                sets: ex.sets,
+                reps: ex.reps,
+                cadence: ex.cadence,
+                rest: ex.rest,
+                notes: ex.notes,
+              })),
+            })),
+            weeklyDirectives: [],
+            currentWeek: 1,
+            guidelines: parsed.guidelines,
+          };
+
+          // coach_plans.goal aceita apenas: emagrecer | manter | hipertrofia | recomposicao
+          const goalMap: Record<string, string> = {
+            hipertrofia: "hipertrofia",
+            emagrecimento: "emagrecer",
+            emagrecer: "emagrecer",
+            recomposicao: "recomposicao",
+            performance: "manter",
+            manter: "manter",
+          };
+          const safeGoal = goalMap[(parsed.macros?.goal ?? "manter").toLowerCase()] ?? "manter";
+
+          const { error: planError } = await sb
+            .from("coach_plans")
+            .upsert(
+              {
+                student_id: studentId,
+                coach_id: coachId,
+                diet_strategy_json: dietStrategyJson,
+                workout_periodization_json: workoutPeriodizationJson,
+                base_calories: parsed.macros?.calories ?? 2200,
+                base_protein_g: parsed.macros?.protein ?? 160,
+                base_carbs_g: parsed.macros?.carbs ?? 250,
+                base_fat_g: parsed.macros?.fat ?? 55,
+                calories: parsed.macros?.calories ?? 2200,
+                protein_g: parsed.macros?.protein ?? 160,
+                carbs_g: parsed.macros?.carbs ?? 250,
+                fat_g: parsed.macros?.fat ?? 55,
+                water_l: parsed.macros?.water ?? 2.5,
+                goal: safeGoal,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "coach_id,student_id" }
+            );
+          if (planError) {
+            console.warn("Falha ao sincronizar coach_plans:", planError.message);
+          }
+        } catch (syncErr) {
+          console.warn("Sync coach_plans error:", syncErr);
+        }
+      }
+
       qc.invalidateQueries({ queryKey: ["protocol-builder", studentId] });
       qc.invalidateQueries({ queryKey: ["protocol", studentId] });
+      qc.invalidateQueries({ queryKey: ["diet-strategy", studentId] });
+      qc.invalidateQueries({ queryKey: ["workout-plan", studentId] });
+      qc.invalidateQueries({ queryKey: ["coach-plan-presence", studentId] });
+      qc.invalidateQueries({ queryKey: ["plan-macros", studentId] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao salvar");
     } finally {
