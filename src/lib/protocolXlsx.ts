@@ -108,9 +108,35 @@ export function exportProtocolXlsx(payload: ProtocolPayload, studentName: string
   XLSX.writeFile(wb, `protocolo-${safe}.xlsx`);
 }
 
+export class ProtocolXlsxError extends Error {
+  details: string[];
+  constructor(message: string, details: string[] = []) {
+    super(message);
+    this.name = "ProtocolXlsxError";
+    this.details = details;
+  }
+}
+
 export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array" });
+  if (!file.name.match(/\.xlsx?$/i)) {
+    throw new ProtocolXlsxError("O arquivo precisa ser .xlsx ou .xls.");
+  }
+  let wb: XLSX.WorkBook;
+  try {
+    const buf = await file.arrayBuffer();
+    wb = XLSX.read(buf, { type: "array" });
+  } catch (e) {
+    throw new ProtocolXlsxError("Não foi possível ler a planilha. Salve como .xlsx no Excel/Google Sheets e tente novamente.");
+  }
+
+  const required = ["Setup", "Macros", "Refeicoes"];
+  const missing = required.filter((s) => !wb.Sheets[s] && !(s === "Refeicoes" && wb.Sheets["Refeições"]));
+  if (missing.length) {
+    throw new ProtocolXlsxError(
+      `Abas obrigatórias ausentes: ${missing.join(", ")}. Use o esboço exportado como base.`,
+      missing,
+    );
+  }
 
   // Setup
   const setupSheet = wb.Sheets["Setup"];
