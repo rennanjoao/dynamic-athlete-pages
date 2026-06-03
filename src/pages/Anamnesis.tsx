@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,9 @@ const Anamnesis = () => {
   const [step, setStep] = useState<"code" | "form" | "done">("code");
   const [inviteCode, setInviteCode] = useState("");
   const [coach, setCoach] = useState<CoachInfo | null>(null);
-  
+  const [loggedUserId, setLoggedUserId] = useState<string | null>(null);
+  const [bootstrapping, setBootstrapping] = useState(true);
+
   const [validating, setValidating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
@@ -68,6 +70,63 @@ const Anamnesis = () => {
   const g = (k: string) => d[k] ?? "";
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3500); };
+
+  // Detecta aluno já logado e pula código + signup
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setBootstrapping(false); return; }
+
+        // Já tem anamnese? então não precisa preencher de novo
+        const { data: existing } = await supabase
+          .from("anamnesis")
+          .select("id, submitted_at")
+          .eq("student_id", user.id)
+          .maybeSingle();
+        if (existing?.submitted_at) {
+          navigate("/student-area");
+          return;
+        }
+
+        setLoggedUserId(user.id);
+        const meta = (user.user_metadata || {}) as Record<string, string>;
+        setD(prev => ({
+          ...prev,
+          nome: prev.nome || meta.full_name || "",
+          email: prev.email || user.email || "",
+        }));
+
+        // Carrega vínculo de coach, se houver
+        const { data: link } = await supabase
+          .from("coach_students")
+          .select("coach_id")
+          .eq("student_id", user.id)
+          .eq("status", "active")
+          .maybeSingle();
+
+        if (link?.coach_id) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("full_name, notification_email")
+            .eq("user_id", link.coach_id)
+            .maybeSingle();
+          setCoach({
+            id: link.coach_id,
+            name: prof?.full_name || "Seu Treinador",
+            email: prof?.notification_email || null,
+          });
+        } else {
+          setCoach({ id: "", name: "Sem treinador vinculado", email: null });
+        }
+
+        setStep("form");
+      } finally {
+        setBootstrapping(false);
+      }
+    })();
+  }, [navigate]);
+
 
   // ETAPA 1: VALIDAR CÓDIGO DO COACH
   const handleValidateCode = async (e?: React.FormEvent) => {
