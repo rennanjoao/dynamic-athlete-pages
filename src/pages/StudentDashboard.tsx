@@ -19,7 +19,6 @@ import {
   CheckCircle2,
   Circle,
   Trophy,
-  LogOut,
   ChevronRight,
   Zap,
   Moon,
@@ -590,11 +589,6 @@ export default function StudentDashboard() {
     { label: "Água", unit: "L", current: +(waterMl / 1000).toFixed(1), goal: 2.5, color: "#06B6D4", icon: null },
   ];
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
-  };
-
   if (isLoading || planLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -657,12 +651,6 @@ export default function StudentDashboard() {
             >
               <ClipboardList className="w-4 h-4" />
             </Button>
-            <button
-              onClick={handleLogout}
-              className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </header>

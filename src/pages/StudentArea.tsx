@@ -14,7 +14,6 @@ import { CheckInReminder } from "@/components/student/CheckInReminder";
 import { ProgressChart } from "@/components/student/ProgressChart";
 import { useStudentData } from "@/hooks/useStudentData";
 import {
-  LogOut,
   ClipboardList,
   Activity,
   FileText,
@@ -95,11 +94,6 @@ const StudentArea = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
-  };
-
   const payloadAna = (anamnesis?.payload as Record<string, any>) || {};
   const firstName = payloadAna.nome
     ? payloadAna.nome.split(" ")[0]
@@ -127,11 +121,6 @@ const StudentArea = () => {
             <p className="text-xs text-muted-foreground">
               Olá, {firstName} — escolha um módulo abaixo
             </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" /> Sair
-            </Button>
           </div>
         </div>
       </header>
