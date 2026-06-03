@@ -260,6 +260,39 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_notifications: {
+        Row: {
+          coach_id: string
+          context: string
+          created_at: string
+          id: string
+          is_read: boolean | null
+          message: string
+          student_id: string | null
+          student_name: string
+        }
+        Insert: {
+          coach_id: string
+          context: string
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          student_id?: string | null
+          student_name: string
+        }
+        Update: {
+          coach_id?: string
+          context?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          student_id?: string | null
+          student_name?: string
+        }
+        Relationships: []
+      }
       coach_plans: {
         Row: {
           base_calories: number | null
