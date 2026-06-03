@@ -524,6 +524,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          invite_code: string | null
           notification_email: string | null
           team_name: string | null
           updated_at: string
@@ -535,6 +536,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          invite_code?: string | null
           notification_email?: string | null
           team_name?: string | null
           updated_at?: string
@@ -546,6 +548,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          invite_code?: string | null
           notification_email?: string | null
           team_name?: string | null
           updated_at?: string
@@ -555,36 +558,47 @@ export type Database = {
       }
       protocols: {
         Row: {
-          active: boolean
+          active: boolean | null
           coach_id: string | null
           created_at: string
-          html_content: string
           id: string
-          student_id: string
-          title: string
+          is_template: boolean | null
+          name: string
+          payload: Json
+          student_id: string | null
           updated_at: string
         }
         Insert: {
-          active?: boolean
+          active?: boolean | null
           coach_id?: string | null
           created_at?: string
-          html_content?: string
           id?: string
-          student_id: string
-          title?: string
+          is_template?: boolean | null
+          name: string
+          payload?: Json
+          student_id?: string | null
           updated_at?: string
         }
         Update: {
-          active?: boolean
+          active?: boolean | null
           coach_id?: string | null
           created_at?: string
-          html_content?: string
           id?: string
-          student_id?: string
-          title?: string
+          is_template?: boolean | null
+          name?: string
+          payload?: Json
+          student_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "protocols_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       skinfold_measurements: {
         Row: {
@@ -830,6 +844,14 @@ export type Database = {
       }
     }
     Functions: {
+      get_coach_by_invite_code: {
+        Args: { p_code: string }
+        Returns: {
+          coach_id: string
+          coach_name: string
+          notification_email: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
