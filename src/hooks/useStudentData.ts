@@ -35,6 +35,7 @@ export interface Protocol {
   student_id: string;
   title: string;
   html_content: string;
+  payload?: Record<string, unknown> | null;
   active: boolean;
   updated_at: string;
 }
