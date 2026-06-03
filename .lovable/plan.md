@@ -1,62 +1,67 @@
-# Ajustes RJ Elite Lab
+## Problemas identificados
 
-## 1. Rebrand global
-- Substituir "Elite Performance Platform" / "Elite Athlete Hub" / "Elite Athlete" por **"Elite Lab Hub – Rennan João"** (com `Hub` em vermelho via `<span className="text-primary">`).
-- Buscar todas as ocorrências em `src/pages/Index.tsx`, `StudentArea.tsx`, `CoachDashboard.tsx`, `Auth.tsx`, `index.html` (title/description) e qualquer componente landing.
-- Atualizar `mem://index.md` (Core) para refletir "Elite Lab Hub".
+### 1. Coach não consegue logar como coach
+- `src/pages/Auth.tsx` redireciona **qualquer usuário logado** para `/student-area`, sem checar a role.
+- `src/pages/AdminLogin.tsx` só aceita role `admin` (faz signOut se não for admin).
+- Resultado: um coach que tenta logar tanto em `/auth` quanto em `/admin-login` acaba caindo em `/student-area` ou sendo deslogado.
 
-## 2. Terminologia "Atleta" → "Aluno"
-- Renomear textualmente em toda UI pública e área do aluno (rotas `/`, `/student-area`, `/fitness`, `/evolution`, `/anamnesis`, `/check-in`).
-- Manter "atleta" apenas em contextos de treinamento esportivo específico (ex.: copy do AI Coach falando de performance esportiva).
-- "Área do Atleta" → "Área do Aluno" em todos os labels/headers.
+### 2. Código de convite dá inválido
+- A função `get_coach_by_invite_code` (no Postgres) faz:
+  ```sql
+  SELECT user_id, full_name, notification_email
+  FROM profiles
+  WHERE invite_code = p_code AND role = 'coach'
+  ```
+- A coluna `role` **não existe** em `profiles` (roles estão na tabela `user_roles`). A chamada retorna `400: column "role" does not exist` (visível nos logs de rede).
 
-## 3. Módulo Nutrição (landing/áreas públicas)
-- Trocar card "Nutrição Avançada / Planos alimentares detalhados com macros, suplementação e horários otimizados" por:
-  - Título: **Estratégias Nutricionais**
-  - Texto: *Diretrizes e recomendações alimentares para apoiar seus objetivos de emagrecimento, saúde e performance.*
+### 3. Aluno já logado é forçado a preencher anamnese, mas a tela exige código + signup
+- A anamnese (`/anamnesis`) começa pelo passo "code" → digitar código do coach → criar nova conta. Não há caminho para um aluno já autenticado preencher a anamnese diretamente.
+- O `AnamnesisGuard` empurra alunos logados sem anamnese para `/anamnesis`, onde eles caem no fluxo de "primeiro acesso" e ficam presos.
 
-## 4. Módulo Analytics
-- Trocar "Analytics de Performance" por:
-  - Título: **Painel de Evolução**
-  - Texto: *Visualize sua evolução através de métricas corporais, registros fotográficos e indicadores de performance ao longo do processo.*
+## Plano de correção
 
-## 5. Gestão de atletas — restrita ao Treinador
-- Remover qualquer card/menção a "Atletas cadastrados", "Gerenciamento de atletas", contagem de atletas das páginas públicas e da Área do Aluno.
-- Manter funcionalidades **apenas** dentro de `/coach` (`CoachDashboard.tsx`), já filtrado por `coach_id = auth.uid()` (via `useCoachStudents`) — confirmar RLS de `coach_students` (já OK).
+### A. Login do coach (após login, decidir rota pela role)
+Atualizar `src/pages/Auth.tsx` para, após `signInWithPassword` e no `onAuthStateChange`/`getSession` inicial:
+1. Chamar `supabase.rpc("has_role", { _user_id, _role: "admin" })` → se true, navegar para `/admin`.
+2. Senão, `has_role(..., "coach")` → se true, navegar para `/coach`.
+3. Caso contrário → `/student-area`.
 
-## 6. Remover "Painel Fitness"
-- Excluir rota `/fitness` e a página `src/pages/Fitness.tsx`.
-- Realocar conteúdo útil (HoverBlock de Treinos/Dietas/Aeróbicos, WorkoutCard, DietCard, PerformanceChart, FitnessChatBot) para dentro da Área do Aluno (`StudentArea.tsx` ou `StudentDashboard.tsx`), preservando a funcionalidade via `useFitnessProgress`.
-- Remover qualquer link/botão para `/fitness` (NavLink, header, dashboard).
+Isso permite que admin e coach usem a tela padrão de login. `/admin-login` continua existindo para acesso direto da área restrita.
 
-## 7. Medidas corporais — sem entrada manual
-- Remover `MeasurementsForm` e `SkinfoldForm` da Área do Aluno (rotas/abas que os expõem).
-- Manter as tabelas `body_measurements` / `skinfold_measurements` (histórico antigo), mas **não inserir** mais por UI manual do aluno.
-- Os dados de peso/medidas/fotos passam a vir exclusivamente de `anamnesis.payload` (baseline) e `check_ins.payload` (séries temporais).
+### B. Corrigir função `get_coach_by_invite_code`
+Migration recriando a função para juntar `profiles` com `user_roles`:
+```sql
+CREATE OR REPLACE FUNCTION public.get_coach_by_invite_code(p_code text)
+RETURNS TABLE(coach_id uuid, coach_name text, notification_email text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT p.user_id, p.full_name, p.notification_email
+  FROM profiles p
+  JOIN user_roles ur ON ur.user_id = p.user_id
+  WHERE p.invite_code = p_code
+    AND ur.role = 'coach'::app_role
+  LIMIT 1;
+END;
+$$;
+```
 
-## 8. Classificação automática Amador/Profissional
-- Remover qualquer toggle/seletor manual desse status na UI.
-- Derivar automaticamente a partir do payload da última anamnese + último check-in:
-  - **Profissional** se a anamnese declarar uso/conhecimento de dobras cutâneas, frequência ≥5x/sem e objetivo competitivo, ou se um check-in trouxe `protocol_used` (skinfold).
-  - **Amador** caso contrário.
-- Implementar como helper puro `src/lib/userTier.ts` consumido pela Área do Aluno e pelo CoachDashboard.
+### C. Anamnese para aluno já autenticado
+Ajustar `src/pages/Anamnesis.tsx`:
+1. No mount, verificar `supabase.auth.getUser()`.
+2. Se houver sessão **e** ainda não houver anamnese (`anamnesis` vazio para esse `student_id`):
+   - Pular o passo "code" e o bloco de signup (nome/email/senha).
+   - Tentar carregar o `coach_id` a partir de `coach_students` (status `active`) — se não houver, ainda permitir preencher sem coach.
+   - Mostrar o formulário direto (`step = "form"`); no submit, usar `auth.uid()` como `student_id`, sem criar conta nova nem inserir em `coach_students` (a menos que ainda não exista vínculo).
+3. Se **não** houver sessão, manter o fluxo atual de "primeiro acesso" (código → signup → anamnese).
 
-## 9. Gráfico de Evolução conectado a anamnese + feedbacks
-- Atualizar `EvolutionTimeline.tsx` e `ComparisonBoard.tsx` para ler de `useStudentData` (já feito) e derivar séries automaticamente:
-  - Ponto inicial = `anamnesis.baseline_metrics` (peso, cintura, %gordura, etc.) com data `submitted_at`.
-  - Demais pontos = cada `check_ins.current_metrics` ordenado por `submitted_at`.
-  - Fotos: agregar `payload.photos[]` da anamnese + cada check-in (cronológico).
-- Garantir reatividade via realtime (já configurado em `useStudentData`).
-- Esconder a aba "Medidas" manual; manter apenas "Anamnese", "Check-in", "Evolução", "Protocolo".
+Não mexer no `AnamnesisGuard`: ele continua redirecionando para `/anamnesis`, e agora a página sabe atender tanto novos quanto já logados.
 
-## 10. Detalhes técnicos
-- Sem mudança de schema (Supabase). Mudanças concentradas em frontend.
-- Atualizar `App.tsx` para remover rota `/fitness`.
-- Atualizar `mem://index.md` Core para refletir nova marca e remover menções a "Elite Athlete Hub" e "Painel Fitness".
+## Arquivos afetados
 
-## Arquivos previstos
-- Editar: `index.html`, `src/App.tsx`, `src/pages/Index.tsx`, `src/pages/StudentArea.tsx`, `src/pages/StudentDashboard.tsx`, `src/pages/Evolution.tsx`, `src/pages/CoachDashboard.tsx`, `src/pages/Auth.tsx`, `src/components/student/EvolutionTimeline.tsx`, `src/components/student/ComparisonBoard.tsx`, `src/components/NavLink.tsx` (se houver link p/ fitness), `mem://index.md`.
-- Criar: `src/lib/userTier.ts`.
-- Excluir: `src/pages/Fitness.tsx`, `src/components/student/MeasurementsForm.tsx`, `src/components/student/SkinfoldForm.tsx` (se não usados em outro lugar — verificar antes).
+- `src/pages/Auth.tsx` — roteamento por role após login.
+- `src/pages/Anamnesis.tsx` — modo "aluno já logado".
+- Nova migration SQL — recriar `get_coach_by_invite_code`.
 
-Confirma para eu executar?
+Sem mudanças em RLS, edge functions ou em `AdminLogin`/`AdminGuard`.

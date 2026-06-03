@@ -13,27 +13,32 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: "", password: "" });
 
+  const routeByRole = async (userId: string) => {
+    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+    if (isAdmin) { navigate("/admin"); return; }
+    const { data: isCoach } = await supabase.rpc("has_role", { _user_id: userId, _role: "coach" });
+    if (isCoach) { navigate("/coach"); return; }
+    navigate("/student-area");
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate("/student-area");
+      if (session) routeByRole(session.user.id);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) navigate("/student-area");
-    });
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: loginData.email,
         password: loginData.password,
       });
       if (error) throw error;
       toast.success("Login realizado com sucesso!");
-      navigate("/student-area");
+      if (data.user) await routeByRole(data.user.id);
     } catch (error: any) {
       if (error.message.includes("Invalid login credentials")) {
         toast.error("Email ou senha incorretos");

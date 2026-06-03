@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,9 @@ const Anamnesis = () => {
   const [step, setStep] = useState<"code" | "form" | "done">("code");
   const [inviteCode, setInviteCode] = useState("");
   const [coach, setCoach] = useState<CoachInfo | null>(null);
-  
+  const [loggedUserId, setLoggedUserId] = useState<string | null>(null);
+  const [bootstrapping, setBootstrapping] = useState(true);
+
   const [validating, setValidating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
@@ -68,6 +70,63 @@ const Anamnesis = () => {
   const g = (k: string) => d[k] ?? "";
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3500); };
+
+  // Detecta aluno já logado e pula código + signup
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setBootstrapping(false); return; }
+
+        // Já tem anamnese? então não precisa preencher de novo
+        const { data: existing } = await supabase
+          .from("anamnesis")
+          .select("id, submitted_at")
+          .eq("student_id", user.id)
+          .maybeSingle();
+        if (existing?.submitted_at) {
+          navigate("/student-area");
+          return;
+        }
+
+        setLoggedUserId(user.id);
+        const meta = (user.user_metadata || {}) as Record<string, string>;
+        setD(prev => ({
+          ...prev,
+          nome: prev.nome || meta.full_name || "",
+          email: prev.email || user.email || "",
+        }));
+
+        // Carrega vínculo de coach, se houver
+        const { data: link } = await supabase
+          .from("coach_students")
+          .select("coach_id")
+          .eq("student_id", user.id)
+          .eq("status", "active")
+          .maybeSingle();
+
+        if (link?.coach_id) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("full_name, notification_email")
+            .eq("user_id", link.coach_id)
+            .maybeSingle();
+          setCoach({
+            id: link.coach_id,
+            name: prof?.full_name || "Seu Treinador",
+            email: prof?.notification_email || null,
+          });
+        } else {
+          setCoach({ id: "", name: "Sem treinador vinculado", email: null });
+        }
+
+        setStep("form");
+      } finally {
+        setBootstrapping(false);
+      }
+    })();
+  }, [navigate]);
+
 
   // ETAPA 1: VALIDAR CÓDIGO DO COACH
   const handleValidateCode = async (e?: React.FormEvent) => {
@@ -103,27 +162,34 @@ const Anamnesis = () => {
   // ETAPA 2: SUBMETER ANAMNESE E CRIAR CONTA
   const handleSubmit = useCallback(async () => {
     if (!coach) return;
-    if (!g("nome") || !g("email") || !g("senha")) { showToast("Preencha Nome, E-mail e crie sua Senha."); return; }
-    if (g("senha").length < 6) { showToast("A senha deve ter no mínimo 6 caracteres."); return; }
+    if (!g("nome")) { showToast("Preencha seu nome."); return; }
+    if (!loggedUserId) {
+      if (!g("email") || !g("senha")) { showToast("Preencha Nome, E-mail e crie sua Senha."); return; }
+      if (g("senha").length < 6) { showToast("A senha deve ter no mínimo 6 caracteres."); return; }
+    }
     if (!gender) { showToast("Selecione seu gênero."); return; }
 
     setSaving(true);
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: g("email"),
-        password: g("senha"),
-        options: { data: { full_name: g("nome") } }
-      });
-
-      if (authError || !authData.user) throw new Error(authError?.message === "User already registered" ? "Este e-mail já está cadastrado." : "Erro ao criar conta.");
+      let studentId = loggedUserId;
+      if (!studentId) {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: g("email"),
+          password: g("senha"),
+          options: { data: { full_name: g("nome") } }
+        });
+        if (authError || !authData.user) throw new Error(authError?.message === "User already registered" ? "Este e-mail já está cadastrado." : "Erro ao criar conta.");
+        studentId = authData.user.id;
+      }
 
       const fotos: Record<string, string> = {};
       for (const [key, file] of Object.entries(fotoFiles)) {
         if (file) { try { fotos[key] = await uploadToCloudinary(file); } catch { fotos[key] = ""; } }
       }
 
+      const coachIdOrNull = coach.id || null;
       const payload: Record<string, unknown> = {
-        ...d, gender, tpm: tpm.join(", "), queda_capilar_f: quedaF.join(", "), ...groups, fotos, coach_id: coach.id,
+        ...d, gender, tpm: tpm.join(", "), queda_capilar_f: quedaF.join(", "), ...groups, fotos, coach_id: coachIdOrNull,
       };
 
       const baseline: Record<string, number> = {};
@@ -132,19 +198,40 @@ const Anamnesis = () => {
         if (!isNaN(n)) baseline[k] = n;
       });
 
-      await (supabase.from("anamnesis") as any).insert({
-        student_id: authData.user.id,
-        coach_id: coach.id,
+      const anamnesisRow = {
+        student_id: studentId,
+        coach_id: coachIdOrNull,
         payload,
         baseline_metrics: baseline,
         submitted_at: new Date().toISOString(),
-      });
+      };
+      const { data: prior } = await supabase
+        .from("anamnesis")
+        .select("id")
+        .eq("student_id", studentId!)
+        .maybeSingle();
+      if (prior?.id) {
+        await (supabase.from("anamnesis") as any).update(anamnesisRow).eq("id", prior.id);
+      } else {
+        await (supabase.from("anamnesis") as any).insert(anamnesisRow);
+      }
 
-      await supabase.from("coach_students").insert({
-        coach_id: coach.id,
-        student_id: authData.user.id,
-        status: "active",
-      });
+      // Cria vínculo só se houver coach e ainda não existir
+      if (coachIdOrNull) {
+        const { data: existingLink } = await supabase
+          .from("coach_students")
+          .select("id")
+          .eq("coach_id", coachIdOrNull)
+          .eq("student_id", studentId)
+          .maybeSingle();
+        if (!existingLink) {
+          await supabase.from("coach_students").insert({
+            coach_id: coachIdOrNull,
+            student_id: studentId,
+            status: "active",
+          });
+        }
+      }
 
       if (coach.email) await sendAnamnesisEmail(payload, gender, tpm, quedaF, fotos, coach.email);
 
@@ -155,11 +242,19 @@ const Anamnesis = () => {
     } finally {
       setSaving(false);
     }
-  }, [d, gender, tpm, quedaF, groups, fotoFiles, coach]);
+  }, [d, gender, tpm, quedaF, groups, fotoFiles, coach, loggedUserId]);
 
   const chBtn = (id: string) => cn("px-5 py-2.5 rounded-xl text-sm font-bold border-2 transition-all", gender === id ? "border-primary bg-primary/15 text-primary" : "border-border/50 text-muted-foreground hover:border-primary/40");
 
   /* --- RENDERIZAÇÃO CONDICIONAL DAS ETAPAS --- */
+
+  if (bootstrapping) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (step === "code") {
     return (
@@ -239,8 +334,8 @@ const Anamnesis = () => {
           <Card label="Dados Pessoais e Acesso">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2"><Field label="Nome completo"><FiInput name="nome" placeholder="Seu nome completo" value={g("nome")} onChange={set("nome")} /></Field></div>
-              <div className="col-span-2"><Field label="E-mail (Para Login)"><FiInput name="email" type="email" placeholder="voce@email.com" value={g("email")} onChange={set("email")} /></Field></div>
-              <div className="col-span-2"><Field label="Crie uma Senha"><FiInput name="senha" type="password" placeholder="Mínimo 6 caracteres" value={g("senha")} onChange={set("senha")} /></Field></div>
+              {!loggedUserId && <div className="col-span-2"><Field label="E-mail (Para Login)"><FiInput name="email" type="email" placeholder="voce@email.com" value={g("email")} onChange={set("email")} /></Field></div>}
+              {!loggedUserId && <div className="col-span-2"><Field label="Crie uma Senha"><FiInput name="senha" type="password" placeholder="Mínimo 6 caracteres" value={g("senha")} onChange={set("senha")} /></Field></div>}
               <Field label="Data de nascimento"><FiInput name="data_nasc" type="date" value={g("data_nasc")} onChange={set("data_nasc")} /></Field>
               <Field label="WhatsApp"><FiInput name="whatsapp" type="tel" placeholder="(11) 99999-9999" value={g("whatsapp")} onChange={set("whatsapp")} /></Field>
               <div className="col-span-2"><Field label="Cidade / Estado"><FiInput name="cidade" placeholder="Ex: São Paulo / SP" value={g("cidade")} onChange={set("cidade")} /></Field></div>
