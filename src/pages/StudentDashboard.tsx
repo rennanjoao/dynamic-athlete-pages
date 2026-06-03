@@ -735,7 +735,7 @@ export default function StudentDashboard() {
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-orange-400" />
             <h2 className="text-sm font-semibold text-foreground">Macros de Hoje</h2>
-            <Badge variant="secondary" className="ml-auto text-xs">2.100 kcal</Badge>
+            <Badge variant="secondary" className="ml-auto text-xs">{planCalories.toLocaleString("pt-BR")} kcal</Badge>
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             {macros.map((m) => (
