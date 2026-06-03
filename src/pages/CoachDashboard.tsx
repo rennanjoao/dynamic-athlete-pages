@@ -597,14 +597,19 @@ export default function CoachDashboard() {
 
   const goBack = () => { setView("list"); setSelectedStudent(null); };
 
-  const handleUnlink = async (student: StudentStatus) => {
-    if (!confirm(`Desvincular ${student.name}?`)) return;
+  const handleUnlink = (student: StudentStatus) => {
+    setUnlinkTarget(student);
+  };
+
+  const confirmUnlink = async () => {
+    if (!unlinkTarget) return;
     await supabase.from("coach_students")
       .update({ status: "inactive" })
       .eq("coach_id", coachId)
-      .eq("student_id", student.id);
+      .eq("student_id", unlinkTarget.id);
     qc.invalidateQueries({ queryKey: ["coach-students"] });
     toast.success("Aluno desvinculado");
+    setUnlinkTarget(null);
   };
 
   // Detail views
