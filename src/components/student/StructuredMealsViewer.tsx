@@ -1,207 +1,163 @@
 import { useState } from "react";
-import { ProtocolPayloadSchema } from "@/lib/protocolSchema";
+import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Apple, Clock, Info, CheckCircle2, Scale } from "lucide-react";
+import CarbCycleSelector, { type CarbMode } from "@/components/student/CarbCycleSelector";
 
-// Micro-CSS injetado: Replica o comportamento do HTML original (toggle de classes)
-const HTML_LIKE_CSS = `
-  .t-tabs { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 5px; }
-  .t-tab {
-    background: var(--surface, #1a1a1a); border: 2px solid var(--border, #2a2a2a); color: var(--text, #ffffff);
-    padding: 1rem 2rem; border-radius: 12px; cursor: pointer; transition: all 0.3s ease;
-    font-size: 1rem; font-weight: 600; white-space: nowrap; flex-shrink: 0;
+// Motor Matemático Dinâmico (Regex)
+function applySmartMath(text: string, mode: CarbMode, isCooked: boolean, isCarbGroup: boolean) {
+  let finalStr = text;
+  const carbMult = mode === "high" ? 1.15 : mode === "low" ? 0.85 : mode === "off" ? 0.85 : 1;
+
+  // Fatores de conversão (Cru -> Cozido/Grelhado)
+  let cookedMult = 1;
+  const lStr = text.toLowerCase();
+  
+  if (isCooked) {
+    if (/(arroz|macarrão|massa|cuscuz|creme de arroz|aveia)/.test(lStr)) cookedMult = 3;
+    else if (/(mandioca|batata)/.test(lStr)) cookedMult = 1.3;
+    else if (/(frango|carne|patinho|peixe|tilápia|salmão|boi|suíno|porco|coração)/.test(lStr)) cookedMult = 0.7;
+    else if (/(ovo|clara)/.test(lStr)) cookedMult = 1; 
   }
-  .t-tab.active { background: var(--primary, #c81d1d); border-color: var(--primary, #c81d1d); color: white; box-shadow: 0 4px 12px rgba(200, 29, 29, 0.4); }
 
-  .t-card { background: var(--surface, #1a1a1a); border: 1px solid var(--border, #2a2a2a); border-radius: 16px; padding: 2rem; margin-bottom: 1.5rem; }
-  
-  .t-meal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 2px solid var(--border, #2a2a2a); flex-wrap: wrap; gap: 1rem;}
-  .t-meal-title { font-size: 1.75rem; font-weight: 700; }
-  
-  .t-meal-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-  .t-act-btn {
-    background: transparent; border: 1px solid var(--border, #2a2a2a); color: var(--text-secondary, #a0a0a0);
-    font-size: 0.8rem; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-weight: 600;
+  // Encontra qualquer número seguido de 'g' ou 'ml' e aplica o cálculo
+  finalStr = finalStr.replace(/(\d+)(\s*)(g|ml|kg)/gi, (match, num, space, unit) => {
+    let val = Number(num);
+    if (isCarbGroup) val = val * carbMult; // Aplica ciclo de carbo apenas nos carboidratos
+    val = val * cookedMult; // Aplica redução/aumento de cozimento
+    return `${Math.round(val)}${space}${unit}`;
+  });
+
+  // Ajuste semântico visual
+  if (isCooked) {
+    finalStr = finalStr.replace(/\bcru(a)?\b/gi, "pronto").replace(/\b(cozido|grelhado|assado)\b/gi, "pronto");
+  } else {
+    finalStr = finalStr.replace(/\bpronto(a)?\b/gi, "cru").replace(/\bcozido(a)?\b/gi, "cru").replace(/\bgrelhado(a)?\b/gi, "cru");
   }
-  .t-act-btn:hover { border-color: var(--primary, #c81d1d); color: var(--text, #ffffff); }
-  .t-act-btn.active { background: var(--primary, #c81d1d); color: white; border-color: var(--primary, #c81d1d); }
-  .t-act-btn.alto.active { background: #2ecc71; border-color: #2ecc71; color: #fff; }
-  .t-act-btn.baixo.active { background: #f1c40f; border-color: #f1c40f; color: #111; }
 
-  /* Lógica de Visibilidade: Cru/Pronto */
-  .t-meal-content .peso-pronto { display: none; }
-  .t-meal-content.show-pronto .peso-pronto { display: inline; color: #e67e22; font-weight: 700; }
-  .t-meal-content.show-pronto .peso-cru { display: none; }
-  .t-meal-content .peso-cru { font-weight: 700; color: var(--primary-light, #ff4444); }
-  
-  /* Lógica de Visibilidade: Ciclagem (Alto, Base, Baixo) */
-  .t-meal-content .val-carbo-high,
-  .t-meal-content .val-carbo-low { display: none; }
-  
-  .t-meal-content.show-high .val-carbo-base { display: none; }
-  .t-meal-content.show-high .val-carbo-high { display: inline; color: #2ecc71; font-weight: 700; }
-  
-  .t-meal-content.show-low .val-carbo-base { display: none; }
-  .t-meal-content.show-low .val-carbo-low { display: inline; color: #f1c40f; font-weight: 700; }
-
-  .t-food-list { list-style: none; display: flex; flex-direction: column; gap: 1rem; padding-left: 0; }
-  .t-food-item { padding: 1.5rem; background: rgba(0,0,0,0.2); border-radius: 12px; display: flex; flex-direction: column; gap: 1rem; border: 1px solid transparent; }
-  .t-food-item-header { display: flex; align-items: flex-start; gap: 1.5rem; }
-  .t-food-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; background: var(--primary, #c81d1d); }
-  
-  .t-base-label { display: inline-block; background: var(--surface-hover, #242424); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 700; border: 1px solid var(--border, #2a2a2a); margin-bottom: 5px;}
-  .t-nested-options { list-style: none; padding-left: 0; margin-top: 0.5rem; }
-  .t-nested-options li { position: relative; padding-left: 1.5rem; margin-bottom: 0.8rem; line-height: 1.5; color: var(--text-secondary, #a0a0a0); }
-  .t-nested-options li::before { content: '👉'; position: absolute; left: 0; top: 0; font-size: 0.9rem; }
-  .t-nested-options strong { color: var(--text, #ffffff); }
-`;
+  return finalStr;
+}
 
 export default function StructuredMealsViewer({ payload }: { payload: any }) {
-  const parsed = ProtocolPayloadSchema.safeParse(payload);
-  const safeData = parsed.success ? parsed.data : (payload || {});
+  const safeData = payload || {};
   const meals = Array.isArray(safeData.meals) ? safeData.meals : [];
-  
-  const [activeTab, setActiveTab] = useState(0);
+  const [mode, setMode] = useState<CarbMode>("base");
 
   if (meals.length === 0) return null;
 
   return (
-    <div style={{ width: "100%" }}>
-      <style>{HTML_LIKE_CSS}</style>
-
-      {/* Menu de Abas */}
-      <div className="t-tabs">
-        {meals.map((meal: any, idx: number) => (
-          <button
-            key={idx}
-            className={`t-tab ${activeTab === idx ? "active" : ""}`}
-            onClick={() => setActiveTab(idx)}
-          >
-            {meal.name || `Refeição ${idx + 1}`}
-          </button>
+    <div className="space-y-4 w-full">
+      {safeData.setup?.carbCycle && <CarbCycleSelector value={mode} onChange={setMode} />}
+      
+      <Accordion type="single" collapsible className="w-full space-y-3">
+        {meals.map((meal: any, i: number) => (
+          <MealAccordionItem key={i} meal={meal} mode={mode} index={i} />
         ))}
-      </div>
-
-      {/* Conteúdo da Aba Ativa */}
-      {meals.map((meal: any, idx: number) => (
-        <div key={idx} style={{ display: activeTab === idx ? "block" : "none" }}>
-          <MealCardHtml meal={meal} />
-        </div>
-      ))}
+      </Accordion>
     </div>
   );
 }
 
-function MealCardHtml({ meal }: { meal: any }) {
-  const [mode, setMode] = useState<"base" | "alto" | "baixo">("base");
+function MealAccordionItem({ meal, mode, index }: { meal: any; mode: CarbMode; index: number }) {
   const [isCooked, setIsCooked] = useState(false);
 
-  const containerClass = `t-meal-content ${isCooked ? "show-pronto" : ""} show-${mode === "alto" ? "high" : mode === "baixo" ? "low" : "base"}`;
+  // Arrays de grupos (Duck typing para evitar crashes se o JSON vier incompleto)
+  const carbs = Array.isArray(meal.carbs) ? meal.carbs.filter(Boolean) : [];
+  const proteins = Array.isArray(meal.proteins) ? meal.proteins.filter(Boolean) : [];
+  const fats = Array.isArray(meal.fats) ? meal.fats.filter(Boolean) : [];
+  const free = Array.isArray(meal.free) ? meal.free.filter(Boolean) : [];
 
-  const validOptions = (meal.options || []).filter((opt: any) => opt?.items && opt.items.trim() !== "");
-  const subs = meal.substitutions || { carb: [], protein: [], fat: [] };
-  const hasSubs = [...(subs.carb||[]), ...(subs.protein||[]), ...(subs.fat||[])].some(s => s && s.trim());
+  const c = meal.macros?.carbs || 0;
+  const p = meal.macros?.protein || 0;
+  const f = meal.macros?.fat || 0;
 
   return (
-    <div className="t-card">
-      <div className="t-meal-header">
-        <h3 className="t-meal-title">{meal.name || "Refeição"} {meal.time && `— ${meal.time}`}</h3>
+    <AccordionItem value={`meal-${index}`} className="bg-card/60 border border-border/60 rounded-xl overflow-hidden shadow-sm">
+      <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/30 transition-all">
+        <div className="flex items-center justify-between w-full pr-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <Apple className="w-4 h-4 text-primary" />
+            </div>
+            <span className="font-bold text-base text-foreground text-left">{meal.name || `Refeição ${index + 1}`}</span>
+          </div>
+          {meal.time && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground bg-background px-2 py-1 rounded-md border">
+              <Clock className="w-3 h-3" /> {meal.time}
+            </span>
+          )}
+        </div>
+      </AccordionTrigger>
+      
+      <AccordionContent className="px-4 pb-4 pt-1 border-t border-border/40">
         
-        {/* Botões do Painel (Cru/Pronto e Ciclo) */}
-        <div className="t-meal-actions">
-          <button 
-            className="t-act-btn" 
+        {/* Badges de Macros e Botão Cru/Cozido */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5 mt-3">
+          <div className="flex flex-wrap gap-1.5">
+            {c > 0 && <Badge variant="outline" className="text-amber-600 border-amber-600/30 bg-amber-600/5">{c}g Carbo</Badge>}
+            {p > 0 && <Badge variant="outline" className="text-blue-600 border-blue-600/30 bg-blue-600/5">{p}g Prot</Badge>}
+            {f > 0 && <Badge variant="outline" className="text-rose-500 border-rose-500/30 bg-rose-500/5">{f}g Gord</Badge>}
+          </div>
+
+          <button
             onClick={() => setIsCooked(!isCooked)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold border transition-colors ${
+              isCooked 
+                ? 'bg-orange-500 text-white border-orange-600 shadow-md' 
+                : 'bg-background text-muted-foreground border-border hover:border-primary/50'
+            }`}
           >
-            {isCooked ? "⚖️ Mostrar Cru" : "⚖️ Cru/Pronto"}
-          </button>
-          
-          <button 
-            className={`t-act-btn ${mode === "base" ? "active" : ""}`} 
-            onClick={() => setMode("base")}
-          >
-            ⏺️ Base
-          </button>
-          <button 
-            className={`t-act-btn alto ${mode === "alto" ? "active" : ""}`} 
-            onClick={() => setMode("alto")}
-          >
-            ⬆️ Alto
-          </button>
-          <button 
-            className={`t-act-btn baixo ${mode === "baixo" ? "active" : ""}`} 
-            onClick={() => setMode("baixo")}
-          >
-            ⬇️ Baixo
+            <Scale className="w-3.5 h-3.5" />
+            {isCooked ? 'Medida: PRONTO' : 'Medida: CRU'}
           </button>
         </div>
-      </div>
 
-      {/* Corpo da Refeição (Opções) */}
-      <div className={containerClass}>
-        <ul className="t-food-list">
+        <div className="space-y-4">
+          <FoodGroup title="🟡 Carboidratos (Escolha 1)" items={carbs} color="text-amber-600" mode={mode} isCooked={isCooked} isCarb={true} />
+          <FoodGroup title="🔵 Proteínas (Escolha 1)" items={proteins} color="text-blue-600" mode={mode} isCooked={isCooked} isCarb={false} />
+          <FoodGroup title="🔴 Gorduras (Escolha 1)" items={fats} color="text-rose-500" mode={mode} isCooked={isCooked} isCarb={false} />
+          <FoodGroup title="🟢 Vegetais & Livres (À vontade)" items={free} color="text-emerald-500" mode={mode} isCooked={isCooked} isCarb={false} />
           
-          {/* Opções Principais */}
-          {validOptions.length > 0 && (
-            <li className="t-food-item">
-              <div className="t-food-item-header">
-                <div className="t-food-icon">🍽️</div>
-                <div style={{ width: "100%" }}>
-                  <span className="t-base-label">OPÇÕES MONTADAS</span>
-                  <ul className="t-nested-options">
-                    {validOptions.map((opt: any, idx: number) => (
-                      <li key={idx}>
-                        <strong>{opt.title || `Opção ${idx + 1}`}:</strong><br />
-                        {/* Renderiza o HTML das tags <span class="peso-cru"> que vêm do banco */}
-                        <span dangerouslySetInnerHTML={{ __html: opt.items }} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </li>
+          {(!carbs.length && !proteins.length && !fats.length && !free.length) && (
+            <p className="text-sm text-muted-foreground italic text-center py-4">Grupos de alimentos não cadastrados.</p>
           )}
+        </div>
 
-          {/* Fallback caso não venha tags HTML, usar campos qtyHighCarb/qtyLowCarb/cookedNotes */}
-          {((mode === "alto" && meal.qtyHighCarb) || (mode === "baixo" && meal.qtyLowCarb) || (isCooked && meal.cookedNotes)) && (
-            <li className="t-food-item">
-              <div className="t-food-item-header">
-                <div className="t-food-icon" style={{ background: "transparent", border: "1px dashed #ccc" }}>⚠️</div>
-                <div style={{ width: "100%" }}>
-                   <span className="t-base-label">AJUSTES DE PESO E CARBOIDRATO</span>
-                   <ul className="t-nested-options">
-                      {mode === "alto" && meal.qtyHighCarb && <li><strong style={{color:"#2ecc71"}}>⬆️ Carga Alta (+15%):</strong> {meal.qtyHighCarb}</li>}
-                      {mode === "baixo" && meal.qtyLowCarb && <li><strong style={{color:"#f1c40f"}}>⬇️ Carga Baixa (-15%):</strong> {meal.qtyLowCarb}</li>}
-                      {isCooked && meal.cookedNotes && <li><strong style={{color:"#e67e22"}}>⚖️ Peso Pronto (Cozido):</strong> {meal.cookedNotes}</li>}
-                   </ul>
-                </div>
-              </div>
-            </li>
-          )}
-
-          {/* Substituições Gerais */}
-          {hasSubs && (
-            <li className="t-food-item">
-              <div className="t-food-item-header">
-                <div className="t-food-icon" style={{ background: "#3498db" }}>🔄</div>
-                <div style={{ width: "100%" }}>
-                  <span className="t-base-label">OPÇÕES DE SUBSTITUIÇÃO LIVRE</span>
-                  <ul className="t-nested-options">
-                    {subs.carb.filter((s: string) => s.trim()).map((s: string, idx: number) => <li key={`c-${idx}`}><strong>Carbo:</strong> {s}</li>)}
-                    {subs.protein.filter((s: string) => s.trim()).map((s: string, idx: number) => <li key={`p-${idx}`}><strong>Proteína:</strong> {s}</li>)}
-                    {subs.fat.filter((s: string) => s.trim()).map((s: string, idx: number) => <li key={`f-${idx}`}><strong>Gordura:</strong> {s}</li>)}
-                  </ul>
-                </div>
-              </div>
-            </li>
-          )}
-
-        </ul>
-        
         {meal.notes && (
-          <p style={{ marginTop: "1.5rem", paddingLeft: "1rem", borderLeft: "4px solid var(--primary)", fontStyle: "italic", color: "var(--text-secondary)"}}>
-            {meal.notes}
-          </p>
+          <div className="mt-5 p-3 rounded-lg bg-primary/5 border border-primary/20 flex gap-2 items-start">
+            <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground leading-relaxed">{meal.notes}</p>
+          </div>
         )}
-      </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+}
+
+function FoodGroup({ title, items, color, mode, isCooked, isCarb }: { title: string; items: string[]; color: string; mode: CarbMode; isCooked: boolean; isCarb: boolean }) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="bg-background rounded-lg border border-border/60 p-3 shadow-sm">
+      <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5 ${color}`}>
+        <CheckCircle2 className="w-3.5 h-3.5" /> {title}
+      </h4>
+      <ul className="space-y-2">
+        {items.map((item, idx) => {
+          // A mágica matemática acontece AQUI
+          const calculatedText = applySmartMath(item, mode, isCooked, isCarb);
+          
+          return (
+            <li key={idx} className="text-sm text-foreground flex items-start gap-2 pl-2">
+              <span className="text-muted-foreground mt-0.5">•</span>
+              <span className="leading-relaxed">
+                {calculatedText}
+                {isCooked && <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-600 border-orange-500/20 text-[10px] py-0 px-1">Pronto</Badge>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
