@@ -500,27 +500,76 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
   const qc = useQueryClient();
   const [fullName, setFullName] = useState("");
   const [teamName, setTeamName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     if (!open || !coachId) return;
     supabase
       .from("profiles")
-      .select("full_name, team_name")
+      .select("full_name, team_name, invite_code")
       .eq("user_id", coachId)
       .maybeSingle()
       .then(({ data }) => {
         setFullName(data?.full_name || "");
         setTeamName(data?.team_name || "");
+        setInviteCode((data as { invite_code?: string } | null)?.invite_code || "");
       });
   }, [open, coachId]);
+
+  const generateCode = async () => {
+    setGenerating(true);
+    try {
+      const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      for (let attempt = 0; attempt < 6; attempt++) {
+        let code = "";
+        for (let i = 0; i < 6; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
+        const { data: exists } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("invite_code", code)
+          .maybeSingle();
+        if (!exists) {
+          setInviteCode(code);
+          toast.success("Código gerado. Lembre de salvar.");
+          return;
+        }
+      }
+      toast.error("Não foi possível gerar um código único. Tente de novo.");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const copyCode = async () => {
+    if (!inviteCode) return;
+    await navigator.clipboard.writeText(inviteCode);
+    toast.success("Código copiado");
+  };
 
   const save = async () => {
     setLoading(true);
     try {
+      const code = inviteCode.trim().toUpperCase() || null;
+      if (code) {
+        const { data: clash } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("invite_code", code)
+          .neq("user_id", coachId)
+          .maybeSingle();
+        if (clash) {
+          toast.error("Este código já está em uso por outro coach.");
+          setLoading(false);
+          return;
+        }
+      }
       const { error } = await supabase
         .from("profiles")
-        .update({ full_name: fullName, team_name: teamName })
+        .update({ full_name: fullName, team_name: teamName, invite_code: code })
         .eq("user_id", coachId);
       if (error) throw error;
       toast.success("Perfil atualizado");
@@ -535,7 +584,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[380px]">
+      <DialogContent className="sm:max-w-[420px]">
         <DialogHeader><DialogTitle>Meu Perfil</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
           <div>
@@ -545,6 +594,27 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
           <div>
             <Label className="text-xs">Nome da equipe / empresa</Label>
             <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex: Equipe Performance" className="mt-1 h-9 text-sm" />
+          </div>
+          <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
+            <Label className="text-xs text-primary uppercase tracking-wider">Código de convite</Label>
+            <p className="text-[11px] text-muted-foreground">
+              Compartilhe este código com seus alunos. Ao usá-lo na anamnese, o aluno é vinculado automaticamente a você.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                placeholder="EX: ELITE26"
+                maxLength={12}
+                className="h-9 text-sm font-mono tracking-widest uppercase"
+              />
+              <Button type="button" variant="outline" size="sm" onClick={generateCode} disabled={generating}>
+                {generating ? "..." : "Gerar"}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={copyCode} disabled={!inviteCode}>
+                Copiar
+              </Button>
+            </div>
           </div>
           <Button onClick={save} disabled={loading} className="w-full">
             {loading ? "Salvando..." : "Salvar"}
