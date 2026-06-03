@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { UserPlus, Users, Trash2, Shield, Mail } from "lucide-react";
+import { UserPlus, Users, Trash2, Shield, Mail, Key, Dices } from "lucide-react";
 
 interface Trainer {
   id: string;
@@ -18,6 +18,7 @@ interface Trainer {
   notification_email: string | null;
   role: string;
   created_at: string;
+  invite_code?: string | null;
 }
 
 export const TrainerManagement = () => {
@@ -39,7 +40,23 @@ export const TrainerManagement = () => {
     const { data, error } = await supabase.functions.invoke("manage-trainers", {
       body: { action: "list" },
     });
-    if (!error && data?.trainers) setTrainers(data.trainers);
+    
+    if (!error && data?.trainers) {
+      // Fazemos um fetch extra na tabela profiles para garantir que pegamos os códigos de convite,
+      // independente do que a Edge Function retornar por padrão.
+      const ids = data.trainers.map((t: any) => t.id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, invite_code')
+        .in('user_id', ids);
+
+      const mergedTrainers = data.trainers.map((t: any) => {
+        const profile = profiles?.find(p => p.user_id === t.id);
+        return { ...t, invite_code: profile?.invite_code || null };
+      });
+
+      setTrainers(mergedTrainers);
+    }
   };
 
   const handleCreateTrainer = async () => {
@@ -93,6 +110,29 @@ export const TrainerManagement = () => {
     }
   };
 
+  const handleUpdateInviteCode = async (trainerId: string, newCode: string) => {
+    try {
+      const code = newCode.trim().toUpperCase();
+      if (!code) throw new Error("O código não pode estar vazio.");
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({ invite_code: code })
+        .eq("user_id", trainerId);
+        
+      if (error) {
+        // Trata erro de UNIQUE constraint se o código já existir
+        if (error.code === '23505') throw new Error("Este código já está em uso por outro profissional.");
+        throw error;
+      }
+      
+      toast.success("Código de convite salvo!");
+      loadTrainers();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao salvar código");
+    }
+  };
+
   const handleDeleteTrainer = async (trainerId: string) => {
     if (!confirm("Tem certeza que deseja remover este profissional?")) return;
     try {
@@ -133,6 +173,7 @@ export const TrainerManagement = () => {
               trainer={trainer}
               onDelete={handleDeleteTrainer}
               onUpdateEmail={handleUpdateNotificationEmail}
+              onUpdateCode={handleUpdateInviteCode}
             />
           ))}
         </div>
@@ -195,14 +236,21 @@ export const TrainerManagement = () => {
   );
 };
 
-/* ── Linha do treinador com edição inline de email ─────────── */
-function TrainerRow({ trainer, onDelete, onUpdateEmail }: {
+/* ── Linha do treinador com edição inline ─────────── */
+function TrainerRow({ trainer, onDelete, onUpdateEmail, onUpdateCode }: {
   trainer: Trainer;
   onDelete: (id: string) => void;
   onUpdateEmail: (id: string, email: string) => void;
+  onUpdateCode: (id: string, code: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [editingCode, setEditingCode] = useState(false);
   const [emailVal, setEmailVal] = useState(trainer.notification_email || trainer.email || "");
+  const [codeVal, setCodeVal] = useState(trainer.invite_code || "");
+
+  const generateRandomCode = () => {
+    setCodeVal(Math.random().toString(36).substring(2, 8).toUpperCase());
+  };
 
   return (
     <div className="p-3 rounded-lg bg-secondary/30 border border-border/50 space-y-2">
@@ -222,7 +270,10 @@ function TrainerRow({ trainer, onDelete, onUpdateEmail }: {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => setEditing(!editing)} title="Editar email de notificação">
+          <Button variant="ghost" size="sm" onClick={() => { setEditingCode(!editingCode); setEditing(false); }} title="Editar código de convite">
+            <Key className="w-4 h-4 text-muted-foreground" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => { setEditing(!editing); setEditingCode(false); }} title="Editar email de notificação">
             <Mail className="w-4 h-4 text-muted-foreground" />
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onDelete(trainer.id)} className="text-destructive hover:text-destructive">
@@ -232,7 +283,7 @@ function TrainerRow({ trainer, onDelete, onUpdateEmail }: {
       </div>
 
       {editing && (
-        <div className="flex gap-2 items-center pt-1">
+        <div className="flex gap-2 items-center pt-1 border-t border-border/20 mt-2">
           <div className="flex-1">
             <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Email de notificação dos alunos</p>
             <Input
@@ -249,10 +300,39 @@ function TrainerRow({ trainer, onDelete, onUpdateEmail }: {
         </div>
       )}
 
-      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-        <Mail className="w-3 h-3" />
-        Notificações: {trainer.notification_email || trainer.email || "—"}
-      </p>
+      {editingCode && (
+        <div className="flex gap-2 items-center pt-1 border-t border-border/20 mt-2">
+          <div className="flex-1">
+            <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Código de Convite</p>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                value={codeVal}
+                onChange={e => setCodeVal(e.target.value.toUpperCase())}
+                placeholder="Ex: ELITE2026"
+                className="h-8 text-xs font-mono uppercase"
+              />
+              <Button size="sm" variant="outline" className="h-8 px-2 shrink-0" onClick={generateRandomCode} title="Gerar código aleatório">
+                <Dices className="w-4 h-4 text-primary" />
+              </Button>
+            </div>
+          </div>
+          <Button size="sm" className="mt-4 h-8 text-xs" onClick={() => { onUpdateCode(trainer.id, codeVal); setEditingCode(false); }}>
+            Salvar
+          </Button>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
+        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+          <Mail className="w-3 h-3" />
+          Notificações: {trainer.notification_email || trainer.email || "—"}
+        </p>
+        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+          <Key className="w-3 h-3" />
+          Código: <span className="font-mono font-bold text-foreground">{trainer.invite_code || "Não gerado"}</span>
+        </p>
+      </div>
     </div>
   );
 }
