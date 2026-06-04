@@ -9,7 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Apple, Dumbbell, Pill, TrendingUp, CheckCircle2, Loader2, User, AlertCircle, Copy, Check, X, LogOut } from "lucide-react";
+import { 
+  Apple, Dumbbell, Pill, TrendingUp, CheckCircle2, 
+  Loader2, User, AlertCircle, Copy, Check, X, LogOut 
+} from "lucide-react";
 
 export default function StudentArea() {
   const navigate = useNavigate();
@@ -45,14 +48,11 @@ export default function StudentArea() {
     queryKey: ["student-billing-alert", userId],
     enabled: !!userId,
     queryFn: async () => {
-      // 1. Acha o coach do aluno
       const { data: link } = await supabase.from("coach_students").select("coach_id").eq("student_id", userId).eq("status", "active").maybeSingle();
       if (!link?.coach_id) return null;
 
-      // 2. Acha a chave PIX do coach
       const { data: coach } = await supabase.from("profiles").select("pix_key").eq("user_id", link.coach_id).maybeSingle();
 
-      // 3. Acha o próximo vencimento pendente
       const { data: finance } = await supabase.from("coach_finances")
         .select("*")
         .eq("student_id", userId)
@@ -72,7 +72,6 @@ export default function StudentArea() {
       const diffTime = dueDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      // Só retorna se faltar 7 dias ou menos (incluindo atrasados que são negativos)
       if (diffDays <= 7) {
         return {
           id: finance.id,
@@ -96,6 +95,11 @@ export default function StudentArea() {
 
   const dismissAlert = (id: string) => {
     setDismissedAlerts((prev) => [...prev, id]);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
   };
 
   const modules = [
@@ -127,6 +131,11 @@ export default function StudentArea() {
               <p className="text-xs text-muted-foreground">Bem-vindo ao seu painel central</p>
             </div>
           </div>
+          
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive h-9">
+            <LogOut className="w-4 h-4 sm:mr-1.5" /> 
+            <span className="hidden sm:inline">Sair</span>
+          </Button>
         </div>
       </header>
 
@@ -140,7 +149,7 @@ export default function StudentArea() {
             </button>
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="space-y-1">
+              <div className="space-y-1 w-full">
                 <h3 className="text-sm font-bold text-amber-700 dark:text-amber-500">
                   {billingAlert.diffDays < 0 
                     ? `Sua mensalidade está atrasada há ${Math.abs(billingAlert.diffDays)} dia(s)`
