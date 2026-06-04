@@ -37,6 +37,7 @@ function subAt(meal: any, kind: "carb" | "protein" | "fat", idx: number) {
 export function exportProtocolXlsx(payload: ProtocolPayload, studentName: string) {
   const wb = XLSX.utils.book_new();
 
+  // 1. Aba de Refeições
   const mealsData = payload.meals.map((m: any) => {
     const row: Record<string, any> = {
       "Refeição": m.name,
@@ -69,6 +70,7 @@ export function exportProtocolXlsx(payload: ProtocolPayload, studentName: string
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mealsData), "Refeições");
 
+  // 2. Aba de Treinos
   const workoutsData = payload.workouts.flatMap((w) =>
     w.exercises.map((e) => ({
       "Treino": w.key,
@@ -82,12 +84,49 @@ export function exportProtocolXlsx(payload: ProtocolPayload, studentName: string
   );
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(workoutsData), "Treinos");
 
+  // 3. Aba de Aeróbicos (Cardio)
+  const cardioData = (payload.cardio || []).map((c) => ({
+    "Tipo": c.type || "",
+    "Duração": c.duration || "",
+    "Intensidade": c.intensity || "",
+    "Associação (Treino/Dia)": c.associationType === 'workout' ? 'Treino' : 'Dia',
+    "Chave (A, B, seg...)": c.workoutKey || "",
+    "Observações": c.notes || ""
+  }));
+  if (cardioData.length > 0 || (payload.cardio && payload.cardio.length === 0)) {
+     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cardioData.length ? cardioData : [{ "Tipo": "", "Duração": "", "Intensidade": "", "Associação (Treino/Dia)": "", "Chave (A, B, seg...)": "", "Observações": "" }]), "Aeróbicos");
+  }
+
+  // 4. Aba de Suplementos
+  const suppData = (payload.supplements || []).map((s) => ({
+    "Nome": s.name || "",
+    "Dose": s.dose || "",
+    "Horário": s.timing || "",
+    "Observações": s.notes || ""
+  }));
+  if (suppData.length > 0 || (payload.supplements && payload.supplements.length === 0)) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(suppData.length ? suppData : [{ "Nome": "", "Dose": "", "Horário": "", "Observações": "" }]), "Suplementos");
+  }
+
+  // 5. Aba de Ciclo de Carbo
+  const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+  const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const cycleData = dayKeys.map((key, i) => ({
+    "Configuração": days[i],
+    "Valor (high/base/off)": payload.carbCycle?.[key] || "base"
+  }));
+  cycleData.push({ "Configuração": "ATIVO?", "Valor (high/base/off)": payload.setup?.carbCycle ? "SIM" : "NAO" });
+  cycleData.push({ "Configuração": "PCT ALTO (%)", "Valor (high/base/off)": String(payload.carbCycleHighPct || 15) });
+  cycleData.push({ "Configuração": "PCT BAIXO (%)", "Valor (high/base/off)": String(payload.carbCycleLowPct || 15) });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cycleData), "Ciclo");
+
+  // 6. Aba de Diretrizes Gerais
   const g = payload.guidelines;
   const guideData = [
     { Categoria: "Treino", Descrição: g.training },
     { Categoria: "Dieta", Descrição: g.diet },
     { Categoria: "Semana", Descrição: g.weekOrganization },
-    { Categoria: "Suplementos", Descrição: g.supplementation },
+    { Categoria: "Suplementos Gerais", Descrição: g.supplementation },
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(guideData), "Diretrizes");
 
@@ -101,6 +140,7 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
   const base = basePayload();
   const details: string[] = [];
 
+  // Importar Refeições
   const wsMeals = wb.Sheets["Refeições"] || wb.Sheets["Dietas"];
   if (wsMeals) {
     const rows = XLSX.utils.sheet_to_json<any>(wsMeals);
@@ -123,6 +163,7 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
         }
         return opts;
       };
+      
       const buildSubs = (kind: "carb" | "protein" | "fat") => {
         const label = kind === "carb" ? "Carbo" : kind === "protein" ? "Prot" : "Gord";
         const out: any[] = [];
@@ -134,9 +175,9 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
         }
         return out;
       };
-      // Legacy single-column fallback
+
       if (r["Carboidratos"] || r["Proteínas"] || r["Gorduras"]) {
-        const legacy = {
+        return {
           name: String(r["Refeição"] || ""),
           time: String(r["Horário"] || ""),
           carbs: r["Carboidratos"] ? String(r["Carboidratos"]).split("|").map((s) => s.trim()).filter(Boolean) : [],
@@ -148,8 +189,7 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
             protein: Number(r["Proteína (g)"]) || Number(r["Prot Macro(g)"]) || 0,
             fat: Number(r["Gordura (g)"]) || Number(r["Gord Macro(g)"]) || 0,
           },
-        };
-        return legacy as any;
+        } as any;
       }
       return {
         name: String(r["Refeição"] || ""),
@@ -160,11 +200,7 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
           fat: Number(r["Gord Macro(g)"]) || 0,
         },
         options: [...buildOpts("carb"), ...buildOpts("protein"), ...buildOpts("fat")],
-        substitutions: {
-          carb: buildSubs("carb"),
-          protein: buildSubs("protein"),
-          fat: buildSubs("fat"),
-        },
+        substitutions: { carb: buildSubs("carb"), protein: buildSubs("protein"), fat: buildSubs("fat") },
         notes: String(r["Observações"] || ""),
       } as any;
     });
@@ -172,6 +208,7 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
     details.push("Aba 'Refeições' não encontrada.");
   }
 
+  // Importar Treinos
   const wsWorkouts = wb.Sheets["Treinos"];
   if (wsWorkouts) {
     const rows = XLSX.utils.sheet_to_json<any>(wsWorkouts);
@@ -192,6 +229,56 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
     base.workouts = Object.values(grouped);
   }
 
+  // Importar Aeróbicos
+  const wsCardio = wb.Sheets["Aeróbicos"];
+  if (wsCardio) {
+    const rows = XLSX.utils.sheet_to_json<any>(wsCardio);
+    base.cardio = rows.map(r => ({
+      type: String(r["Tipo"] || ""),
+      duration: String(r["Duração"] || ""),
+      intensity: String(r["Intensidade"] || ""),
+      associationType: String(r["Associação (Treino/Dia)"] || "").toLowerCase().includes('treino') ? 'workout' : 'weekday',
+      workoutKey: String(r["Chave (A, B, seg...)"] || ""),
+      notes: String(r["Observações"] || "")
+    })).filter(c => c.type || c.duration); // Filtra linhas vazias
+  }
+
+  // Importar Suplementos
+  const wsSupp = wb.Sheets["Suplementos"];
+  if (wsSupp) {
+    const rows = XLSX.utils.sheet_to_json<any>(wsSupp);
+    base.supplements = rows.map(r => ({
+      name: String(r["Nome"] || ""),
+      dose: String(r["Dose"] || ""),
+      timing: String(r["Horário"] || ""),
+      notes: String(r["Observações"] || "")
+    })).filter(s => s.name || s.dose);
+  }
+
+  // Importar Ciclo
+  const wsCycle = wb.Sheets["Ciclo"];
+  if (wsCycle) {
+    const rows = XLSX.utils.sheet_to_json<any>(wsCycle);
+    base.carbCycle = {};
+    const dayMap: Record<string, string> = { "Segunda": "mon", "Terça": "tue", "Quarta": "wed", "Quinta": "thu", "Sexta": "fri", "Sábado": "sat", "Domingo": "sun" };
+    
+    rows.forEach(r => {
+      const label = String(r["Configuração"] || "").trim();
+      const val = String(r["Valor (high/base/off)"] || "").trim();
+      
+      if (dayMap[label]) {
+        base.carbCycle![dayMap[label]] = val;
+      } else if (label === "ATIVO?") {
+        base.setup.carbCycle = val.toUpperCase() === "SIM";
+      } else if (label === "PCT ALTO (%)") {
+        base.carbCycleHighPct = Number(val) || 15;
+      } else if (label === "PCT BAIXO (%)") {
+        base.carbCycleLowPct = Number(val) || 15;
+      }
+    });
+  }
+
+  // Importar Diretrizes
   const wsGuide = wb.Sheets["Diretrizes"];
   if (wsGuide) {
     const rows = XLSX.utils.sheet_to_json<any>(wsGuide);
