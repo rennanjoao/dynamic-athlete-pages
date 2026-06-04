@@ -426,13 +426,14 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   );
 }
 
-// ─── Profile (team name) Dialog ──────────────────────────────────────────────
+// ──// ─── Profile (team name) Dialog ──────────────────────────────────────────────
 
 function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const [fullName, setFullName] = useState("");
   const [teamName, setTeamName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [pixKey, setPixKey] = useState(""); // Novo state do PIX
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -440,13 +441,14 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
     if (!open || !coachId) return;
     supabase
       .from("profiles")
-      .select("full_name, team_name, invite_code")
+      .select("full_name, team_name, invite_code, pix_key") // Busca da chave PIX no banco
       .eq("user_id", coachId)
       .maybeSingle()
       .then(({ data }) => {
         setFullName(data?.full_name || "");
         setTeamName(data?.team_name || "");
         setInviteCode((data as { invite_code?: string } | null)?.invite_code || "");
+        setPixKey((data as { pix_key?: string } | null)?.pix_key || "");
       });
   }, [open, coachId]);
 
@@ -501,10 +503,15 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
       }
       const { error } = await supabase
         .from("profiles")
-        .update({ full_name: fullName, team_name: teamName, invite_code: code })
+        .update({ 
+          full_name: fullName, 
+          team_name: teamName, 
+          invite_code: code,
+          pix_key: pixKey // Atualiza a chave PIX no banco
+        })
         .eq("user_id", coachId);
       if (error) throw error;
-      toast.success("Perfil atualizado");
+      toast.success("Perfil atualizado com sucesso!");
       qc.invalidateQueries({ queryKey: ["coach-profile", coachId] });
       onClose();
     } catch (e: any) {
@@ -527,6 +534,18 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
             <Label className="text-xs">Nome da equipe / empresa</Label>
             <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex: Equipe Performance" className="mt-1 h-9 text-sm" />
           </div>
+          
+          {/* Novo campo da Chave PIX */}
+          <div>
+            <Label className="text-xs text-amber-600 font-bold">Chave PIX para Recebimentos</Label>
+            <Input 
+              value={pixKey} 
+              onChange={(e) => setPixKey(e.target.value)} 
+              placeholder="Email, CPF, Telefone ou Aleatória..." 
+              className="mt-1 h-9 text-sm border-amber-500/30 focus-visible:ring-amber-500" 
+            />
+          </div>
+
           <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
             <Label className="text-xs text-primary uppercase tracking-wider">Código de convite</Label>
             <p className="text-[11px] text-muted-foreground">
@@ -549,7 +568,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
             </div>
           </div>
           <Button onClick={save} disabled={loading} className="w-full">
-            {loading ? "Salvando..." : "Salvar"}
+            {loading ? "Salvando..." : "Salvar Perfil"}
           </Button>
         </div>
       </DialogContent>
