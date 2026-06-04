@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,23 +7,24 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminGuard } from "./components/admin/AdminGuard";
 import { AnamnesisGuard } from "./components/student/AnamnesisGuard";
 import { NavigationControls } from "@/components/NavigationControls";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
-const Index        = lazy(() => import("./pages/Index"));
-const Student      = lazy(() => import("./pages/Student"));
-const Admin        = lazy(() => import("./pages/Admin"));
-const AdminLogin   = lazy(() => import("./pages/AdminLogin"));
-const Auth         = lazy(() => import("./pages/Auth"));
-const StudentArea  = lazy(() => import("./pages/StudentArea"));
-const NotFound     = lazy(() => import("./pages/NotFound"));
+const Index        = lazyWithRetry(() => import("./pages/Index"));
+const Student      = lazyWithRetry(() => import("./pages/Student"));
+const Admin        = lazyWithRetry(() => import("./pages/Admin"));
+const AdminLogin   = lazyWithRetry(() => import("./pages/AdminLogin"));
+const Auth         = lazyWithRetry(() => import("./pages/Auth"));
+const StudentArea  = lazyWithRetry(() => import("./pages/StudentArea"));
+const NotFound     = lazyWithRetry(() => import("./pages/NotFound"));
 
-const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
-const CoachDashboard   = lazy(() => import("./pages/CoachDashboard"));
-const Anamnesis        = lazy(() => import("./pages/Anamnesis"));
-const CheckIn          = lazy(() => import("./pages/CheckIn"));
-const Evolution        = lazy(() => import("./pages/Evolution"));
-const DynamicRoutine   = lazy(() => import("./pages/DynamicRoutine"));
-const WorkoutPlanPage  = lazy(() => import("./pages/WorkoutPlan"));
-const Supplements      = lazy(() => import("./pages/Supplements")); // Nova importação
+const StudentDashboard = lazyWithRetry(() => import("./pages/StudentDashboard"));
+const CoachDashboard   = lazyWithRetry(() => import("./pages/CoachDashboard"));
+const Anamnesis        = lazyWithRetry(() => import("./pages/Anamnesis"));
+const CheckIn          = lazyWithRetry(() => import("./pages/CheckIn"));
+const Evolution        = lazyWithRetry(() => import("./pages/Evolution"));
+const DynamicRoutine   = lazyWithRetry(() => import("./pages/DynamicRoutine"));
+const WorkoutPlanPage  = lazyWithRetry(() => import("./pages/WorkoutPlan"));
+const Supplements      = lazyWithRetry(() => import("./pages/Supplements"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
