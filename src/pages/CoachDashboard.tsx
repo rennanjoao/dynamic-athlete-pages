@@ -16,7 +16,8 @@ import {
   Loader2, Plus, Trash2, DollarSign, UserPlus, Phone, Mail,
   TrendingUp, Calendar, Save, X, User, FileText,
 } from "lucide-react";
-import CoachNotificationBell from "@/components/CoachNotificationBell";import { Input } from "@/components/ui/input";
+import CoachNotificationBell from "@/components/coach/CoachNotificationBell";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
