@@ -2,10 +2,10 @@
  * ProtocolBuilder.tsx — Master Protocol Builder (Fase 2).
  *
  * Fluxo:
- *  1) Ao montar, busca protocolo ativo do aluno em `protocols` (is_template=false).
- *  2) Se existir → modo Edição (botão "Atualizar Protocolo").
- *  3) Se não existir → modal de Setup (split + qtd refeições + ciclo de carbo).
- *     "Gerar Base" monta o formulário dinâmico e salva.
+ * 1) Ao montar, busca protocolo ativo do aluno em `protocols` (is_template=false).
+ * 2) Se existir → modo Edição (botão "Atualizar Protocolo").
+ * 3) Se não existir → modal de Setup (split + qtd refeições + ciclo de carbo).
+ * "Gerar Base" monta o formulário dinâmico e salva.
  *
  * Persistência: tudo em `protocols.payload` (JSONB) validado por Zod.
  */
@@ -27,8 +27,15 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
+import {
   Loader2, Save, Plus, Trash2, FileText, Dumbbell, UtensilsCrossed,
   Calendar, Sparkles, BarChart3, Activity, Pill, TrendingUp,
+  Check, ChevronsUpDown
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -36,6 +43,9 @@ import {
   buildBasePayload, makeEmptyExercise, makeEmptyMeal, type SplitValue,
 } from "@/lib/protocolSchema";
 import ProtocolImportExport from "./ProtocolImportExport";
+
+// ⚠️ IMPORTANTE: Ajuste o caminho de importação da tabela TACO conforme a sua pasta real.
+import { TACO_DATA } from "@/lib/tacoData"; 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb: any = supabase;
@@ -158,11 +168,8 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
       // ── Sincroniza com coach_plans para que /routine e /workout-plan vejam ──
       if (coachId) {
         try {
-          // Save the FULL parsed payload directly so the student-side viewer
-          // can read the new structured meals (options + items with weight).
           const dietStrategyJson = parsed;
           const workoutPeriodizationJson = parsed;
-
 
           // coach_plans.goal aceita apenas: emagrecer | manter | hipertrofia | recomposicao
           const goalMap: Record<string, string> = {
@@ -836,6 +843,8 @@ function WorkoutsTab({ payload, setPayload }: { payload: ProtocolPayload; setPay
   );
 }
 
+// ─── Aba de Dieta REFORMULADA (TACO + Combobox) ─────────────────────────────
+
 function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
   const upd = (i: number, patch: Partial<ProtocolPayload["meals"][number]>) => {
     const next = [...payload.meals];
@@ -846,11 +855,10 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
     upd(i, { macros: { ...payload.meals[i].macros, [k]: v } });
   };
 
-  // Get options grouped by kind, ensuring 2 of each
   function getOptsForKind(meal: any, kind: "carb" | "protein" | "fat") {
     const all = Array.isArray(meal.options) ? meal.options : [];
     const filtered = all.filter((o: any) => o?.kind === kind);
-    while (filtered.length < 2) filtered.push({ kind, title: `Opção ${filtered.length + 1}`, items: [{ name: "", weight: "" }] });
+    while (filtered.length < 2) filtered.push({ kind, title: `Opção ${filtered.length + 1}`, items: [{ name: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }] });
     return filtered.slice(0, 2);
   }
 
@@ -861,7 +869,6 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
   function updOption(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1, patch: any) {
     const meal = payload.meals[mealIdx];
     const all = [...(meal.options as any[])];
-    // Find the optIdx-th option of this kind in array
     let seen = -1;
     let targetGlobal = -1;
     for (let i = 0; i < all.length; i++) {
@@ -871,23 +878,31 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
       }
     }
     if (targetGlobal === -1) {
-      all.push({ kind, title: `Opção ${optIdx + 1}`, items: [{ name: "", weight: "" }], ...patch });
+      all.push({ kind, title: `Opção ${optIdx + 1}`, items: [{ name: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }], ...patch });
     } else {
       all[targetGlobal] = { ...all[targetGlobal], ...patch };
     }
     setOpts(mealIdx, all);
   }
 
-  function updItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1, itemIdx: number, patch: { name?: string; weight?: string }) {
+  function updItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1, itemIdx: number, patch: any) {
     const opts = getOptsForKind(payload.meals[mealIdx], kind);
     const items = [...(opts[optIdx].items as any[])];
     items[itemIdx] = { ...items[itemIdx], ...patch };
+
+    // Formatação do nome mágico (CRU -> PRONTO) se for TACO
+    if (items[itemIdx].isTaco && items[itemIdx].rawWeight > 0) {
+      const cooked = Math.round(items[itemIdx].rawWeight * (items[itemIdx].cookFactor || 1));
+      items[itemIdx].weight = ""; // Limpa o weight clássico
+      items[itemIdx].name = `<span class='peso-cru'>${items[itemIdx].rawWeight}g (CRU)</span><span class='peso-pronto'>${cooked}g (PRONTO)</span> ${items[itemIdx].baseName}`;
+    }
+
     updOption(mealIdx, kind, optIdx, { items });
   }
 
   function addItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1) {
     const opts = getOptsForKind(payload.meals[mealIdx], kind);
-    const items = [...(opts[optIdx].items as any[]), { name: "", weight: "" }];
+    const items = [...(opts[optIdx].items as any[]), { name: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }];
     updOption(mealIdx, kind, optIdx, { items });
   }
 
@@ -895,20 +910,11 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
     const opts = getOptsForKind(payload.meals[mealIdx], kind);
     let items = [...(opts[optIdx].items as any[])];
     if (items.length <= 1) {
-      items = [{ name: "", weight: "" }];
+      items = [{ name: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }];
     } else {
       items.splice(itemIdx, 1);
     }
     updOption(mealIdx, kind, optIdx, { items });
-  }
-
-  function updSub(mealIdx: number, kind: "carb" | "protein" | "fat", subIdx: 0 | 1, patch: { name?: string; weight?: string }) {
-    const subs: any = { ...payload.meals[mealIdx].substitutions };
-    const arr = [...(subs[kind] ?? [{ name: "", weight: "" }, { name: "", weight: "" }])] as any[];
-    while (arr.length < 2) arr.push({ name: "", weight: "" });
-    arr[subIdx] = { ...arr[subIdx], ...patch };
-    subs[kind] = arr;
-    upd(mealIdx, { substitutions: subs });
   }
 
   const add = () => setPayload({ ...payload, meals: [...payload.meals, makeEmptyMeal(`Refeição ${payload.meals.length + 1}`)] });
@@ -922,32 +928,23 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
 
   return (
     <div className="space-y-3">
-      <p className="text-[11px] text-muted-foreground">
-        Cada refeição tem 2 opções de cada macro (carbo, proteína, gordura). Adicione itens com nome e peso/medida. Opções vazias não aparecem para o aluno.
-      </p>
       {payload.meals.map((m, i) => (
         <Card key={i} className="bg-card/60 border-border p-4 space-y-4">
           <div className="grid grid-cols-[1fr_0.7fr_auto_auto] gap-2 items-center">
-            <Input value={m.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-9 text-sm" />
+            <Input value={m.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-9 text-sm font-bold text-primary" />
             <Input value={m.time} onChange={(e) => upd(i, { time: e.target.value })} placeholder="07:00" className="h-9 text-sm" />
             {payload.setup.carbCycle && (
               <button
                 type="button"
                 onClick={() => upd(i, { carbCycle: !m.carbCycle } as any)}
-                title="Incluir esta refeição no ciclo de carbo"
                 className={`h-9 px-2.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-                  m.carbCycle
-                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
-                    : "border-border/50 text-muted-foreground hover:border-primary/40"
+                  m.carbCycle ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400" : "border-border/50 text-muted-foreground"
                 }`}
               >
-                <TrendingUp className="w-3.5 h-3.5" />
-                Ciclo
+                <TrendingUp className="w-3.5 h-3.5" /> Ciclo
               </button>
             )}
-            <button onClick={() => rm(i)} className="text-muted-foreground hover:text-destructive p-2">
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <button onClick={() => rm(i)} className="text-muted-foreground hover:text-destructive p-2"><Trash2 className="w-4 h-4" /></button>
           </div>
 
           {(["carb", "protein", "fat"] as const).map((kind) => {
@@ -958,43 +955,104 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
                   const opt = opts[optIdx];
                   const items: any[] = Array.isArray(opt.items) ? opt.items : [];
                   return (
-                    <div key={optIdx} className="rounded-lg border border-border/60 p-2.5 space-y-1.5">
+                    <div key={optIdx} className="rounded-lg border border-border/60 p-2.5 space-y-2 bg-card">
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] uppercase tracking-wider font-bold ${KIND_LABEL[kind].color}`}>
-                          Opção de {KIND_LABEL[kind].label} {optIdx + 1}
+                          Opção {optIdx + 1}
                         </span>
                         <Input
                           value={opt.title}
                           onChange={(e) => updOption(i, kind, optIdx as 0 | 1, { title: e.target.value })}
-                          placeholder={`Título (Opção ${optIdx + 1})`}
-                          className="h-7 text-xs flex-1"
+                          placeholder="Título opcional"
+                          className="h-7 text-xs flex-1 bg-background/50"
                         />
                       </div>
+                      
                       {items.map((it, ii) => (
-                        <div key={ii} className="flex items-center gap-2">
-                          <Input
-                            value={it.name ?? ""}
-                            onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { name: e.target.value })}
-                            placeholder="Alimento / medida (ex: Arroz branco)"
-                            className="h-8 text-xs flex-1"
-                          />
-                          <Input
-                            value={it.weight ?? ""}
-                            onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { weight: e.target.value })}
-                            placeholder="ex: 150g"
-                            className="h-8 text-xs w-28"
-                          />
-                          <button onClick={() => rmItem(i, kind, optIdx as 0 | 1, ii)} className="text-muted-foreground hover:text-destructive p-1">
-                            <Trash2 className="w-3.5 h-3.5" />
+                        <div key={ii} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 border border-border/40 p-2 rounded-lg bg-background">
+                          
+                          {/* SELETOR TACO / NOME LIVRE */}
+                          <div className="flex-1 w-full relative">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" role="combobox" className="w-full justify-between h-8 text-xs font-normal text-left overflow-hidden">
+                                  {it.baseName || it.name || "Selecione ou digite o alimento..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[300px] p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="Buscar alimento..." className="h-9 text-xs" />
+                                  <CommandList>
+                                    <CommandEmpty className="py-2 px-4 text-xs text-muted-foreground">
+                                      <p>Não encontrado. Clique abaixo para usar nome livre.</p>
+                                    </CommandEmpty>
+                                    <CommandGroup heading="Tabela TACO">
+                                      {TACO_DATA.map((taco) => (
+                                        <CommandItem
+                                          key={taco.id}
+                                          value={taco.name}
+                                          onSelect={() => {
+                                            updItem(i, kind, optIdx as 0 | 1, ii, { 
+                                              baseName: taco.name, 
+                                              name: taco.name,
+                                              isTaco: true, 
+                                              cookFactor: taco.cookFactor,
+                                              rawWeight: it.rawWeight || 100
+                                            });
+                                          }}
+                                          className="text-xs"
+                                        >
+                                          {taco.name} <span className="ml-2 text-[9px] text-muted-foreground">(Fator: {taco.cookFactor})</span>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            
+                            {/* Campo escondido para digitar nome livre se quiser forçar */}
+                            {!it.isTaco && (
+                              <Input
+                                value={it.name ?? ""}
+                                onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { name: e.target.value, baseName: e.target.value, isTaco: false })}
+                                placeholder="Ou digite nome livre..."
+                                className="h-8 text-xs mt-1 w-full border-dashed"
+                              />
+                            )}
+                          </div>
+
+                          {/* INPUT DE PESO/MEDIDA */}
+                          {it.isTaco ? (
+                             <div className="flex items-center gap-1 w-full sm:w-auto">
+                              <Input
+                                type="number"
+                                value={it.rawWeight || ""}
+                                onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { rawWeight: Number(e.target.value) })}
+                                placeholder="Peso (Cru)"
+                                className="h-8 text-xs w-20"
+                              />
+                              <span className="text-xs text-muted-foreground font-semibold">g (cru)</span>
+                             </div>
+                          ) : (
+                             <div className="flex items-center gap-1 w-full sm:w-auto">
+                                <Input
+                                  value={it.weight ?? ""}
+                                  onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { weight: e.target.value })}
+                                  placeholder="Ex: 2 un / 15ml"
+                                  className="h-8 text-xs w-28"
+                                />
+                             </div>
+                          )}
+
+                          <button onClick={() => rmItem(i, kind, optIdx as 0 | 1, ii)} className="text-muted-foreground hover:text-destructive p-1 shrink-0">
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       ))}
-                      <Button
-                        size="sm" variant="ghost"
-                        onClick={() => addItem(i, kind, optIdx as 0 | 1)}
-                        className="h-6 text-[11px] px-2"
-                      >
-                        <Plus className="w-3 h-3 mr-1" /> item
+                      <Button size="sm" variant="ghost" onClick={() => addItem(i, kind, optIdx as 0 | 1)} className="h-6 text-[11px] px-2 text-primary">
+                        <Plus className="w-3 h-3 mr-1" /> adicionar alimento
                       </Button>
                     </div>
                   );
@@ -1003,79 +1061,32 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
             );
           })}
 
-          {/* Substituições */}
-          <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Substituições rápidas</p>
-            {(["carb", "protein", "fat"] as const).map((kind) => {
-              const subs: any[] = Array.isArray((m.substitutions as any)?.[kind]) ? (m.substitutions as any)[kind] : [];
-              const pair = [subs[0] ?? { name: "", weight: "" }, subs[1] ?? { name: "", weight: "" }];
-              return (
-                <div key={kind} className="rounded-lg border border-border/40 p-2 space-y-1.5">
-                  <span className={`text-[10px] uppercase tracking-wider font-bold ${KIND_LABEL[kind].color}`}>
-                    {KIND_LABEL[kind].label}
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {[0, 1].map((si) => (
-                      <div key={si} className="flex items-center gap-2">
-                        <Input
-                          value={pair[si].name ?? ""}
-                          onChange={(e) => updSub(i, kind, si as 0 | 1, { name: e.target.value })}
-                          placeholder={`Substituição ${si + 1}`}
-                          className="h-8 text-xs flex-1"
-                        />
-                        <Input
-                          value={pair[si].weight ?? ""}
-                          onChange={(e) => updSub(i, kind, si as 0 | 1, { weight: e.target.value })}
-                          placeholder="peso"
-                          className="h-8 text-xs w-24"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Macros colapsável */}
           <details className="rounded-lg border border-border/40 p-2">
             <summary className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground cursor-pointer">
-              Macros + cálculo
+              Macros da Refeição
             </summary>
             <div className="grid grid-cols-3 gap-2 mt-2">
               <div>
-                <Label className="text-[10px] uppercase tracking-wider text-amber-500">Carbo (g)</Label>
+                <Label className="text-[10px] uppercase text-amber-500">Carbo (g)</Label>
                 <Input type="number" value={m.macros.carbs} onChange={(e) => updMacro(i, "carbs", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
               </div>
               <div>
-                <Label className="text-[10px] uppercase tracking-wider text-blue-500">Proteína (g)</Label>
+                <Label className="text-[10px] uppercase text-blue-500">Proteína (g)</Label>
                 <Input type="number" value={m.macros.protein} onChange={(e) => updMacro(i, "protein", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
               </div>
               <div>
-                <Label className="text-[10px] uppercase tracking-wider text-rose-500">Gordura (g)</Label>
+                <Label className="text-[10px] uppercase text-rose-500">Gordura (g)</Label>
                 <Input type="number" value={m.macros.fat} onChange={(e) => updMacro(i, "fat", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-2">
-              Estimativa: <span className="font-bold text-foreground">{Math.round((m.macros.carbs || 0) * 4 + (m.macros.protein || 0) * 4 + (m.macros.fat || 0) * 9)} kcal</span>
-              {" · "}Meta: <span className="font-bold text-foreground">{payload.macros.calories}</span> kcal / {payload.meals.length} ref ={" "}
-              <span className="font-bold text-foreground">{Math.round(payload.macros.calories / Math.max(1, payload.meals.length))}</span> kcal/ref
-            </p>
           </details>
 
-          <Input
-            value={m.notes ?? ""}
-            onChange={(e) => upd(i, { notes: e.target.value })}
-            placeholder="Observações da refeição (opcional)"
-            className="h-8 text-xs"
-          />
         </Card>
       ))}
-      <Button variant="outline" size="sm" onClick={add}><Plus className="w-3.5 h-3.5 mr-1" /> Refeição</Button>
+      <Button variant="outline" size="sm" onClick={add} className="w-full"><Plus className="w-4 h-4 mr-1.5" /> Adicionar Nova Refeição</Button>
     </div>
   );
 }
-
 
 function WeekCycleTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
   if (!payload.setup.carbCycle) {
