@@ -119,6 +119,34 @@ export default function WorkoutPlan() {
             ))}
           </Accordion>
         )}
+
+        {/* Aeróbicos prescritos */}
+        {Array.isArray(safePayload?.cardio) && safePayload.cardio.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-bold text-sm text-foreground flex items-center gap-2 px-1">
+              <Activity className="w-4 h-4 text-primary" /> Aeróbico Prescrito
+            </h2>
+            {safePayload.cardio.map((c: any, i: number) => (
+              <Card key={i} className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-primary">{c.type || "Aeróbico"}</span>
+                  {c.duration && <Badge variant="outline" className="text-xs">{c.duration}</Badge>}
+                </div>
+                <div className="flex gap-2 flex-wrap mb-2">
+                  {c.intensity && <Badge variant="secondary" className="text-xs">{c.intensity}</Badge>}
+                  {c.workoutKey && (
+                    <Badge variant="outline" className="text-xs">
+                      {c.associationType === "workout"
+                        ? `Treino ${c.workoutKey}`
+                        : WEEKDAYS_LABEL[c.workoutKey] ?? c.workoutKey}
+                    </Badge>
+                  )}
+                </div>
+                {c.notes && <p className="text-xs text-muted-foreground italic">{c.notes}</p>}
+              </Card>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
