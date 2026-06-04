@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Apple, Dumbbell, Pill, TrendingUp, CheckCircle2, Loader2, User, AlertCircle, Copy, Check, X } from "lucide-react";
+import { Apple, Dumbbell, Pill, TrendingUp, CheckCircle2, Loader2, User, AlertCircle, Copy, Check, X, LogOut } from "lucide-react";
 
 export default function StudentArea() {
   const navigate = useNavigate();
