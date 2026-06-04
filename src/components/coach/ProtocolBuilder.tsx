@@ -158,52 +158,11 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
       // ── Sincroniza com coach_plans para que /routine e /workout-plan vejam ──
       if (coachId) {
         try {
-          const dietStrategyJson = {
-            meals: (parsed.meals ?? []).map((meal) => ({
-              id: (meal.name || "refeicao").toLowerCase().replace(/\s+/g, "_"),
-              label: meal.name,
-              time: meal.time,
-              macros: meal.macros,
-              items: (meal.options ?? []).map((opt) => ({
-                name: opt.title,
-                quantity: opt.items,
-              })),
-              substitutions: meal.substitutions,
-              notes: meal.notes,
-              highCarbBonus: [],
-              gastricSub: [],
-            })),
-            weeklyPlan: Object.entries(parsed.carbCycle ?? {}).map(([day, type]) => ({
-              day,
-              type: type as string,
-              label:
-                type === "high" ? "Dia Alto" :
-                type === "low" || type === "off" ? "Dia Baixo / Off" :
-                "Base",
-              notes: (parsed.carbCycleNotes ?? {})[day] ?? "",
-            })),
-            carbCycleNotes: parsed.carbCycleNotes ?? {},
-            guidelines: parsed.guidelines,
-            baseCalories: parsed.macros?.calories ?? 2200,
-          };
+          // Save the FULL parsed payload directly so the student-side viewer
+          // can read the new structured meals (options + items with weight).
+          const dietStrategyJson = parsed;
+          const workoutPeriodizationJson = parsed;
 
-          const workoutPeriodizationJson = {
-            trainingDays: (parsed.workouts ?? []).map((w) => ({
-              id: w.key,
-              label: w.focus,
-              exercises: (w.exercises ?? []).map((ex) => ({
-                name: ex.name,
-                sets: ex.sets,
-                reps: ex.reps,
-                cadence: ex.cadence,
-                rest: ex.rest,
-                notes: ex.notes,
-              })),
-            })),
-            weeklyDirectives: [],
-            currentWeek: 1,
-            guidelines: parsed.guidelines,
-          };
 
           // coach_plans.goal aceita apenas: emagrecer | manter | hipertrofia | recomposicao
           const goalMap: Record<string, string> = {
@@ -558,44 +517,189 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
   const updMacro = (i: number, k: "carbs" | "protein" | "fat", v: number) => {
     upd(i, { macros: { ...payload.meals[i].macros, [k]: v } });
   };
-  const updOption = (i: number, oi: 0 | 1, patch: { title?: string; items?: string }) => {
-    const opts = [...payload.meals[i].options];
-    opts[oi] = { ...opts[oi], ...patch };
-    upd(i, { options: opts });
-  };
-  const updSub = (i: number, kind: "carb" | "protein" | "fat", si: 0 | 1, v: string) => {
-    const subs = { ...payload.meals[i].substitutions };
-    const arr = [...(subs[kind] ?? ["", ""])];
-    arr[si] = v;
+
+  // Get options grouped by kind, ensuring 2 of each
+  function getOptsForKind(meal: any, kind: "carb" | "protein" | "fat") {
+    const all = Array.isArray(meal.options) ? meal.options : [];
+    const filtered = all.filter((o: any) => o?.kind === kind);
+    while (filtered.length < 2) filtered.push({ kind, title: `Opção ${filtered.length + 1}`, items: [{ name: "", weight: "" }] });
+    return filtered.slice(0, 2);
+  }
+
+  function setOpts(mealIdx: number, newAll: any[]) {
+    upd(mealIdx, { options: newAll as any });
+  }
+
+  function updOption(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1, patch: any) {
+    const meal = payload.meals[mealIdx];
+    const all = [...(meal.options as any[])];
+    // Find the optIdx-th option of this kind in array
+    let seen = -1;
+    let targetGlobal = -1;
+    for (let i = 0; i < all.length; i++) {
+      if (all[i]?.kind === kind) {
+        seen++;
+        if (seen === optIdx) { targetGlobal = i; break; }
+      }
+    }
+    if (targetGlobal === -1) {
+      all.push({ kind, title: `Opção ${optIdx + 1}`, items: [{ name: "", weight: "" }], ...patch });
+    } else {
+      all[targetGlobal] = { ...all[targetGlobal], ...patch };
+    }
+    setOpts(mealIdx, all);
+  }
+
+  function updItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1, itemIdx: number, patch: { name?: string; weight?: string }) {
+    const opts = getOptsForKind(payload.meals[mealIdx], kind);
+    const items = [...(opts[optIdx].items as any[])];
+    items[itemIdx] = { ...items[itemIdx], ...patch };
+    updOption(mealIdx, kind, optIdx, { items });
+  }
+
+  function addItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1) {
+    const opts = getOptsForKind(payload.meals[mealIdx], kind);
+    const items = [...(opts[optIdx].items as any[]), { name: "", weight: "" }];
+    updOption(mealIdx, kind, optIdx, { items });
+  }
+
+  function rmItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1, itemIdx: number) {
+    const opts = getOptsForKind(payload.meals[mealIdx], kind);
+    let items = [...(opts[optIdx].items as any[])];
+    if (items.length <= 1) {
+      items = [{ name: "", weight: "" }];
+    } else {
+      items.splice(itemIdx, 1);
+    }
+    updOption(mealIdx, kind, optIdx, { items });
+  }
+
+  function updSub(mealIdx: number, kind: "carb" | "protein" | "fat", subIdx: 0 | 1, patch: { name?: string; weight?: string }) {
+    const subs: any = { ...payload.meals[mealIdx].substitutions };
+    const arr = [...(subs[kind] ?? [{ name: "", weight: "" }, { name: "", weight: "" }])] as any[];
+    while (arr.length < 2) arr.push({ name: "", weight: "" });
+    arr[subIdx] = { ...arr[subIdx], ...patch };
     subs[kind] = arr;
-    upd(i, { substitutions: subs });
-  };
+    upd(mealIdx, { substitutions: subs });
+  }
+
   const add = () => setPayload({ ...payload, meals: [...payload.meals, makeEmptyMeal(`Refeição ${payload.meals.length + 1}`)] });
   const rm = (i: number) => setPayload({ ...payload, meals: payload.meals.filter((_, idx) => idx !== i) });
+
+  const KIND_LABEL: Record<string, { label: string; color: string }> = {
+    carb: { label: "Carbo", color: "text-amber-500" },
+    protein: { label: "Proteína", color: "text-blue-500" },
+    fat: { label: "Gordura", color: "text-rose-500" },
+  };
 
   return (
     <div className="space-y-3">
       <p className="text-[11px] text-muted-foreground">
-        Defina os macros da refeição. As substituições de cada macro só aparecem para o aluno quando o valor for maior que zero.
+        Cada refeição tem 2 opções de cada macro (carbo, proteína, gordura). Adicione itens com nome e peso/medida. Opções vazias não aparecem para o aluno.
       </p>
-      {payload.meals.map((m, i) => {
-        const subBlocks: { key: "carb" | "protein" | "fat"; label: string; color: string; on: boolean }[] = [
-          { key: "carb", label: "Substituições de Carboidrato", color: "text-amber-500", on: m.macros.carbs > 0 },
-          { key: "protein", label: "Substituições de Proteína", color: "text-blue-500", on: m.macros.protein > 0 },
-          { key: "fat", label: "Substituições de Gordura", color: "text-rose-500", on: m.macros.fat > 0 },
-        ];
-        return (
-          <Card key={i} className="bg-card/60 border-border p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.8fr_auto] gap-2">
-              <Input value={m.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-9 text-sm" />
-              <Input value={m.time} onChange={(e) => upd(i, { time: e.target.value })} placeholder="07:00" className="h-9 text-sm" />
-              <button onClick={() => rm(i)} className="text-muted-foreground hover:text-destructive p-2">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+      {payload.meals.map((m, i) => (
+        <Card key={i} className="bg-card/60 border-border p-4 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.8fr_auto] gap-2">
+            <Input value={m.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-9 text-sm" />
+            <Input value={m.time} onChange={(e) => upd(i, { time: e.target.value })} placeholder="07:00" className="h-9 text-sm" />
+            <button onClick={() => rm(i)} className="text-muted-foreground hover:text-destructive p-2">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
 
-            {/* Macros da refeição */}
-            <div className="grid grid-cols-3 gap-2">
+          {(["carb", "protein", "fat"] as const).map((kind) => {
+            const opts = getOptsForKind(m, kind);
+            return (
+              <div key={kind} className="space-y-2">
+                {[0, 1].map((optIdx) => {
+                  const opt = opts[optIdx];
+                  const items: any[] = Array.isArray(opt.items) ? opt.items : [];
+                  return (
+                    <div key={optIdx} className="rounded-lg border border-border/60 p-2.5 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] uppercase tracking-wider font-bold ${KIND_LABEL[kind].color}`}>
+                          Opção de {KIND_LABEL[kind].label} {optIdx + 1}
+                        </span>
+                        <Input
+                          value={opt.title}
+                          onChange={(e) => updOption(i, kind, optIdx as 0 | 1, { title: e.target.value })}
+                          placeholder={`Título (Opção ${optIdx + 1})`}
+                          className="h-7 text-xs flex-1"
+                        />
+                      </div>
+                      {items.map((it, ii) => (
+                        <div key={ii} className="flex items-center gap-2">
+                          <Input
+                            value={it.name ?? ""}
+                            onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { name: e.target.value })}
+                            placeholder="Alimento / medida (ex: Arroz branco)"
+                            className="h-8 text-xs flex-1"
+                          />
+                          <Input
+                            value={it.weight ?? ""}
+                            onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { weight: e.target.value })}
+                            placeholder="ex: 150g"
+                            className="h-8 text-xs w-28"
+                          />
+                          <button onClick={() => rmItem(i, kind, optIdx as 0 | 1, ii)} className="text-muted-foreground hover:text-destructive p-1">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <Button
+                        size="sm" variant="ghost"
+                        onClick={() => addItem(i, kind, optIdx as 0 | 1)}
+                        className="h-6 text-[11px] px-2"
+                      >
+                        <Plus className="w-3 h-3 mr-1" /> item
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          {/* Substituições */}
+          <div className="space-y-2">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Substituições rápidas</p>
+            {(["carb", "protein", "fat"] as const).map((kind) => {
+              const subs: any[] = Array.isArray((m.substitutions as any)?.[kind]) ? (m.substitutions as any)[kind] : [];
+              const pair = [subs[0] ?? { name: "", weight: "" }, subs[1] ?? { name: "", weight: "" }];
+              return (
+                <div key={kind} className="rounded-lg border border-border/40 p-2 space-y-1.5">
+                  <span className={`text-[10px] uppercase tracking-wider font-bold ${KIND_LABEL[kind].color}`}>
+                    {KIND_LABEL[kind].label}
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[0, 1].map((si) => (
+                      <div key={si} className="flex items-center gap-2">
+                        <Input
+                          value={pair[si].name ?? ""}
+                          onChange={(e) => updSub(i, kind, si as 0 | 1, { name: e.target.value })}
+                          placeholder={`Substituição ${si + 1}`}
+                          className="h-8 text-xs flex-1"
+                        />
+                        <Input
+                          value={pair[si].weight ?? ""}
+                          onChange={(e) => updSub(i, kind, si as 0 | 1, { weight: e.target.value })}
+                          placeholder="peso"
+                          className="h-8 text-xs w-24"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Macros colapsável */}
+          <details className="rounded-lg border border-border/40 p-2">
+            <summary className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground cursor-pointer">
+              Macros + cálculo
+            </summary>
+            <div className="grid grid-cols-3 gap-2 mt-2">
               <div>
                 <Label className="text-[10px] uppercase tracking-wider text-amber-500">Carbo (g)</Label>
                 <Input type="number" value={m.macros.carbs} onChange={(e) => updMacro(i, "carbs", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
@@ -609,61 +713,26 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
                 <Input type="number" value={m.macros.fat} onChange={(e) => updMacro(i, "fat", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
               </div>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Estimativa: <span className="font-bold text-foreground">{Math.round((m.macros.carbs || 0) * 4 + (m.macros.protein || 0) * 4 + (m.macros.fat || 0) * 9)} kcal</span>
+              {" · "}Meta: <span className="font-bold text-foreground">{payload.macros.calories}</span> kcal / {payload.meals.length} ref ={" "}
+              <span className="font-bold text-foreground">{Math.round(payload.macros.calories / Math.max(1, payload.meals.length))}</span> kcal/ref
+            </p>
+          </details>
 
-            {/* Opções 1 e 2 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-              {[0, 1].map((oi) => {
-                const opt = m.options[oi] ?? { title: `Opção ${oi + 1}`, items: "" };
-                return (
-                  <div key={oi} className="rounded-lg border border-border/60 p-2 space-y-1.5">
-                    <Input
-                      value={opt.title}
-                      onChange={(e) => updOption(i, oi as 0 | 1, { title: e.target.value })}
-                      placeholder={`Opção ${oi + 1}`}
-                      className="h-8 text-xs font-semibold"
-                    />
-                    <Textarea
-                      value={opt.items}
-                      onChange={(e) => updOption(i, oi as 0 | 1, { items: e.target.value })}
-                      placeholder="Alimentos do prato (ex.: 150g arroz + 200g frango + brócolis)"
-                      className="min-h-[60px] text-xs"
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Substituições por macro — só se macro > 0 */}
-            {subBlocks.filter((b) => b.on).map((b) => (
-              <div key={b.key} className="rounded-lg border border-border/60 p-2 space-y-1.5">
-                <Label className={`text-[10px] uppercase tracking-wider ${b.color}`}>{b.label}</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {[0, 1].map((si) => (
-                    <Input
-                      key={si}
-                      value={m.substitutions[b.key]?.[si] ?? ""}
-                      onChange={(e) => updSub(i, b.key, si as 0 | 1, e.target.value)}
-                      placeholder={`Substituição ${si + 1}`}
-                      className="h-8 text-xs"
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            <Input
-              value={m.notes ?? ""}
-              onChange={(e) => upd(i, { notes: e.target.value })}
-              placeholder="Observações da refeição (opcional)"
-              className="h-8 text-xs"
-            />
-          </Card>
-        );
-      })}
+          <Input
+            value={m.notes ?? ""}
+            onChange={(e) => upd(i, { notes: e.target.value })}
+            placeholder="Observações da refeição (opcional)"
+            className="h-8 text-xs"
+          />
+        </Card>
+      ))}
       <Button variant="outline" size="sm" onClick={add}><Plus className="w-3.5 h-3.5 mr-1" /> Refeição</Button>
     </div>
   );
 }
+
 
 function WeekCycleTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
   if (!payload.setup.carbCycle) {

@@ -16,22 +16,58 @@ function basePayload(): ProtocolPayload {
   });
 }
 
+function getOpt(meal: any, kind: "carb" | "protein" | "fat", idx: number) {
+  const opts = (meal.options ?? []).filter((o: any) => o?.kind === kind);
+  return opts[idx] ?? { title: "", items: [] };
+}
+
+function itemAt(opt: any, idx: number) {
+  const it = opt?.items?.[idx];
+  return { name: it?.name ?? "", weight: it?.weight ?? "" };
+}
+
+function subAt(meal: any, kind: "carb" | "protein" | "fat", idx: number) {
+  const arr = meal.substitutions?.[kind] ?? [];
+  const s = arr[idx];
+  if (!s) return { name: "", weight: "" };
+  if (typeof s === "string") return { name: s, weight: "" };
+  return { name: s?.name ?? "", weight: s?.weight ?? "" };
+}
+
 export function exportProtocolXlsx(payload: ProtocolPayload, studentName: string) {
   const wb = XLSX.utils.book_new();
 
-  const mealsData = payload.meals.map((m) => ({
-    "Refeição": m.name,
-    "Horário": m.time,
-    "Carboidratos": m.carbs?.join(" | ") || "",
-    "Proteínas": m.proteins?.join(" | ") || "",
-    "Gorduras": m.fats?.join(" | ") || "",
-    "Livres/Saladas": m.free?.join(" | ") || "",
-    "Carbs (g)": m.macros?.carbs ?? 0,
-    "Proteína (g)": m.macros?.protein ?? 0,
-    "Gordura (g)": m.macros?.fat ?? 0,
-    "Observações": m.notes || "",
-  }));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mealsData), "Dietas");
+  const mealsData = payload.meals.map((m: any) => {
+    const row: Record<string, any> = {
+      "Refeição": m.name,
+      "Horário": m.time,
+      "Carbo Macro(g)": m.macros?.carbs ?? 0,
+      "Prot Macro(g)": m.macros?.protein ?? 0,
+      "Gord Macro(g)": m.macros?.fat ?? 0,
+    };
+    (["carb", "protein", "fat"] as const).forEach((kind) => {
+      const label = kind === "carb" ? "Carbo" : kind === "protein" ? "Prot" : "Gord";
+      for (let oi = 0; oi < 2; oi++) {
+        const opt = getOpt(m, kind, oi);
+        for (let ii = 0; ii < 4; ii++) {
+          const it = itemAt(opt, ii);
+          row[`${label} Op${oi + 1} Nome${ii + 1}`] = it.name;
+          row[`${label} Op${oi + 1} Peso${ii + 1}`] = it.weight;
+        }
+      }
+    });
+    (["carb", "protein", "fat"] as const).forEach((kind) => {
+      const label = kind === "carb" ? "Carbo" : kind === "protein" ? "Prot" : "Gord";
+      for (let si = 0; si < 2; si++) {
+        const s = subAt(m, kind, si);
+        row[`Sub ${label} ${si + 1} Nome`] = s.name;
+        row[`Sub ${label} ${si + 1} Peso`] = s.weight;
+      }
+    });
+    row["Observações"] = m.notes || "";
+    return row;
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mealsData), "Refeições");
 
   const workoutsData = payload.workouts.flatMap((w) =>
     w.exercises.map((e) => ({
@@ -65,25 +101,75 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
   const base = basePayload();
   const details: string[] = [];
 
-  const wsMeals = wb.Sheets["Dietas"];
+  const wsMeals = wb.Sheets["Refeições"] || wb.Sheets["Dietas"];
   if (wsMeals) {
     const rows = XLSX.utils.sheet_to_json<any>(wsMeals);
-    base.meals = rows.map((r) => ({
-      name: String(r["Refeição"] || ""),
-      time: String(r["Horário"] || ""),
-      carbs: r["Carboidratos"] ? String(r["Carboidratos"]).split("|").map((s) => s.trim()).filter(Boolean) : [],
-      proteins: r["Proteínas"] ? String(r["Proteínas"]).split("|").map((s) => s.trim()).filter(Boolean) : [],
-      fats: r["Gorduras"] ? String(r["Gorduras"]).split("|").map((s) => s.trim()).filter(Boolean) : [],
-      free: r["Livres/Saladas"] ? String(r["Livres/Saladas"]).split("|").map((s) => s.trim()).filter(Boolean) : [],
-      notes: String(r["Observações"] || ""),
-      macros: {
-        carbs: Number(r["Carbs (g)"]) || 0,
-        protein: Number(r["Proteína (g)"]) || 0,
-        fat: Number(r["Gordura (g)"]) || 0,
-      },
-    }));
+    base.meals = rows.map((r) => {
+      const buildOpts = (kind: "carb" | "protein" | "fat") => {
+        const label = kind === "carb" ? "Carbo" : kind === "protein" ? "Prot" : "Gord";
+        const opts: any[] = [];
+        for (let oi = 0; oi < 2; oi++) {
+          const items: any[] = [];
+          for (let ii = 0; ii < 4; ii++) {
+            const name = String(r[`${label} Op${oi + 1} Nome${ii + 1}`] || "").trim();
+            const weight = String(r[`${label} Op${oi + 1} Peso${ii + 1}`] || "").trim();
+            if (name || weight) items.push({ name, weight });
+          }
+          opts.push({
+            kind,
+            title: `Opção ${oi + 1}`,
+            items: items.length ? items : [{ name: "", weight: "" }],
+          });
+        }
+        return opts;
+      };
+      const buildSubs = (kind: "carb" | "protein" | "fat") => {
+        const label = kind === "carb" ? "Carbo" : kind === "protein" ? "Prot" : "Gord";
+        const out: any[] = [];
+        for (let si = 0; si < 2; si++) {
+          out.push({
+            name: String(r[`Sub ${label} ${si + 1} Nome`] || "").trim(),
+            weight: String(r[`Sub ${label} ${si + 1} Peso`] || "").trim(),
+          });
+        }
+        return out;
+      };
+      // Legacy single-column fallback
+      if (r["Carboidratos"] || r["Proteínas"] || r["Gorduras"]) {
+        const legacy = {
+          name: String(r["Refeição"] || ""),
+          time: String(r["Horário"] || ""),
+          carbs: r["Carboidratos"] ? String(r["Carboidratos"]).split("|").map((s) => s.trim()).filter(Boolean) : [],
+          proteins: r["Proteínas"] ? String(r["Proteínas"]).split("|").map((s) => s.trim()).filter(Boolean) : [],
+          fats: r["Gorduras"] ? String(r["Gorduras"]).split("|").map((s) => s.trim()).filter(Boolean) : [],
+          notes: String(r["Observações"] || ""),
+          macros: {
+            carbs: Number(r["Carbs (g)"]) || Number(r["Carbo Macro(g)"]) || 0,
+            protein: Number(r["Proteína (g)"]) || Number(r["Prot Macro(g)"]) || 0,
+            fat: Number(r["Gordura (g)"]) || Number(r["Gord Macro(g)"]) || 0,
+          },
+        };
+        return legacy as any;
+      }
+      return {
+        name: String(r["Refeição"] || ""),
+        time: String(r["Horário"] || ""),
+        macros: {
+          carbs: Number(r["Carbo Macro(g)"]) || 0,
+          protein: Number(r["Prot Macro(g)"]) || 0,
+          fat: Number(r["Gord Macro(g)"]) || 0,
+        },
+        options: [...buildOpts("carb"), ...buildOpts("protein"), ...buildOpts("fat")],
+        substitutions: {
+          carb: buildSubs("carb"),
+          protein: buildSubs("protein"),
+          fat: buildSubs("fat"),
+        },
+        notes: String(r["Observações"] || ""),
+      } as any;
+    });
   } else {
-    details.push("Aba 'Dietas' não encontrada.");
+    details.push("Aba 'Refeições' não encontrada.");
   }
 
   const wsWorkouts = wb.Sheets["Treinos"];

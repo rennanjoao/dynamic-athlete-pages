@@ -43,31 +43,140 @@ export const MealMacrosSchema = z.object({
   fat: z.number().min(0).default(0),
 });
 
+// Food item: name + weight/measure
+export const MealFoodItemSchema = z.preprocess(
+  (v) => {
+    if (typeof v === "string") return { name: v, weight: "" };
+    if (!v || typeof v !== "object") return { name: "", weight: "" };
+    return v;
+  },
+  z.object({
+    name: z.string().default(""),
+    weight: z.string().default(""),
+  })
+);
+
+// items may come as string (legacy) -> wrap into array
+const ItemsArraySchema = z.preprocess((v) => {
+  if (typeof v === "string") {
+    const s = v.trim();
+    return s ? [{ name: s, weight: "" }] : [];
+  }
+  if (!Array.isArray(v)) return [];
+  return v;
+}, z.array(MealFoodItemSchema).default([]));
+
 export const MealOptionSchema = z.object({
+  kind: z.enum(["carb", "protein", "fat"]).default("carb"),
   title: z.string().default(""),
-  items: z.string().default(""),
+  items: ItemsArraySchema,
 });
+
+export const MealSubFoodSchema = MealFoodItemSchema;
 
 export const MealSubstitutionsSchema = z.object({
-  carb: z.array(z.string()).default([]),
-  protein: z.array(z.string()).default([]),
-  fat: z.array(z.string()).default([]),
+  carb: z.array(MealSubFoodSchema).default([{ name: "", weight: "" }, { name: "", weight: "" }]),
+  protein: z.array(MealSubFoodSchema).default([{ name: "", weight: "" }, { name: "", weight: "" }]),
+  fat: z.array(MealSubFoodSchema).default([{ name: "", weight: "" }, { name: "", weight: "" }]),
 });
 
-export const MealSchema = z.object({
-  name: z.string().default(""),
-  time: z.string().default(""),
-  macros: MealMacrosSchema.default({ carbs: 0, protein: 0, fat: 0 }),
-  carbs: z.array(z.string()).default([]),
-  proteins: z.array(z.string()).default([]),
-  fats: z.array(z.string()).default([]),
-  free: z.array(z.string()).default([]),
-  options: z.array(MealOptionSchema).default([]),
-  substitutions: MealSubstitutionsSchema.default({ carb: [], protein: [], fat: [] }),
-  notes: z.string().optional().default(""),
-});
+// Default options: 2 of each kind (carb, protein, fat)
+function defaultOptions() {
+  const mk = (kind: "carb" | "protein" | "fat") => [
+    { kind, title: `Opção 1`, items: [{ name: "", weight: "" }] },
+    { kind, title: `Opção 2`, items: [{ name: "", weight: "" }] },
+  ];
+  return [...mk("carb"), ...mk("protein"), ...mk("fat")];
+}
 
-// Tolerant carb cycle: accepts any string, normalizes to known enum if recognized.
+// Migrate legacy meal shape (carbs/proteins/fats arrays of string) -> options
+const MealPreprocess = (v: any) => {
+  if (!v || typeof v !== "object") return v;
+  const hasOldArrays =
+    Array.isArray(v.carbs) || Array.isArray(v.proteins) ||
+    Array.isArray(v.fats) || Array.isArray(v.free);
+  const optsLackKind =
+    Array.isArray(v.options) && v.options.length > 0 &&
+    v.options.every((o: any) => o && typeof o === "object" && !o.kind);
+  if (hasOldArrays || optsLackKind || !Array.isArray(v.options)) {
+    const toItems = (arr: any) =>
+      (Array.isArray(arr) ? arr : [])
+        .map((s: any) =>
+          typeof s === "string"
+            ? { name: s, weight: "" }
+            : { name: s?.name ?? "", weight: s?.weight ?? "" }
+        )
+        .filter((it: any) => it.name);
+    const carbItems = toItems(v.carbs);
+    const protItems = toItems(v.proteins);
+    const fatItems = toItems(v.fats);
+    // If legacy options array exists with strings, distribute into carb opt1/2
+    const legacyOpts = optsLackKind
+      ? (v.options as any[]).map((o) => ({
+          title: o?.title ?? "",
+          items: typeof o?.items === "string"
+            ? (o.items.trim() ? [{ name: o.items, weight: "" }] : [])
+            : Array.isArray(o?.items) ? o.items : [],
+        }))
+      : [];
+    const newOpts = [
+      {
+        kind: "carb",
+        title: legacyOpts[0]?.title || "Opção 1",
+        items: legacyOpts[0]?.items?.length
+          ? legacyOpts[0].items
+          : (carbItems.length ? carbItems : [{ name: "", weight: "" }]),
+      },
+      {
+        kind: "carb",
+        title: legacyOpts[1]?.title || "Opção 2",
+        items: legacyOpts[1]?.items?.length ? legacyOpts[1].items : [{ name: "", weight: "" }],
+      },
+      { kind: "protein", title: "Opção 1", items: protItems.length ? protItems : [{ name: "", weight: "" }] },
+      { kind: "protein", title: "Opção 2", items: [{ name: "", weight: "" }] },
+      { kind: "fat", title: "Opção 1", items: fatItems.length ? fatItems : [{ name: "", weight: "" }] },
+      { kind: "fat", title: "Opção 2", items: [{ name: "", weight: "" }] },
+    ];
+    const subs = v.substitutions ?? {};
+    const normSub = (arr: any) =>
+      (Array.isArray(arr) ? arr : []).map((s: any) =>
+        typeof s === "string" ? { name: s, weight: "" } : { name: s?.name ?? "", weight: s?.weight ?? "" }
+      );
+    const padTo2 = (arr: any[]) => {
+      const out = [...arr];
+      while (out.length < 2) out.push({ name: "", weight: "" });
+      return out.slice(0, Math.max(2, out.length));
+    };
+    return {
+      ...v,
+      options: newOpts,
+      substitutions: {
+        carb: padTo2(normSub(subs.carb)),
+        protein: padTo2(normSub(subs.protein)),
+        fat: padTo2(normSub(subs.fat)),
+      },
+    };
+  }
+  return v;
+};
+
+export const MealSchema = z.preprocess(
+  MealPreprocess,
+  z.object({
+    name: z.string().default(""),
+    time: z.string().default(""),
+    macros: MealMacrosSchema.default({ carbs: 0, protein: 0, fat: 0 }),
+    options: z.array(MealOptionSchema).default(defaultOptions()),
+    substitutions: MealSubstitutionsSchema.default({
+      carb: [{ name: "", weight: "" }, { name: "", weight: "" }],
+      protein: [{ name: "", weight: "" }, { name: "", weight: "" }],
+      fat: [{ name: "", weight: "" }, { name: "", weight: "" }],
+    }),
+    notes: z.string().optional().default(""),
+  })
+);
+
+// Tolerant carb cycle
 const CarbDayEnum = z.enum(["high", "base", "off", "low"]);
 const CarbDayTolerant = z.preprocess((v) => {
   if (typeof v !== "string") return "base";
@@ -106,6 +215,8 @@ export const ProtocolPayloadSchema = z.object({
 
 export type ProtocolPayload = z.infer<typeof ProtocolPayloadSchema>;
 export type MealRow = z.infer<typeof MealSchema>;
+export type MealOption = z.infer<typeof MealOptionSchema>;
+export type MealFoodItem = z.infer<typeof MealFoodItemSchema>;
 
 export function makeEmptyExercise(): z.infer<typeof ExerciseSchema> {
   return { name: "", sets: "", reps: "", cadence: "", rest: "", notes: "" };
@@ -116,15 +227,12 @@ export function makeEmptyMeal(name = "Refeição"): z.infer<typeof MealSchema> {
     name,
     time: "",
     macros: { carbs: 0, protein: 0, fat: 0 },
-    carbs: [],
-    proteins: [],
-    fats: [],
-    free: [],
-    options: [
-      { title: "Opção 1", items: "" },
-      { title: "Opção 2", items: "" },
-    ],
-    substitutions: { carb: ["", ""], protein: ["", ""], fat: ["", ""] },
+    options: defaultOptions(),
+    substitutions: {
+      carb: [{ name: "", weight: "" }, { name: "", weight: "" }],
+      protein: [{ name: "", weight: "" }, { name: "", weight: "" }],
+      fat: [{ name: "", weight: "" }, { name: "", weight: "" }],
+    },
     notes: "",
   };
 }
