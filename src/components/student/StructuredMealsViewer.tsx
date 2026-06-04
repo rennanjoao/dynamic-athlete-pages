@@ -5,10 +5,12 @@ import { Apple, Clock, Scale, CheckCircle2, Repeat } from "lucide-react";
 import CarbCycleSelector, { type CarbMode } from "@/components/student/CarbCycleSelector";
 
 // Motor Matemático Dinâmico (Regex)
-function applySmartMath(text: string, mode: CarbMode, isCooked: boolean, isCarbGroup: boolean) {
+function applySmartMath(text: string, mode: CarbMode, isCooked: boolean, isCarbGroup: boolean, highPct = 15, lowPct = 15) {
   if (!text) return "";
   let finalStr = text;
-  const carbMult = mode === "high" ? 1.15 : mode === "low" ? 0.85 : mode === "off" ? 0.85 : 1;
+  const carbMult =
+    mode === "high" ? 1 + highPct / 100 :
+    (mode === "low" || mode === "off") ? 1 - lowPct / 100 : 1;
 
   let cookedMult = 1;
   const lStr = text.toLowerCase();
