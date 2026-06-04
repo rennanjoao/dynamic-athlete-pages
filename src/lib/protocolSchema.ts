@@ -298,5 +298,9 @@ export function buildBasePayload(setup: {
     workouts,
     meals,
     carbCycle,
+    carbCycleHighPct: 15,
+    carbCycleLowPct: 15,
+    cardio: [],
+    supplements: [],
   });
 }
