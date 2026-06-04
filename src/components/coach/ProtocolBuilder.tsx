@@ -158,52 +158,11 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
       // ── Sincroniza com coach_plans para que /routine e /workout-plan vejam ──
       if (coachId) {
         try {
-          const dietStrategyJson = {
-            meals: (parsed.meals ?? []).map((meal) => ({
-              id: (meal.name || "refeicao").toLowerCase().replace(/\s+/g, "_"),
-              label: meal.name,
-              time: meal.time,
-              macros: meal.macros,
-              items: (meal.options ?? []).map((opt) => ({
-                name: opt.title,
-                quantity: opt.items,
-              })),
-              substitutions: meal.substitutions,
-              notes: meal.notes,
-              highCarbBonus: [],
-              gastricSub: [],
-            })),
-            weeklyPlan: Object.entries(parsed.carbCycle ?? {}).map(([day, type]) => ({
-              day,
-              type: type as string,
-              label:
-                type === "high" ? "Dia Alto" :
-                type === "low" || type === "off" ? "Dia Baixo / Off" :
-                "Base",
-              notes: (parsed.carbCycleNotes ?? {})[day] ?? "",
-            })),
-            carbCycleNotes: parsed.carbCycleNotes ?? {},
-            guidelines: parsed.guidelines,
-            baseCalories: parsed.macros?.calories ?? 2200,
-          };
+          // Save the FULL parsed payload directly so the student-side viewer
+          // can read the new structured meals (options + items with weight).
+          const dietStrategyJson = parsed;
+          const workoutPeriodizationJson = parsed;
 
-          const workoutPeriodizationJson = {
-            trainingDays: (parsed.workouts ?? []).map((w) => ({
-              id: w.key,
-              label: w.focus,
-              exercises: (w.exercises ?? []).map((ex) => ({
-                name: ex.name,
-                sets: ex.sets,
-                reps: ex.reps,
-                cadence: ex.cadence,
-                rest: ex.rest,
-                notes: ex.notes,
-              })),
-            })),
-            weeklyDirectives: [],
-            currentWeek: 1,
-            guidelines: parsed.guidelines,
-          };
 
           // coach_plans.goal aceita apenas: emagrecer | manter | hipertrofia | recomposicao
           const goalMap: Record<string, string> = {
