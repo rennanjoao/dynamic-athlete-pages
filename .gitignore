@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# ─── Variáveis de Ambiente (Segurança) ───
+.env
+.env.*
+!.env.example
