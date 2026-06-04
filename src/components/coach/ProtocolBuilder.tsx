@@ -45,8 +45,7 @@ import {
 import ProtocolImportExport from "./ProtocolImportExport";
 
 // ⚠️ IMPORTANTE: Ajuste o caminho de importação da tabela TACO conforme a sua pasta real.
-import { TACO_DATA } from "@/lib/tacoData"; 
-
+import { tacoFoods } from "@/data/tacoFoods";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb: any = supabase;
 
