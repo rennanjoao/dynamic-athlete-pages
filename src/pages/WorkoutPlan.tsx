@@ -2,12 +2,18 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Dumbbell, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, Dumbbell, AlertTriangle, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ProtocolPayloadSchema } from "@/lib/protocolSchema";
 import ProtocolQuestionButton from "@/components/student/ProtocolQuestionButton";
+
+const WEEKDAYS_LABEL: Record<string, string> = {
+  seg: "Segunda", ter: "Terça", qua: "Quarta",
+  qui: "Quinta", sex: "Sexta", sab: "Sábado", dom: "Domingo",
+};
 
 export default function WorkoutPlan() {
   const navigate = useNavigate();
