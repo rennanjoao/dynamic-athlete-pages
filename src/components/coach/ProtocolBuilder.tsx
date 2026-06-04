@@ -683,6 +683,155 @@ function WorkoutsTab({ payload, setPayload }: { payload: ProtocolPayload; setPay
           </div>
         </Card>
       ))}
+
+      {/* ── Aeróbicos ── */}
+      <div className="mt-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" /> Aeróbicos
+          </Label>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() =>
+              setPayload({
+                ...payload,
+                cardio: [
+                  ...(payload.cardio ?? []),
+                  { type: "", duration: "", intensity: "", workoutKey: "", associationType: "workout", notes: "" },
+                ],
+              })
+            }
+          >
+            <Plus className="w-3 h-3 mr-1" /> Aeróbico
+          </Button>
+        </div>
+
+        {(payload.cardio ?? []).length === 0 && (
+          <p className="text-xs text-muted-foreground italic text-center py-3 border border-dashed border-border/40 rounded-lg">
+            Nenhum aeróbico cadastrado. Clique em + Aeróbico para adicionar.
+          </p>
+        )}
+
+        {(payload.cardio ?? []).map((c, ci) => (
+          <Card key={ci} className="bg-card/60 border-border p-3">
+            <div className="grid grid-cols-[1fr_auto] gap-2 mb-2">
+              <Select
+                value={c.type || "Outro"}
+                onValueChange={(v) => {
+                  const next = [...(payload.cardio ?? [])];
+                  next[ci] = { ...next[ci], type: v };
+                  setPayload({ ...payload, cardio: next });
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  {["AEJ", "LISS", "HIIT", "Caminhada", "Bicicleta", "Outro"].map((t) => (
+                    <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                onClick={() => {
+                  const next = (payload.cardio ?? []).filter((_, j) => j !== ci);
+                  setPayload({ ...payload, cardio: next });
+                }}
+                className="text-muted-foreground hover:text-destructive p-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Duração</Label>
+                <Input
+                  value={c.duration}
+                  onChange={(e) => {
+                    const next = [...(payload.cardio ?? [])];
+                    next[ci] = { ...next[ci], duration: e.target.value };
+                    setPayload({ ...payload, cardio: next });
+                  }}
+                  placeholder="40 min"
+                  className="h-8 text-xs mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Intensidade</Label>
+                <Select
+                  value={c.intensity || "Moderada"}
+                  onValueChange={(v) => {
+                    const next = [...(payload.cardio ?? [])];
+                    next[ci] = { ...next[ci], intensity: v };
+                    setPayload({ ...payload, cardio: next });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Leve", "Moderada", "Alta"].map((t) => (
+                      <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Associar a</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  value={c.associationType}
+                  onValueChange={(v) => {
+                    const next = [...(payload.cardio ?? [])];
+                    next[ci] = { ...next[ci], associationType: v as "workout" | "weekday", workoutKey: "" };
+                    setPayload({ ...payload, cardio: next });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="workout" className="text-xs">Treino (A/B/C…)</SelectItem>
+                    <SelectItem value="weekday" className="text-xs">Dia da semana</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={c.workoutKey || undefined}
+                  onValueChange={(v) => {
+                    const next = [...(payload.cardio ?? [])];
+                    next[ci] = { ...next[ci], workoutKey: v };
+                    setPayload({ ...payload, cardio: next });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectContent>
+                    {c.associationType === "workout"
+                      ? payload.workouts.map((w) => (
+                          <SelectItem key={w.key} value={w.key} className="text-xs">
+                            Treino {w.key}{w.focus ? ` — ${w.focus}` : ""}
+                          </SelectItem>
+                        ))
+                      : WEEKDAYS.map((d) => (
+                          <SelectItem key={d.key} value={d.key} className="text-xs">{d.label}</SelectItem>
+                        ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Input
+              value={c.notes}
+              onChange={(e) => {
+                const next = [...(payload.cardio ?? [])];
+                next[ci] = { ...next[ci], notes: e.target.value };
+                setPayload({ ...payload, cardio: next });
+              }}
+              placeholder="Observações (opcional)"
+              className="h-8 text-xs mt-2"
+            />
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
