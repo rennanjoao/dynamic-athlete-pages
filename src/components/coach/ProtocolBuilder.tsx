@@ -421,6 +421,77 @@ function MacrosTab({ payload, setPayload }: { payload: ProtocolPayload; setPaylo
           </Select>
         </div>
       </div>
+
+      {/* Ciclo de Carboidratos — percentuais customizáveis */}
+      <div className="border-t border-border/40 pt-3 mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-xs font-semibold">Ciclo de Carboidratos</Label>
+          <Switch
+            checked={payload.setup.carbCycle}
+            onCheckedChange={(v) =>
+              setPayload({
+                ...payload,
+                setup: { ...payload.setup, carbCycle: v },
+                carbCycle: v
+                  ? Object.fromEntries(WEEKDAYS.map((d) => [d.key, "base"]))
+                  : {},
+              })
+            }
+          />
+        </div>
+
+        {payload.setup.carbCycle && (
+          <div className="rounded-lg border border-border/40 bg-card/40 p-3 space-y-3 mt-2">
+            <p className="text-[11px] text-muted-foreground">
+              Variação percentual de carboidratos aplicada automaticamente para o aluno nos dias de ciclo.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-emerald-500">
+                  Dia Alto — + %
+                </Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={payload.carbCycleHighPct ?? 15}
+                    onChange={(e) =>
+                      setPayload({ ...payload, carbCycleHighPct: Number(e.target.value) || 15 })
+                    }
+                    className="h-8 text-xs w-20"
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Carbo base × {(1 + (payload.carbCycleHighPct ?? 15) / 100).toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-amber-500">
+                  Dia Off/Baixo — − %
+                </Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={payload.carbCycleLowPct ?? 15}
+                    onChange={(e) =>
+                      setPayload({ ...payload, carbCycleLowPct: Number(e.target.value) || 15 })
+                    }
+                    className="h-8 text-xs w-20"
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Carbo base × {(1 - (payload.carbCycleLowPct ?? 15) / 100).toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
