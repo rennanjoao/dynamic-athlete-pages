@@ -510,9 +510,117 @@ function GuidelinesTab({ payload, setPayload }: { payload: ProtocolPayload; setP
       <Field label="Organização da semana" hint="Ex.: Seg/Qua/Sex carbo alto · Ter/Qui/Sab/Dom carbo baixo">
         <Textarea value={payload.guidelines.weekOrganization} onChange={(e) => upd("weekOrganization", e.target.value)} className="min-h-[80px] text-sm" />
       </Field>
-      <Field label="Suplementação" hint="Listar suplementos, horários e dose">
+      <Field label="Suplementação — observações gerais" hint="Texto livre para orientações gerais. Liste suplementos estruturados abaixo.">
         <Textarea value={payload.guidelines.supplementation} onChange={(e) => upd("supplementation", e.target.value)} className="min-h-[100px] text-sm" />
       </Field>
+
+      {/* Suplementos estruturados */}
+      <div className="border-t border-border/40 pt-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <Pill className="w-4 h-4 text-primary" /> Suplementos
+          </Label>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() =>
+              setPayload({
+                ...payload,
+                supplements: [
+                  ...(payload.supplements ?? []),
+                  { name: "", dose: "", timing: "", notes: "" },
+                ],
+              })
+            }
+          >
+            <Plus className="w-3 h-3 mr-1" /> Suplemento
+          </Button>
+        </div>
+
+        {(payload.supplements ?? []).length === 0 && (
+          <p className="text-xs text-muted-foreground italic text-center py-3 border border-dashed border-border/40 rounded-lg">
+            Nenhum suplemento cadastrado.
+          </p>
+        )}
+
+        {(payload.supplements ?? []).map((s, si) => (
+          <Card key={si} className="bg-card/60 border-border p-3">
+            <div className="grid grid-cols-[1fr_auto] gap-2 mb-2">
+              <Input
+                value={s.name}
+                onChange={(e) => {
+                  const next = [...(payload.supplements ?? [])];
+                  next[si] = { ...next[si], name: e.target.value };
+                  setPayload({ ...payload, supplements: next });
+                }}
+                placeholder="Nome (ex.: Creatina, Whey, Ômega-3)"
+                className="h-8 text-xs"
+              />
+              <button
+                onClick={() => {
+                  const next = (payload.supplements ?? []).filter((_, j) => j !== si);
+                  setPayload({ ...payload, supplements: next });
+                }}
+                className="text-muted-foreground hover:text-destructive p-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Dose</Label>
+                <Input
+                  value={s.dose}
+                  onChange={(e) => {
+                    const next = [...(payload.supplements ?? [])];
+                    next[si] = { ...next[si], dose: e.target.value };
+                    setPayload({ ...payload, supplements: next });
+                  }}
+                  placeholder="5g, 1 scoop, 2 caps"
+                  className="h-8 text-xs mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Horário</Label>
+                <Select
+                  value={s.timing || "Outro"}
+                  onValueChange={(v) => {
+                    const next = [...(payload.supplements ?? [])];
+                    next[si] = { ...next[si], timing: v };
+                    setPayload({ ...payload, supplements: next });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[
+                      "Ao acordar (jejum)",
+                      "Pré-treino",
+                      "Intra-treino",
+                      "Pós-treino",
+                      "Com refeição",
+                      "Antes de dormir",
+                      "Outro",
+                    ].map((t) => (
+                      <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Input
+              value={s.notes}
+              onChange={(e) => {
+                const next = [...(payload.supplements ?? [])];
+                next[si] = { ...next[si], notes: e.target.value };
+                setPayload({ ...payload, supplements: next });
+              }}
+              placeholder="Obs. (opcional)"
+              className="h-8 text-xs mt-2"
+            />
+          </Card>
+        ))}
+      </div>
     </Card>
   );
 }
