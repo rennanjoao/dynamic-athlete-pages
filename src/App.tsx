@@ -85,6 +85,7 @@ const App = () => {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          <GlobalAIAssistant />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
