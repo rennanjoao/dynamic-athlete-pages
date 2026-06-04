@@ -205,9 +205,10 @@ function OptionBlock({
             <li key={idx} className="text-sm text-foreground flex items-start gap-2 pl-2">
               <span className="text-muted-foreground mt-0.5">•</span>
               <span className="leading-relaxed flex-1">
-                <span className="font-medium">{it.name}</span>
+                {/* Correção Principal Aplicada Aqui: dangerouslySetInnerHTML */}
+                <span className="font-medium" dangerouslySetInnerHTML={{ __html: it.name }} />
                 {weightText && (
-                  <span className="text-muted-foreground"> — {weightText}</span>
+                  <span className="text-muted-foreground" dangerouslySetInnerHTML={{ __html: ` — ${weightText}` }} />
                 )}
                 {isCooked && weightText && (
                   <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-600 border-orange-500/20 text-[10px] py-0 px-1">Pronto</Badge>
@@ -235,7 +236,9 @@ function SubLine({
           return (
             <span key={idx}>
               {idx > 0 && <span className="text-muted-foreground"> · </span>}
-              {name}{w && <span className="text-muted-foreground"> ({w})</span>}
+              {/* Correção Principal Aplicada Aqui também */}
+              <span dangerouslySetInnerHTML={{ __html: name }} />
+              {w && <span className="text-muted-foreground" dangerouslySetInnerHTML={{ __html: ` (${w})` }} />}
             </span>
           );
         })}
