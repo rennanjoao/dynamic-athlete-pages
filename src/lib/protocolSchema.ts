@@ -230,12 +230,18 @@ export const ProtocolPayloadSchema = z.object({
   meals: z.array(MealSchema).default([]),
   carbCycle: z.record(CarbDayTolerant).default({}),
   carbCycleNotes: z.record(z.string()).default({}),
+  carbCycleHighPct: z.number().min(1).max(100).default(15),
+  carbCycleLowPct: z.number().min(1).max(100).default(15),
+  cardio: z.array(CardioSchema).default([]),
+  supplements: z.array(SupplementSchema).default([]),
 });
 
 export type ProtocolPayload = z.infer<typeof ProtocolPayloadSchema>;
 export type MealRow = z.infer<typeof MealSchema>;
 export type MealOption = z.infer<typeof MealOptionSchema>;
 export type MealFoodItem = z.infer<typeof MealFoodItemSchema>;
+export type CardioRow = z.infer<typeof CardioSchema>;
+export type SupplementRow = z.infer<typeof SupplementSchema>;
 
 export function makeEmptyExercise(): z.infer<typeof ExerciseSchema> {
   return { name: "", sets: "", reps: "", cadence: "", rest: "", notes: "" };
