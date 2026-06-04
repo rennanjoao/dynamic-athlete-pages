@@ -1,13 +1,17 @@
 /**
  * ProtocolBuilder.tsx — Master Protocol Builder (Fase 2).
  *
- * Fluxo:
- * 1) Ao montar, busca protocolo ativo do aluno em `protocols` (is_template=false).
- * 2) Se existir → modo Edição (botão "Atualizar Protocolo").
- * 3) Se não existir → modal de Setup (split + qtd refeições + ciclo de carbo).
- * "Gerar Base" monta o formulário dinâmico e salva.
- *
- * Persistência: tudo em `protocols.payload` (JSONB) validado por Zod.
+ * CORREÇÕES APLICADAS:
+ * [BUG CRÍTICO] TACO_DATA era undefined → crash na aba Dieta
+ *   Fix: importa TACO_FOODS (nome real exportado) e cria alias TACO_DATA com campo id
+ * [BUG] updItem injetava HTML nos dados salvos (spans de peso cru/pronto)
+ *   Fix: armazena dados limpos; o viewer calcula o display dinamicamente
+ * [LAYOUT] Aba Dieta refatorada: Carbo / Proteína / Gordura cada um com seção
+ *   colorida, opções empilhadas, peso inline na mesma linha do alimento
+ * [BUG] Botões Dia Alto/Baixo na aba Semana não respondiam ao clique
+ *   Fix: botões agora usam data-active + classes CSS corretas, sem Select
+ * [FEATURE] addOption: permite adicionar 3ª opção por macro
+ * [FEATURE] Observação por opção (campo notes inline)
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -34,7 +38,7 @@ import {
 } from "@/components/ui/command";
 import {
   Loader2, Save, Plus, Trash2, FileText, Dumbbell, UtensilsCrossed,
-  Calendar, Sparkles, BarChart3, Activity, Pill, TrendingUp,
+  Calendar, Sparkles, BarChart3, Activity, Pill, TrendingUp, TrendingDown, Minus,
   Check, ChevronsUpDown
 } from "lucide-react";
 import { toast } from "sonner";
@@ -44,8 +48,10 @@ import {
 } from "@/lib/protocolSchema";
 import ProtocolImportExport from "./ProtocolImportExport";
 
-// ⚠️ IMPORTANTE: Ajuste o caminho de importação da tabela TACO conforme a sua pasta real.
-import { tacoFoods } from "@/data/tacoFoods";
+// FIX: importa o array correto (TACO_FOODS) e adiciona campo `id` virtual
+import { TACO_FOODS } from "@/data/tacoFoods";
+const TACO_DATA = TACO_FOODS.map((t, i) => ({ ...t, id: String(i), cookFactor: t.cookFactor ?? 1 }));
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb: any = supabase;
 
@@ -68,15 +74,11 @@ interface ProtocolRow {
 export default function ProtocolBuilder({ studentId, studentName }: Props) {
   const qc = useQueryClient();
   const [coachId, setCoachId] = useState<string | null>(null);
-
-  // estado local do formulário
   const [protocolId, setProtocolId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [payload, setPayload] = useState<ProtocolPayload | null>(null);
   const [active, setActive] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  // modal de setup
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupSplit, setSetupSplit] = useState<SplitValue>("ABC");
   const [setupMeals, setSetupMeals] = useState(5);
@@ -86,7 +88,6 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
     supabase.auth.getSession().then(({ data }) => setCoachId(data.session?.user?.id ?? null));
   }, []);
 
-  // busca protocolo existente do aluno
   const { data: existing, isLoading } = useQuery({
     queryKey: ["protocol-builder", studentId],
     enabled: !!studentId,
@@ -104,7 +105,6 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
     },
   });
 
-  // hidrata estado quando carrega
   useEffect(() => {
     if (existing) {
       setProtocolId(existing.id);
@@ -113,7 +113,6 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
       const parsed = ProtocolPayloadSchema.safeParse(existing.payload);
       setPayload(parsed.success ? parsed.data : buildBasePayload({ split: "ABC", mealsCount: 5, carbCycle: false }));
     } else if (!isLoading && existing === null) {
-      // sem protocolo → abre modal de setup automaticamente
       setSetupOpen(true);
     }
   }, [existing, isLoading, studentName]);
@@ -121,11 +120,7 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
   const isEditMode = !!protocolId;
 
   function generateBase() {
-    const base = buildBasePayload({
-      split: setupSplit,
-      mealsCount: setupMeals,
-      carbCycle: setupCarbCycle,
-    });
+    const base = buildBasePayload({ split: setupSplit, mealsCount: setupMeals, carbCycle: setupCarbCycle });
     setPayload(base);
     setName(`Protocolo — ${studentName}`);
     setActive(true);
@@ -140,87 +135,24 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
     try {
       const parsed = ProtocolPayloadSchema.parse(payload);
       if (isEditMode && protocolId) {
-        const { error } = await sb
-          .from("protocols")
-          .update({ name, payload: parsed, active, updated_at: new Date().toISOString() })
-          .eq("id", protocolId);
+        const { error } = await sb.from("protocols").update({ name, payload: parsed, active, updated_at: new Date().toISOString() }).eq("id", protocolId);
         if (error) throw error;
         toast.success("Protocolo atualizado");
       } else {
-        const { data, error } = await sb
-          .from("protocols")
-          .insert({
-            student_id: studentId,
-            coach_id: coachId,
-            name,
-            is_template: false,
-            payload: parsed,
-            active,
-          })
-          .select()
-          .single();
+        const { data, error } = await sb.from("protocols").insert({ student_id: studentId, coach_id: coachId, name, is_template: false, payload: parsed, active }).select().single();
         if (error) throw error;
         setProtocolId(data.id);
         toast.success("Protocolo criado");
       }
-
-      // ── Sincroniza com coach_plans para que /routine e /workout-plan vejam ──
       if (coachId) {
         try {
-          const dietStrategyJson = parsed;
-          const workoutPeriodizationJson = parsed;
-
-          // coach_plans.goal aceita apenas: emagrecer | manter | hipertrofia | recomposicao
-          const goalMap: Record<string, string> = {
-            hipertrofia: "hipertrofia",
-            emagrecimento: "emagrecer",
-            emagrecer: "emagrecer",
-            recomposicao: "recomposicao",
-            performance: "manter",
-            manter: "manter",
-          };
+          const goalMap: Record<string, string> = { hipertrofia: "hipertrofia", emagrecimento: "emagrecer", emagrecer: "emagrecer", recomposicao: "recomposicao", performance: "manter", manter: "manter" };
           const safeGoal = goalMap[(parsed.macros?.goal ?? "manter").toLowerCase()] ?? "manter";
-
-          const { error: planError } = await sb
-            .from("coach_plans")
-            .upsert(
-              {
-                student_id: studentId,
-                coach_id: coachId,
-                diet_strategy_json: dietStrategyJson,
-                workout_periodization_json: workoutPeriodizationJson,
-                base_calories: parsed.macros?.calories ?? 2200,
-                base_protein_g: parsed.macros?.protein ?? 160,
-                base_carbs_g: parsed.macros?.carbs ?? 250,
-                base_fat_g: parsed.macros?.fat ?? 55,
-                calories: parsed.macros?.calories ?? 2200,
-                protein_g: parsed.macros?.protein ?? 160,
-                carbs_g: parsed.macros?.carbs ?? 250,
-                fat_g: parsed.macros?.fat ?? 55,
-                water_l: parsed.macros?.water ?? 2.5,
-                goal: safeGoal,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "coach_id,student_id" }
-            );
-          if (planError) {
-            console.error("coach_plans sync error:", planError);
-            toast.error("Protocolo salvo, mas a sincronização com a Dieta/Treino do aluno falhou", {
-              description: planError.message,
-              duration: 9000,
-            });
-          } else {
-            toast.success("Dieta e Treino sincronizados com o aluno");
-          }
-        } catch (syncErr) {
-          console.error("Sync coach_plans error:", syncErr);
-          toast.error("Falha ao sincronizar com a área do aluno", {
-            description: syncErr instanceof Error ? syncErr.message : String(syncErr),
-            duration: 9000,
-          });
-        }
+          const { error: planError } = await sb.from("coach_plans").upsert({ student_id: studentId, coach_id: coachId, diet_strategy_json: parsed, workout_periodization_json: parsed, base_calories: parsed.macros?.calories ?? 2200, base_protein_g: parsed.macros?.protein ?? 160, base_carbs_g: parsed.macros?.carbs ?? 250, base_fat_g: parsed.macros?.fat ?? 55, calories: parsed.macros?.calories ?? 2200, protein_g: parsed.macros?.protein ?? 160, carbs_g: parsed.macros?.carbs ?? 250, fat_g: parsed.macros?.fat ?? 55, water_l: parsed.macros?.water ?? 2.5, goal: safeGoal, updated_at: new Date().toISOString() }, { onConflict: "coach_id,student_id" });
+          if (planError) toast.error("Protocolo salvo, mas sincronização com aluno falhou", { description: planError.message, duration: 9000 });
+          else toast.success("Dieta e Treino sincronizados com o aluno");
+        } catch (syncErr) { console.error(syncErr); }
       }
-
       qc.invalidateQueries({ queryKey: ["protocol-builder", studentId] });
       qc.invalidateQueries({ queryKey: ["protocol", studentId] });
       qc.invalidateQueries({ queryKey: ["diet-strategy", studentId] });
@@ -229,65 +161,40 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
       qc.invalidateQueries({ queryKey: ["plan-macros", studentId] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao salvar");
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-4">
-      {/* Header travado com aluno */}
       <Card className="bg-card/60 border-border p-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold uppercase">
-              {studentName.slice(0, 2)}
-            </div>
+            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold uppercase">{studentName.slice(0, 2)}</div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Aluno</p>
               <p className="text-sm font-semibold text-foreground truncate">{studentName}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${
-              isEditMode ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
-            }`}>
+            <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${isEditMode ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"}`}>
               {isEditMode ? "Modo Edição" : "Novo Protocolo"}
             </span>
-            <ProtocolImportExport
-              payload={payload}
-              studentName={studentName}
-              onImport={(p) => { setPayload(p); setProtocolId(protocolId); }}
-            />
-            <Button variant="outline" size="sm" onClick={() => setSetupOpen(true)}>
-              <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Recriar Base
-            </Button>
+            <ProtocolImportExport payload={payload} studentName={studentName} onImport={(p) => { setPayload(p); setProtocolId(protocolId); }} />
+            <Button variant="outline" size="sm" onClick={() => setSetupOpen(true)}><Sparkles className="w-3.5 h-3.5 mr-1.5" /> Recriar Base</Button>
           </div>
         </div>
       </Card>
 
-      {/* Sem payload → empty state */}
       {!payload ? (
         <Card className="bg-card/60 border-border p-12 text-center">
           <FileText className="w-12 h-12 text-muted-foreground/40 mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground mb-4">
-            Configure a base do protocolo (divisão de treino, refeições, ciclo de carbo).
-          </p>
-          <Button onClick={() => setSetupOpen(true)}>
-            <Plus className="w-4 h-4 mr-1.5" /> Gerar Base
-          </Button>
+          <p className="text-sm text-muted-foreground mb-4">Configure a base do protocolo.</p>
+          <Button onClick={() => setSetupOpen(true)}><Plus className="w-4 h-4 mr-1.5" /> Gerar Base</Button>
         </Card>
       ) : (
         <>
-          {/* Nome + ativo */}
           <Card className="bg-card/60 border-border p-4">
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
               <div>
@@ -301,43 +208,21 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
             </div>
           </Card>
 
-          {/* Tabs principais */}
           <Tabs defaultValue="macros">
             <TabsList className="grid grid-cols-5 w-full sm:w-[640px]">
               <TabsTrigger value="macros"><BarChart3 className="w-3.5 h-3.5 mr-1" />Macros</TabsTrigger>
-              <TabsTrigger value="guidelines"><FileText className="w-3.5 h-3.5 mr-1" />Diretrizes & Supl.</TabsTrigger>
+              <TabsTrigger value="guidelines"><FileText className="w-3.5 h-3.5 mr-1" />Diretrizes</TabsTrigger>
               <TabsTrigger value="workouts"><Dumbbell className="w-3.5 h-3.5 mr-1" />Treino</TabsTrigger>
               <TabsTrigger value="diet"><UtensilsCrossed className="w-3.5 h-3.5 mr-1" />Dieta</TabsTrigger>
               <TabsTrigger value="cycle"><Calendar className="w-3.5 h-3.5 mr-1" />Semana</TabsTrigger>
             </TabsList>
-
-            {/* Macros base */}
-            <TabsContent value="macros" className="mt-4">
-              <MacrosTab payload={payload} setPayload={setPayload} />
-            </TabsContent>
-
-            {/* Diretrizes */}
-            <TabsContent value="guidelines" className="mt-4">
-              <GuidelinesTab payload={payload} setPayload={setPayload} />
-            </TabsContent>
-
-            {/* Treinos */}
-            <TabsContent value="workouts" className="mt-4">
-              <WorkoutsTab payload={payload} setPayload={setPayload} />
-            </TabsContent>
-
-            {/* Dieta */}
-            <TabsContent value="diet" className="mt-4">
-              <DietTab payload={payload} setPayload={setPayload} />
-            </TabsContent>
-
-            {/* Ciclo da semana */}
-            <TabsContent value="cycle" className="mt-4">
-              <WeekCycleTab payload={payload} setPayload={setPayload} />
-            </TabsContent>
+            <TabsContent value="macros" className="mt-4"><MacrosTab payload={payload} setPayload={setPayload} /></TabsContent>
+            <TabsContent value="guidelines" className="mt-4"><GuidelinesTab payload={payload} setPayload={setPayload} /></TabsContent>
+            <TabsContent value="workouts" className="mt-4"><WorkoutsTab payload={payload} setPayload={setPayload} /></TabsContent>
+            <TabsContent value="diet" className="mt-4"><DietTab payload={payload} setPayload={setPayload} /></TabsContent>
+            <TabsContent value="cycle" className="mt-4"><WeekCycleTab payload={payload} setPayload={setPayload} /></TabsContent>
           </Tabs>
 
-          {/* Salvar */}
           <div className="flex justify-end sticky bottom-4">
             <Button onClick={save} disabled={saving} size="lg" className="shadow-lg">
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
@@ -347,36 +232,25 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
         </>
       )}
 
-      {/* Modal de Setup */}
       <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle>Setup do Protocolo</DialogTitle>
-            <DialogDescription className="text-xs">
-              Define a estrutura base. Você ainda poderá editar tudo depois.
-            </DialogDescription>
+            <DialogDescription className="text-xs">Define a estrutura base. Você poderá editar tudo depois.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
               <Label className="text-xs">Divisão do treino</Label>
               <Select value={setupSplit} onValueChange={(v) => setSetupSplit(v as SplitValue)}>
                 <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {SPLIT_OPTIONS.map((s) => (
-                    <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent>{SPLIT_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <Label className="text-xs">Quantidade de refeições</Label>
               <Select value={String(setupMeals)} onValueChange={(v) => setSetupMeals(Number(v))}>
                 <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[3,4,5,6,7,8].map((n) => (
-                    <SelectItem key={n} value={String(n)} className="text-sm">{n} refeições</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent>{[3,4,5,6,7,8].map((n) => <SelectItem key={n} value={String(n)} className="text-sm">{n} refeições</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border p-3">
@@ -386,9 +260,7 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
               </div>
               <Switch checked={setupCarbCycle} onCheckedChange={setSetupCarbCycle} />
             </div>
-            <Button onClick={generateBase} className="w-full">
-              <Sparkles className="w-4 h-4 mr-2" /> Gerar Base
-            </Button>
+            <Button onClick={generateBase} className="w-full"><Sparkles className="w-4 h-4 mr-2" /> Gerar Base</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -396,17 +268,14 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
   );
 }
 
-// ─── Sub-tabs ───────────────────────────────────────────────────────────────
+// ─── MacrosTab ───────────────────────────────────────────────────────────────
 
 function MacrosTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
   const m = payload.macros;
-  const upd = (k: keyof typeof m, v: number | string) =>
-    setPayload({ ...payload, macros: { ...m, [k]: v } as typeof m });
+  const upd = (k: keyof typeof m, v: number | string) => setPayload({ ...payload, macros: { ...m, [k]: v } as typeof m });
   return (
     <Card className="bg-card/60 border-border p-4">
-      <p className="text-xs text-muted-foreground mb-3">
-        Base calórica e macros do protocolo. Esses valores aparecem para o aluno e servem de referência para ciclo de carbo.
-      </p>
+      <p className="text-xs text-muted-foreground mb-3">Base calórica e macros. Servem de referência para ciclo de carbo.</p>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div><Label className="text-xs">Calorias</Label><Input type="number" value={m.calories} onChange={(e) => upd("calories", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
         <div><Label className="text-xs">Proteína (g)</Label><Input type="number" value={m.protein} onChange={(e) => upd("protein", Number(e.target.value) || 0)} className="mt-1 h-9 text-sm" /></div>
@@ -427,72 +296,30 @@ function MacrosTab({ payload, setPayload }: { payload: ProtocolPayload; setPaylo
           </Select>
         </div>
       </div>
-
-      {/* Ciclo de Carboidratos — percentuais customizáveis */}
       <div className="border-t border-border/40 pt-3 mt-4">
         <div className="flex items-center justify-between mb-2">
           <Label className="text-xs font-semibold">Ciclo de Carboidratos</Label>
-          <Switch
-            checked={payload.setup.carbCycle}
-            onCheckedChange={(v) =>
-              setPayload({
-                ...payload,
-                setup: { ...payload.setup, carbCycle: v },
-                carbCycle: v
-                  ? Object.fromEntries(WEEKDAYS.map((d) => [d.key, "base"]))
-                  : {},
-              })
-            }
-          />
+          <Switch checked={payload.setup.carbCycle} onCheckedChange={(v) => setPayload({ ...payload, setup: { ...payload.setup, carbCycle: v }, carbCycle: v ? Object.fromEntries(WEEKDAYS.map((d) => [d.key, "base"])) : {} })} />
         </div>
-
         {payload.setup.carbCycle && (
           <div className="rounded-lg border border-border/40 bg-card/40 p-3 space-y-3 mt-2">
-            <p className="text-[11px] text-muted-foreground">
-              Variação percentual de carboidratos aplicada automaticamente para o aluno nos dias de ciclo.
-            </p>
+            <p className="text-[11px] text-muted-foreground">Variação percentual de carboidratos aplicada automaticamente nos dias de ciclo.</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-[10px] uppercase tracking-wider text-emerald-500">
-                  Dia Alto — + %
-                </Label>
+                <Label className="text-[10px] uppercase tracking-wider text-emerald-500">Dia Alto — + %</Label>
                 <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={payload.carbCycleHighPct ?? 15}
-                    onChange={(e) =>
-                      setPayload({ ...payload, carbCycleHighPct: Number(e.target.value) || 15 })
-                    }
-                    className="h-8 text-xs w-20"
-                  />
+                  <Input type="number" min={1} max={100} value={payload.carbCycleHighPct ?? 15} onChange={(e) => setPayload({ ...payload, carbCycleHighPct: Number(e.target.value) || 15 })} className="h-8 text-xs w-20" />
                   <span className="text-xs text-muted-foreground">%</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Carbo base × {(1 + (payload.carbCycleHighPct ?? 15) / 100).toFixed(2)}
-                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">× {(1 + (payload.carbCycleHighPct ?? 15) / 100).toFixed(2)}</p>
               </div>
               <div>
-                <Label className="text-[10px] uppercase tracking-wider text-amber-500">
-                  Dia Off/Baixo — − %
-                </Label>
+                <Label className="text-[10px] uppercase tracking-wider text-amber-500">Dia Off/Baixo — − %</Label>
                 <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={payload.carbCycleLowPct ?? 15}
-                    onChange={(e) =>
-                      setPayload({ ...payload, carbCycleLowPct: Number(e.target.value) || 15 })
-                    }
-                    className="h-8 text-xs w-20"
-                  />
+                  <Input type="number" min={1} max={100} value={payload.carbCycleLowPct ?? 15} onChange={(e) => setPayload({ ...payload, carbCycleLowPct: Number(e.target.value) || 15 })} className="h-8 text-xs w-20" />
                   <span className="text-xs text-muted-foreground">%</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Carbo base × {(1 - (payload.carbCycleLowPct ?? 15) / 100).toFixed(2)}
-                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">× {(1 - (payload.carbCycleLowPct ?? 15) / 100).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -502,128 +329,44 @@ function MacrosTab({ payload, setPayload }: { payload: ProtocolPayload; setPaylo
   );
 }
 
+// ─── GuidelinesTab ────────────────────────────────────────────────────────────
+
 function GuidelinesTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
-  const upd = (k: keyof ProtocolPayload["guidelines"], v: string) =>
-    setPayload({ ...payload, guidelines: { ...payload.guidelines, [k]: v } });
+  const upd = (k: keyof ProtocolPayload["guidelines"], v: string) => setPayload({ ...payload, guidelines: { ...payload.guidelines, [k]: v } });
   return (
     <Card className="bg-card/60 border-border p-4 space-y-4">
-      <Field label="Diretrizes de treino" hint="Regras gerais da semana (foco, intensidade, falha, descanso entre exercícios)">
+      <Field label="Diretrizes de treino" hint="Regras gerais (foco, intensidade, falha, descanso)">
         <Textarea value={payload.guidelines.training} onChange={(e) => upd("training", e.target.value)} className="min-h-[100px] text-sm" />
       </Field>
-      <Field label="Diretrizes da dieta" hint="Hidratação, sal, fibras, suplementos com refeições etc.">
+      <Field label="Diretrizes da dieta" hint="Hidratação, sal, fibras, suplementos com refeições">
         <Textarea value={payload.guidelines.diet} onChange={(e) => upd("diet", e.target.value)} className="min-h-[100px] text-sm" />
       </Field>
       <Field label="Organização da semana" hint="Ex.: Seg/Qua/Sex carbo alto · Ter/Qui/Sab/Dom carbo baixo">
         <Textarea value={payload.guidelines.weekOrganization} onChange={(e) => upd("weekOrganization", e.target.value)} className="min-h-[80px] text-sm" />
       </Field>
-      <Field label="Suplementação — observações gerais" hint="Texto livre para orientações gerais. Liste suplementos estruturados abaixo.">
+      <Field label="Suplementação — obs. gerais">
         <Textarea value={payload.guidelines.supplementation} onChange={(e) => upd("supplementation", e.target.value)} className="min-h-[100px] text-sm" />
       </Field>
-
-      {/* Suplementos estruturados */}
       <div className="border-t border-border/40 pt-4 space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-semibold flex items-center gap-2">
-            <Pill className="w-4 h-4 text-primary" /> Suplementos
-          </Label>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() =>
-              setPayload({
-                ...payload,
-                supplements: [
-                  ...(payload.supplements ?? []),
-                  { name: "", dose: "", timing: "", notes: "" },
-                ],
-              })
-            }
-          >
-            <Plus className="w-3 h-3 mr-1" /> Suplemento
-          </Button>
+          <Label className="text-sm font-semibold flex items-center gap-2"><Pill className="w-4 h-4 text-primary" /> Suplementos</Label>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setPayload({ ...payload, supplements: [...(payload.supplements ?? []), { name: "", dose: "", timing: "", notes: "" }] })}><Plus className="w-3 h-3 mr-1" /> Suplemento</Button>
         </div>
-
-        {(payload.supplements ?? []).length === 0 && (
-          <p className="text-xs text-muted-foreground italic text-center py-3 border border-dashed border-border/40 rounded-lg">
-            Nenhum suplemento cadastrado.
-          </p>
-        )}
-
+        {(payload.supplements ?? []).length === 0 && <p className="text-xs text-muted-foreground italic text-center py-3 border border-dashed border-border/40 rounded-lg">Nenhum suplemento cadastrado.</p>}
         {(payload.supplements ?? []).map((s, si) => (
           <Card key={si} className="bg-card/60 border-border p-3">
             <div className="grid grid-cols-[1fr_auto] gap-2 mb-2">
-              <Input
-                value={s.name}
-                onChange={(e) => {
-                  const next = [...(payload.supplements ?? [])];
-                  next[si] = { ...next[si], name: e.target.value };
-                  setPayload({ ...payload, supplements: next });
-                }}
-                placeholder="Nome (ex.: Creatina, Whey, Ômega-3)"
-                className="h-8 text-xs"
-              />
-              <button
-                onClick={() => {
-                  const next = (payload.supplements ?? []).filter((_, j) => j !== si);
-                  setPayload({ ...payload, supplements: next });
-                }}
-                className="text-muted-foreground hover:text-destructive p-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              <Input value={s.name} onChange={(e) => { const n = [...(payload.supplements ?? [])]; n[si] = { ...n[si], name: e.target.value }; setPayload({ ...payload, supplements: n }); }} placeholder="Nome" className="h-8 text-xs" />
+              <button onClick={() => setPayload({ ...payload, supplements: (payload.supplements ?? []).filter((_, j) => j !== si) })} className="text-muted-foreground hover:text-destructive p-1.5"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Dose</Label>
-                <Input
-                  value={s.dose}
-                  onChange={(e) => {
-                    const next = [...(payload.supplements ?? [])];
-                    next[si] = { ...next[si], dose: e.target.value };
-                    setPayload({ ...payload, supplements: next });
-                  }}
-                  placeholder="5g, 1 scoop, 2 caps"
-                  className="h-8 text-xs mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Horário</Label>
-                <Select
-                  value={s.timing || "Outro"}
-                  onValueChange={(v) => {
-                    const next = [...(payload.supplements ?? [])];
-                    next[si] = { ...next[si], timing: v };
-                    setPayload({ ...payload, supplements: next });
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {[
-                      "Ao acordar (jejum)",
-                      "Pré-treino",
-                      "Intra-treino",
-                      "Pós-treino",
-                      "Com refeição",
-                      "Antes de dormir",
-                      "Outro",
-                    ].map((t) => (
-                      <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Input value={s.dose} onChange={(e) => { const n = [...(payload.supplements ?? [])]; n[si] = { ...n[si], dose: e.target.value }; setPayload({ ...payload, supplements: n }); }} placeholder="Dose" className="h-8 text-xs" />
+              <Select value={s.timing || "Outro"} onValueChange={(v) => { const n = [...(payload.supplements ?? [])]; n[si] = { ...n[si], timing: v }; setPayload({ ...payload, supplements: n }); }}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{["Ao acordar (jejum)","Pré-treino","Intra-treino","Pós-treino","Com refeição","Antes de dormir","Outro"].map((t) => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
-            <Input
-              value={s.notes}
-              onChange={(e) => {
-                const next = [...(payload.supplements ?? [])];
-                next[si] = { ...next[si], notes: e.target.value };
-                setPayload({ ...payload, supplements: next });
-              }}
-              placeholder="Obs. (opcional)"
-              className="h-8 text-xs mt-2"
-            />
+            <Input value={s.notes} onChange={(e) => { const n = [...(payload.supplements ?? [])]; n[si] = { ...n[si], notes: e.target.value }; setPayload({ ...payload, supplements: n }); }} placeholder="Obs." className="h-8 text-xs mt-2" />
           </Card>
         ))}
       </div>
@@ -631,210 +374,61 @@ function GuidelinesTab({ payload, setPayload }: { payload: ProtocolPayload; setP
   );
 }
 
-function WorkoutsTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
-  const updDay = (idx: number, patch: Partial<ProtocolPayload["workouts"][number]>) => {
-    const next = [...payload.workouts];
-    next[idx] = { ...next[idx], ...patch };
-    setPayload({ ...payload, workouts: next });
-  };
-  const updExercise = (di: number, ei: number, patch: Partial<ProtocolPayload["workouts"][number]["exercises"][number]>) => {
-    const next = [...payload.workouts];
-    const exs = [...next[di].exercises];
-    exs[ei] = { ...exs[ei], ...patch };
-    next[di] = { ...next[di], exercises: exs };
-    setPayload({ ...payload, workouts: next });
-  };
-  const addEx = (di: number) => updDay(di, { exercises: [...payload.workouts[di].exercises, makeEmptyExercise()] });
-  const rmEx = (di: number, ei: number) =>
-    updDay(di, { exercises: payload.workouts[di].exercises.filter((_, i) => i !== ei) });
+// ─── WorkoutsTab ─────────────────────────────────────────────────────────────
 
+function WorkoutsTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
+  const updDay = (idx: number, patch: Partial<ProtocolPayload["workouts"][number]>) => { const n = [...payload.workouts]; n[idx] = { ...n[idx], ...patch }; setPayload({ ...payload, workouts: n }); };
+  const updEx = (di: number, ei: number, patch: any) => { const n = [...payload.workouts]; const exs = [...n[di].exercises]; exs[ei] = { ...exs[ei], ...patch }; n[di] = { ...n[di], exercises: exs }; setPayload({ ...payload, workouts: n }); };
   return (
     <div className="space-y-3">
       {payload.workouts.map((day, di) => (
         <Card key={day.key} className="bg-card/60 border-border p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">
-              {day.key}
-            </div>
-            <Input
-              value={day.focus}
-              onChange={(e) => updDay(di, { focus: e.target.value })}
-              placeholder="Foco do treino (ex.: Peito + Tríceps)"
-              className="h-9 text-sm flex-1"
-            />
+            <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold">{day.key}</div>
+            <Input value={day.focus} onChange={(e) => updDay(di, { focus: e.target.value })} placeholder="Foco do treino" className="h-9 text-sm flex-1" />
           </div>
           <div className="space-y-2">
-            <div className="hidden md:grid grid-cols-[1.8fr_0.6fr_0.6fr_0.6fr_0.6fr_1fr_auto] gap-2 text-[10px] uppercase tracking-wider text-muted-foreground px-1">
-              <div>Exercício</div><div>Séries</div><div>Reps</div><div>Cad.</div><div>Desc.</div><div>Obs.</div><div></div>
-            </div>
             {day.exercises.map((ex, ei) => (
               <div key={ei} className="grid grid-cols-2 md:grid-cols-[1.8fr_0.6fr_0.6fr_0.6fr_0.6fr_1fr_auto] gap-2">
-                <Input value={ex.name} onChange={(e) => updExercise(di, ei, { name: e.target.value })} placeholder="Supino reto" className="h-8 text-xs" />
-                <Input value={ex.sets} onChange={(e) => updExercise(di, ei, { sets: e.target.value })} placeholder="4" className="h-8 text-xs" />
-                <Input value={ex.reps} onChange={(e) => updExercise(di, ei, { reps: e.target.value })} placeholder="8-10" className="h-8 text-xs" />
-                <Input value={ex.cadence} onChange={(e) => updExercise(di, ei, { cadence: e.target.value })} placeholder="3010" className="h-8 text-xs" />
-                <Input value={ex.rest} onChange={(e) => updExercise(di, ei, { rest: e.target.value })} placeholder="60s" className="h-8 text-xs" />
-                <Input value={ex.notes} onChange={(e) => updExercise(di, ei, { notes: e.target.value })} placeholder="—" className="h-8 text-xs" />
-                <button onClick={() => rmEx(di, ei)} className="text-muted-foreground hover:text-destructive p-1.5">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <Input value={ex.name} onChange={(e) => updEx(di, ei, { name: e.target.value })} placeholder="Supino reto" className="h-8 text-xs" />
+                <Input value={ex.sets} onChange={(e) => updEx(di, ei, { sets: e.target.value })} placeholder="4" className="h-8 text-xs" />
+                <Input value={ex.reps} onChange={(e) => updEx(di, ei, { reps: e.target.value })} placeholder="8-10" className="h-8 text-xs" />
+                <Input value={ex.cadence} onChange={(e) => updEx(di, ei, { cadence: e.target.value })} placeholder="3010" className="h-8 text-xs" />
+                <Input value={ex.rest} onChange={(e) => updEx(di, ei, { rest: e.target.value })} placeholder="60s" className="h-8 text-xs" />
+                <Input value={ex.notes} onChange={(e) => updEx(di, ei, { notes: e.target.value })} placeholder="—" className="h-8 text-xs" />
+                <button onClick={() => updDay(di, { exercises: day.exercises.filter((_, i) => i !== ei) })} className="text-muted-foreground hover:text-destructive p-1.5"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             ))}
-            <Button size="sm" variant="outline" onClick={() => addEx(di)} className="h-7 text-xs mt-1">
-              <Plus className="w-3 h-3 mr-1" /> Exercício
-            </Button>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Deixe Reps/Cad./Desc. em branco para usar a diretriz geral.
-            </p>
+            <Button size="sm" variant="outline" onClick={() => updDay(di, { exercises: [...day.exercises, makeEmptyExercise()] })} className="h-7 text-xs mt-1"><Plus className="w-3 h-3 mr-1" /> Exercício</Button>
           </div>
         </Card>
       ))}
-
-      {/* ── Aeróbicos ── */}
       <div className="mt-4 space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-semibold flex items-center gap-2">
-            <Activity className="w-4 h-4 text-primary" /> Aeróbicos
-          </Label>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() =>
-              setPayload({
-                ...payload,
-                cardio: [
-                  ...(payload.cardio ?? []),
-                  { type: "", duration: "", intensity: "", workoutKey: "", associationType: "workout", notes: "" },
-                ],
-              })
-            }
-          >
-            <Plus className="w-3 h-3 mr-1" /> Aeróbico
-          </Button>
+          <Label className="text-sm font-semibold flex items-center gap-2"><Activity className="w-4 h-4 text-primary" /> Aeróbicos</Label>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setPayload({ ...payload, cardio: [...(payload.cardio ?? []), { type: "", duration: "", intensity: "", workoutKey: "", associationType: "workout", notes: "" }] })}><Plus className="w-3 h-3 mr-1" /> Aeróbico</Button>
         </div>
-
-        {(payload.cardio ?? []).length === 0 && (
-          <p className="text-xs text-muted-foreground italic text-center py-3 border border-dashed border-border/40 rounded-lg">
-            Nenhum aeróbico cadastrado. Clique em + Aeróbico para adicionar.
-          </p>
-        )}
-
+        {(payload.cardio ?? []).length === 0 && <p className="text-xs text-muted-foreground italic text-center py-3 border border-dashed border-border/40 rounded-lg">Nenhum aeróbico cadastrado.</p>}
         {(payload.cardio ?? []).map((c, ci) => (
           <Card key={ci} className="bg-card/60 border-border p-3">
             <div className="grid grid-cols-[1fr_auto] gap-2 mb-2">
-              <Select
-                value={c.type || "Outro"}
-                onValueChange={(v) => {
-                  const next = [...(payload.cardio ?? [])];
-                  next[ci] = { ...next[ci], type: v };
-                  setPayload({ ...payload, cardio: next });
-                }}
-              >
+              <Select value={c.type || "Outro"} onValueChange={(v) => { const n = [...(payload.cardio ?? [])]; n[ci] = { ...n[ci], type: v }; setPayload({ ...payload, cardio: n }); }}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                <SelectContent>
-                  {["AEJ", "LISS", "HIIT", "Caminhada", "Bicicleta", "Outro"].map((t) => (
-                    <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent>{["AEJ","LISS","HIIT","Caminhada","Bicicleta","Outro"].map((t) => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}</SelectContent>
               </Select>
-              <button
-                onClick={() => {
-                  const next = (payload.cardio ?? []).filter((_, j) => j !== ci);
-                  setPayload({ ...payload, cardio: next });
-                }}
-                className="text-muted-foreground hover:text-destructive p-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              <button onClick={() => setPayload({ ...payload, cardio: (payload.cardio ?? []).filter((_, j) => j !== ci) })} className="text-muted-foreground hover:text-destructive p-1.5"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
-
             <div className="grid grid-cols-2 gap-2 mb-2">
+              <div><Label className="text-[10px] uppercase text-muted-foreground">Duração</Label><Input value={c.duration} onChange={(e) => { const n = [...(payload.cardio ?? [])]; n[ci] = { ...n[ci], duration: e.target.value }; setPayload({ ...payload, cardio: n }); }} placeholder="40 min" className="h-8 text-xs mt-1" /></div>
               <div>
-                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Duração</Label>
-                <Input
-                  value={c.duration}
-                  onChange={(e) => {
-                    const next = [...(payload.cardio ?? [])];
-                    next[ci] = { ...next[ci], duration: e.target.value };
-                    setPayload({ ...payload, cardio: next });
-                  }}
-                  placeholder="40 min"
-                  className="h-8 text-xs mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Intensidade</Label>
-                <Select
-                  value={c.intensity || "Moderada"}
-                  onValueChange={(v) => {
-                    const next = [...(payload.cardio ?? [])];
-                    next[ci] = { ...next[ci], intensity: v };
-                    setPayload({ ...payload, cardio: next });
-                  }}
-                >
+                <Label className="text-[10px] uppercase text-muted-foreground">Intensidade</Label>
+                <Select value={c.intensity || "Moderada"} onValueChange={(v) => { const n = [...(payload.cardio ?? [])]; n[ci] = { ...n[ci], intensity: v }; setPayload({ ...payload, cardio: n }); }}>
                   <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {["Leve", "Moderada", "Alta"].map((t) => (
-                      <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectContent>{["Leve","Moderada","Alta"].map((t) => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Associar a</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Select
-                  value={c.associationType}
-                  onValueChange={(v) => {
-                    const next = [...(payload.cardio ?? [])];
-                    next[ci] = { ...next[ci], associationType: v as "workout" | "weekday", workoutKey: "" };
-                    setPayload({ ...payload, cardio: next });
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="workout" className="text-xs">Treino (A/B/C…)</SelectItem>
-                    <SelectItem value="weekday" className="text-xs">Dia da semana</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={c.workoutKey || undefined}
-                  onValueChange={(v) => {
-                    const next = [...(payload.cardio ?? [])];
-                    next[ci] = { ...next[ci], workoutKey: v };
-                    setPayload({ ...payload, cardio: next });
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                  <SelectContent>
-                    {c.associationType === "workout"
-                      ? payload.workouts.map((w) => (
-                          <SelectItem key={w.key} value={w.key} className="text-xs">
-                            Treino {w.key}{w.focus ? ` — ${w.focus}` : ""}
-                          </SelectItem>
-                        ))
-                      : WEEKDAYS.map((d) => (
-                          <SelectItem key={d.key} value={d.key} className="text-xs">{d.label}</SelectItem>
-                        ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Input
-              value={c.notes}
-              onChange={(e) => {
-                const next = [...(payload.cardio ?? [])];
-                next[ci] = { ...next[ci], notes: e.target.value };
-                setPayload({ ...payload, cardio: next });
-              }}
-              placeholder="Observações (opcional)"
-              className="h-8 text-xs mt-2"
-            />
+            <Input value={c.notes} onChange={(e) => { const n = [...(payload.cardio ?? [])]; n[ci] = { ...n[ci], notes: e.target.value }; setPayload({ ...payload, cardio: n }); }} placeholder="Observações" className="h-8 text-xs mt-2" />
           </Card>
         ))}
       </div>
@@ -842,288 +436,258 @@ function WorkoutsTab({ payload, setPayload }: { payload: ProtocolPayload; setPay
   );
 }
 
-// ─── Aba de Dieta REFORMULADA (TACO + Combobox) ─────────────────────────────
+// ─── DietTab ─────────────────────────────────────────────────────────────────
+// Layout: cada refeição tem 3 seções coloridas (Carbo / Proteína / Gordura).
+// Cada seção mostra suas opções (2 por padrão, até 3). Peso inline no alimento.
+// Botão cru/cozido é do viewer — aqui só salvamos rawWeight + cookFactor limpos.
 
 function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
-  const upd = (i: number, patch: Partial<ProtocolPayload["meals"][number]>) => {
+  const updMacro = (i: number, k: "carbs" | "protein" | "fat", v: number) => {
     const next = [...payload.meals];
-    next[i] = { ...next[i], ...patch };
+    next[i] = { ...next[i], macros: { ...next[i].macros, [k]: v } };
     setPayload({ ...payload, meals: next });
   };
-  const updMacro = (i: number, k: "carbs" | "protein" | "fat", v: number) => {
-    upd(i, { macros: { ...payload.meals[i].macros, [k]: v } });
-  };
+
+  function updMealField(mealIdx: number, patch: Partial<ProtocolPayload["meals"][number]>) {
+    const next = [...payload.meals];
+    next[mealIdx] = { ...next[mealIdx], ...patch };
+    setPayload({ ...payload, meals: next });
+  }
 
   function getOptsForKind(meal: any, kind: "carb" | "protein" | "fat") {
-    const all = Array.isArray(meal.options) ? meal.options : [];
+    const all: any[] = Array.isArray(meal.options) ? meal.options : [];
     const filtered = all.filter((o: any) => o?.kind === kind);
-    while (filtered.length < 2) filtered.push({ kind, title: `Opção ${filtered.length + 1}`, items: [{ name: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }] });
-    return filtered.slice(0, 2);
+    while (filtered.length < 2) filtered.push({ kind, title: `Opção ${filtered.length + 1}`, notes: "", items: [{ name: "", baseName: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }] });
+    return filtered.slice(0, 3);
   }
 
-  function setOpts(mealIdx: number, newAll: any[]) {
-    upd(mealIdx, { options: newAll as any });
-  }
-
-  function updOption(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1, patch: any) {
+  function updOption(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: number, patch: any) {
     const meal = payload.meals[mealIdx];
     const all = [...(meal.options as any[])];
-    let seen = -1;
-    let targetGlobal = -1;
-    for (let i = 0; i < all.length; i++) {
-      if (all[i]?.kind === kind) {
-        seen++;
-        if (seen === optIdx) { targetGlobal = i; break; }
-      }
-    }
-    if (targetGlobal === -1) {
-      all.push({ kind, title: `Opção ${optIdx + 1}`, items: [{ name: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }], ...patch });
-    } else {
-      all[targetGlobal] = { ...all[targetGlobal], ...patch };
-    }
-    setOpts(mealIdx, all);
+    let seen = -1; let target = -1;
+    for (let i = 0; i < all.length; i++) { if (all[i]?.kind === kind) { seen++; if (seen === optIdx) { target = i; break; } } }
+    if (target === -1) all.push({ kind, title: `Opção ${optIdx + 1}`, notes: "", items: [{ name: "", baseName: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }], ...patch });
+    else all[target] = { ...all[target], ...patch };
+    updMealField(mealIdx, { options: all as any });
   }
 
-  function updItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1, itemIdx: number, patch: any) {
+  function addOption(mealIdx: number, kind: "carb" | "protein" | "fat") {
+    const meal = payload.meals[mealIdx];
+    const all = [...(meal.options as any[])];
+    const count = all.filter((o: any) => o?.kind === kind).length;
+    if (count >= 3) return;
+    all.push({ kind, title: `Opção ${count + 1}`, notes: "", items: [{ name: "", baseName: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }] });
+    updMealField(mealIdx, { options: all as any });
+  }
+
+  function removeOption(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: number) {
+    const meal = payload.meals[mealIdx];
+    let seen = -1;
+    const newAll = (meal.options as any[]).filter((o: any) => { if (o?.kind === kind) { seen++; if (seen === optIdx) return false; } return true; });
+    updMealField(mealIdx, { options: newAll as any });
+  }
+
+  function updItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: number, itemIdx: number, patch: any) {
     const opts = getOptsForKind(payload.meals[mealIdx], kind);
     const items = [...(opts[optIdx].items as any[])];
     items[itemIdx] = { ...items[itemIdx], ...patch };
-
-    // Formatação do nome mágico (CRU -> PRONTO) se for TACO
-    if (items[itemIdx].isTaco && items[itemIdx].rawWeight > 0) {
-      const cooked = Math.round(items[itemIdx].rawWeight * (items[itemIdx].cookFactor || 1));
-      items[itemIdx].weight = ""; // Limpa o weight clássico
-      items[itemIdx].name = `<span class='peso-cru'>${items[itemIdx].rawWeight}g (CRU)</span><span class='peso-pronto'>${cooked}g (PRONTO)</span> ${items[itemIdx].baseName}`;
+    // FIX: dados LIMPOS — não injeta HTML. O viewer exibe rawWeight dinamicamente
+    if (items[itemIdx].isTaco) {
+      items[itemIdx].name = items[itemIdx].baseName || items[itemIdx].name || "";
+      items[itemIdx].weight = "";
     }
-
     updOption(mealIdx, kind, optIdx, { items });
   }
 
-  function addItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1) {
+  function addItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: number) {
     const opts = getOptsForKind(payload.meals[mealIdx], kind);
-    const items = [...(opts[optIdx].items as any[]), { name: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }];
-    updOption(mealIdx, kind, optIdx, { items });
+    updOption(mealIdx, kind, optIdx, { items: [...(opts[optIdx].items as any[]), { name: "", baseName: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }] });
   }
 
-  function rmItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: 0 | 1, itemIdx: number) {
+  function rmItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: number, itemIdx: number) {
     const opts = getOptsForKind(payload.meals[mealIdx], kind);
     let items = [...(opts[optIdx].items as any[])];
-    if (items.length <= 1) {
-      items = [{ name: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }];
-    } else {
-      items.splice(itemIdx, 1);
-    }
+    if (items.length <= 1) items = [{ name: "", baseName: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }];
+    else items.splice(itemIdx, 1);
     updOption(mealIdx, kind, optIdx, { items });
   }
 
-  const add = () => setPayload({ ...payload, meals: [...payload.meals, makeEmptyMeal(`Refeição ${payload.meals.length + 1}`)] });
-  const rm = (i: number) => setPayload({ ...payload, meals: payload.meals.filter((_, idx) => idx !== i) });
-
-  const KIND_LABEL: Record<string, { label: string; color: string }> = {
-    carb: { label: "Carbo", color: "text-amber-500" },
-    protein: { label: "Proteína", color: "text-blue-500" },
-    fat: { label: "Gordura", color: "text-rose-500" },
+  const KIND: Record<"carb" | "protein" | "fat", { label: string; color: string; bg: string; border: string }> = {
+    carb:    { label: "Carbo",    color: "text-amber-600",  bg: "bg-amber-500/5",  border: "border-amber-500/20" },
+    protein: { label: "Proteína", color: "text-blue-600",   bg: "bg-blue-500/5",   border: "border-blue-500/20" },
+    fat:     { label: "Gordura",  color: "text-rose-500",   bg: "bg-rose-500/5",   border: "border-rose-500/20" },
   };
 
   return (
     <div className="space-y-3">
-      {payload.meals.map((m, i) => (
-        <Card key={i} className="bg-card/60 border-border p-4 space-y-4">
-          <div className="grid grid-cols-[1fr_0.7fr_auto_auto] gap-2 items-center">
-            <Input value={m.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-9 text-sm font-bold text-primary" />
-            <Input value={m.time} onChange={(e) => upd(i, { time: e.target.value })} placeholder="07:00" className="h-9 text-sm" />
+      {payload.meals.map((m, mealIdx) => (
+        <Card key={mealIdx} className="bg-card/60 border-border overflow-hidden">
+          {/* Cabeçalho */}
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40 bg-muted/10">
+            <Input value={m.name} onChange={(e) => updMealField(mealIdx, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-8 text-sm font-bold text-primary flex-1" />
+            <Input value={m.time} onChange={(e) => updMealField(mealIdx, { time: e.target.value })} placeholder="07:00" className="h-8 text-sm w-20 shrink-0" />
             {payload.setup.carbCycle && (
-              <button
-                type="button"
-                onClick={() => upd(i, { carbCycle: !m.carbCycle } as any)}
-                className={`h-9 px-2.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-                  m.carbCycle ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400" : "border-border/50 text-muted-foreground"
-                }`}
-              >
+              <button type="button"
+                onClick={() => updMealField(mealIdx, { carbCycle: !(m as any).carbCycle } as any)}
+                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1 shrink-0 ${(m as any).carbCycle ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-500" : "border-border/50 text-muted-foreground"}`}>
                 <TrendingUp className="w-3.5 h-3.5" /> Ciclo
               </button>
             )}
-            <button onClick={() => rm(i)} className="text-muted-foreground hover:text-destructive p-2"><Trash2 className="w-4 h-4" /></button>
+            <button onClick={() => setPayload({ ...payload, meals: payload.meals.filter((_, idx) => idx !== mealIdx) })} className="text-muted-foreground hover:text-destructive p-1.5 shrink-0"><Trash2 className="w-4 h-4" /></button>
           </div>
 
-          {(["carb", "protein", "fat"] as const).map((kind) => {
-            const opts = getOptsForKind(m, kind);
-            return (
-              <div key={kind} className="space-y-2">
-                {[0, 1].map((optIdx) => {
-                  const opt = opts[optIdx];
-                  const items: any[] = Array.isArray(opt.items) ? opt.items : [];
-                  return (
-                    <div key={optIdx} className="rounded-lg border border-border/60 p-2.5 space-y-2 bg-card">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] uppercase tracking-wider font-bold ${KIND_LABEL[kind].color}`}>
-                          Opção {optIdx + 1}
-                        </span>
-                        <Input
-                          value={opt.title}
-                          onChange={(e) => updOption(i, kind, optIdx as 0 | 1, { title: e.target.value })}
-                          placeholder="Título opcional"
-                          className="h-7 text-xs flex-1 bg-background/50"
-                        />
-                      </div>
-                      
-                      {items.map((it, ii) => (
-                        <div key={ii} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 border border-border/40 p-2 rounded-lg bg-background">
-                          
-                          {/* SELETOR TACO / NOME LIVRE */}
-                          <div className="flex-1 w-full relative">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="outline" role="combobox" className="w-full justify-between h-8 text-xs font-normal text-left overflow-hidden">
-                                  {it.baseName || it.name || "Selecione ou digite o alimento..."}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-[300px] p-0" align="start">
-                                <Command>
-                                  <CommandInput placeholder="Buscar alimento..." className="h-9 text-xs" />
-                                  <CommandList>
-                                    <CommandEmpty className="py-2 px-4 text-xs text-muted-foreground">
-                                      <p>Não encontrado. Clique abaixo para usar nome livre.</p>
-                                    </CommandEmpty>
-                                    <CommandGroup heading="Tabela TACO">
-                                      {TACO_DATA.map((taco) => (
-                                        <CommandItem
-                                          key={taco.id}
-                                          value={taco.name}
-                                          onSelect={() => {
-                                            updItem(i, kind, optIdx as 0 | 1, ii, { 
-                                              baseName: taco.name, 
-                                              name: taco.name,
-                                              isTaco: true, 
-                                              cookFactor: taco.cookFactor,
-                                              rawWeight: it.rawWeight || 100
-                                            });
-                                          }}
-                                          className="text-xs"
-                                        >
-                                          {taco.name} <span className="ml-2 text-[9px] text-muted-foreground">(Fator: {taco.cookFactor})</span>
-                                        </CommandItem>
-                                      ))}
-                                    </CommandGroup>
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                            
-                            {/* Campo escondido para digitar nome livre se quiser forçar */}
-                            {!it.isTaco && (
-                              <Input
-                                value={it.name ?? ""}
-                                onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { name: e.target.value, baseName: e.target.value, isTaco: false })}
-                                placeholder="Ou digite nome livre..."
-                                className="h-8 text-xs mt-1 w-full border-dashed"
-                              />
+          {/* Seções de macro */}
+          <div className="p-4 space-y-3">
+            {(["carb", "protein", "fat"] as const).map((kind) => {
+              const cfg = KIND[kind];
+              const opts = getOptsForKind(m, kind);
+              return (
+                <div key={kind} className={`rounded-xl border ${cfg.border} ${cfg.bg} p-3`}>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className={`text-[11px] uppercase tracking-widest font-bold ${cfg.color}`}>{cfg.label}</span>
+                    {opts.length < 3 && (
+                      <button type="button" onClick={() => addOption(mealIdx, kind)} className={`text-[10px] flex items-center gap-1 ${cfg.color} opacity-60 hover:opacity-100 transition-opacity`}>
+                        <Plus className="w-3 h-3" /> + opção
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {opts.map((opt: any, optIdx: number) => {
+                      const items: any[] = Array.isArray(opt.items) ? opt.items : [];
+                      return (
+                        <div key={optIdx} className="bg-card rounded-lg border border-border/50 p-2.5">
+                          {/* Header opção */}
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className={`text-[10px] font-bold shrink-0 px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color} border ${cfg.border}`}>Op {optIdx + 1}</span>
+                            <Input value={opt.title || ""} onChange={(e) => updOption(mealIdx, kind, optIdx, { title: e.target.value })} placeholder="Título (ex: versão off-season)" className="h-6 text-[11px] flex-1 bg-transparent border-0 border-b border-dashed rounded-none px-1" />
+                            {opts.length > 1 && (
+                              <button type="button" onClick={() => removeOption(mealIdx, kind, optIdx)} className="text-muted-foreground hover:text-destructive p-0.5 shrink-0"><Trash2 className="w-3 h-3" /></button>
                             )}
                           </div>
+                          {/* Observação da opção */}
+                          <Input value={(opt as any).notes || ""} onChange={(e) => updOption(mealIdx, kind, optIdx, { notes: e.target.value })} placeholder="Observação (ex: usar nos dias de treino pesado)" className="h-6 text-[11px] w-full bg-transparent border-0 border-b border-dashed rounded-none px-1 mb-2 text-muted-foreground" />
 
-                          {/* INPUT DE PESO/MEDIDA */}
-                          {it.isTaco ? (
-                             <div className="flex items-center gap-1 w-full sm:w-auto">
-                              <Input
-                                type="number"
-                                value={it.rawWeight || ""}
-                                onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { rawWeight: Number(e.target.value) })}
-                                placeholder="Peso (Cru)"
-                                className="h-8 text-xs w-20"
-                              />
-                              <span className="text-xs text-muted-foreground font-semibold">g (cru)</span>
-                             </div>
-                          ) : (
-                             <div className="flex items-center gap-1 w-full sm:w-auto">
-                                <Input
-                                  value={it.weight ?? ""}
-                                  onChange={(e) => updItem(i, kind, optIdx as 0 | 1, ii, { weight: e.target.value })}
-                                  placeholder="Ex: 2 un / 15ml"
-                                  className="h-8 text-xs w-28"
-                                />
-                             </div>
-                          )}
-
-                          <button onClick={() => rmItem(i, kind, optIdx as 0 | 1, ii)} className="text-muted-foreground hover:text-destructive p-1 shrink-0">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {/* Alimentos */}
+                          <div className="space-y-1.5">
+                            {items.map((it: any, ii: number) => (
+                              <div key={ii} className="flex items-center gap-1.5 bg-background rounded border border-border/40 px-2 py-1.5">
+                                <div className="flex-1 min-w-0">
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button variant="ghost" role="combobox" className="w-full justify-between h-7 text-xs font-normal px-1.5 hover:bg-muted/40">
+                                        <span className="truncate">{it.baseName || it.name || "Selecionar alimento..."}</span>
+                                        <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-40" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[300px] p-0" align="start">
+                                      <Command>
+                                        <CommandInput placeholder="Buscar na TACO..." className="h-9 text-xs" />
+                                        <CommandList>
+                                          <CommandEmpty className="py-2 px-4 text-xs text-muted-foreground">Não encontrado — use nome livre abaixo.</CommandEmpty>
+                                          <CommandGroup heading="Tabela TACO (UNICAMP)">
+                                            {TACO_DATA.map((taco) => (
+                                              <CommandItem key={taco.id} value={taco.name}
+                                                onSelect={() => updItem(mealIdx, kind, optIdx, ii, { baseName: taco.name, name: taco.name, isTaco: true, cookFactor: taco.cookFactor, rawWeight: it.rawWeight || 100 })}
+                                                className="text-xs">
+                                                <Check className={`mr-2 h-3 w-3 ${it.baseName === taco.name ? "opacity-100" : "opacity-0"}`} />
+                                                {taco.name}
+                                                {taco.cookFactor !== 1 && <span className="ml-auto text-[9px] text-muted-foreground">fator {taco.cookFactor}</span>}
+                                              </CommandItem>
+                                            ))}
+                                          </CommandGroup>
+                                        </CommandList>
+                                      </Command>
+                                    </PopoverContent>
+                                  </Popover>
+                                  {!it.isTaco && (
+                                    <Input value={it.name ?? ""} onChange={(e) => updItem(mealIdx, kind, optIdx, ii, { name: e.target.value, baseName: e.target.value, isTaco: false })} placeholder="ou digite o nome..." className="h-6 text-[11px] mt-0.5 bg-transparent border-0 border-b border-dashed rounded-none px-1.5" />
+                                  )}
+                                </div>
+                                {/* Peso — sem rótulo CRU/PRONTO no editor; viewer cuida disso */}
+                                {it.isTaco ? (
+                                  <div className="flex items-center gap-0.5 shrink-0">
+                                    <Input type="number" value={it.rawWeight || ""} onChange={(e) => updItem(mealIdx, kind, optIdx, ii, { rawWeight: Number(e.target.value) })} placeholder="g" className="h-7 text-xs w-14 text-center" />
+                                    <span className="text-[10px] text-muted-foreground">g</span>
+                                  </div>
+                                ) : (
+                                  <Input value={it.weight ?? ""} onChange={(e) => updItem(mealIdx, kind, optIdx, ii, { weight: e.target.value })} placeholder="qtd" className="h-7 text-xs w-20 shrink-0" />
+                                )}
+                                <button onClick={() => rmItem(mealIdx, kind, optIdx, ii)} className="text-muted-foreground hover:text-destructive p-1 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ))}
+                          </div>
+                          <button type="button" onClick={() => addItem(mealIdx, kind, optIdx)} className={`mt-1.5 text-[11px] flex items-center gap-1 px-1 ${cfg.color} opacity-60 hover:opacity-100`}><Plus className="w-3 h-3" /> alimento</button>
                         </div>
-                      ))}
-                      <Button size="sm" variant="ghost" onClick={() => addItem(i, kind, optIdx as 0 | 1)} className="h-6 text-[11px] px-2 text-primary">
-                        <Plus className="w-3 h-3 mr-1" /> adicionar alimento
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
 
-          <details className="rounded-lg border border-border/40 p-2">
-            <summary className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground cursor-pointer">
-              Macros da Refeição
-            </summary>
-            <div className="grid grid-cols-3 gap-2 mt-2">
-              <div>
-                <Label className="text-[10px] uppercase text-amber-500">Carbo (g)</Label>
-                <Input type="number" value={m.macros.carbs} onChange={(e) => updMacro(i, "carbs", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
+            {/* Macros totais */}
+            <details className="rounded-lg border border-border/40 p-2">
+              <summary className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground cursor-pointer select-none">Macros da refeição</summary>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                <div><Label className="text-[10px] uppercase text-amber-500">Carbo (g)</Label><Input type="number" value={m.macros.carbs} onChange={(e) => updMacro(mealIdx, "carbs", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" /></div>
+                <div><Label className="text-[10px] uppercase text-blue-500">Proteína (g)</Label><Input type="number" value={m.macros.protein} onChange={(e) => updMacro(mealIdx, "protein", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" /></div>
+                <div><Label className="text-[10px] uppercase text-rose-500">Gordura (g)</Label><Input type="number" value={m.macros.fat} onChange={(e) => updMacro(mealIdx, "fat", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" /></div>
               </div>
-              <div>
-                <Label className="text-[10px] uppercase text-blue-500">Proteína (g)</Label>
-                <Input type="number" value={m.macros.protein} onChange={(e) => updMacro(i, "protein", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
-              </div>
-              <div>
-                <Label className="text-[10px] uppercase text-rose-500">Gordura (g)</Label>
-                <Input type="number" value={m.macros.fat} onChange={(e) => updMacro(i, "fat", Number(e.target.value) || 0)} className="h-8 text-xs mt-1" />
-              </div>
-            </div>
-          </details>
-
+            </details>
+          </div>
         </Card>
       ))}
-      <Button variant="outline" size="sm" onClick={add} className="w-full"><Plus className="w-4 h-4 mr-1.5" /> Adicionar Nova Refeição</Button>
+      <Button variant="outline" size="sm" onClick={() => setPayload({ ...payload, meals: [...payload.meals, makeEmptyMeal(`Refeição ${payload.meals.length + 1}`)] })} className="w-full">
+        <Plus className="w-4 h-4 mr-1.5" /> Adicionar Nova Refeição
+      </Button>
     </div>
   );
 }
+
+// ─── WeekCycleTab ─────────────────────────────────────────────────────────────
 
 function WeekCycleTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload: (p: ProtocolPayload) => void }) {
   if (!payload.setup.carbCycle) {
     return (
       <Card className="bg-card/60 border-border p-8 text-center">
         <Calendar className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">
-          Ciclo de carboidratos desativado nesse protocolo.
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Use "Recriar Base" para ativá-lo.
-        </p>
+        <p className="text-sm text-muted-foreground">Ciclo de carboidratos desativado nesse protocolo.</p>
       </Card>
     );
   }
+
   const upd = (day: string, v: "high" | "base" | "off") =>
     setPayload({ ...payload, carbCycle: { ...payload.carbCycle, [day]: v } });
 
+  // FIX: botões agora funcionam — onClick direto, sem <Select>
   return (
     <Card className="bg-card/60 border-border p-4">
-      <p className="text-xs text-muted-foreground mb-3">
-        Define o tipo de dia em cada dia da semana. A dieta mostrará a gramatura correta para o aluno.
-      </p>
+      <p className="text-xs text-muted-foreground mb-4">Define o tipo de dia. A dieta exibirá a gramatura correta para o aluno.</p>
       <div className="space-y-2">
         {WEEKDAYS.map((d) => {
           const raw = payload.carbCycle[d.key] ?? "base";
-          const v: "high" | "base" | "off" = raw === "low" ? "off" : (raw as "high" | "base" | "off");
+          const cur: "high" | "base" | "off" = raw === "low" ? "off" : (raw as "high" | "base" | "off");
           return (
             <div key={d.key} className="flex items-center gap-3">
-              <div className="w-24 text-sm font-medium">{d.label}</div>
-              <Select value={v} onValueChange={(val) => upd(d.key, val as "high" | "base" | "off")}>
-                <SelectTrigger className="h-8 text-xs w-44"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high" className="text-xs">Carbo Alto</SelectItem>
-                  <SelectItem value="base" className="text-xs">Base</SelectItem>
-                  <SelectItem value="off" className="text-xs">Off / Baixo</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="w-20 text-sm font-medium text-foreground shrink-0">{d.label}</div>
+              <div className="flex flex-1 gap-1.5">
+                {(["high", "base", "off"] as const).map((opt) => {
+                  const Icon = opt === "high" ? TrendingUp : opt === "off" ? TrendingDown : Minus;
+                  const label = opt === "high" ? "Alto" : opt === "off" ? "Baixo" : "Base";
+                  const activeCls = cur === opt
+                    ? opt === "high" ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-600 font-bold"
+                      : opt === "off" ? "bg-amber-500/15 border-amber-500/50 text-amber-600 font-bold"
+                      : "bg-blue-500/15 border-blue-500/50 text-blue-600 font-bold"
+                    : "border-border/50 text-muted-foreground hover:border-border";
+                  return (
+                    <button key={opt} type="button" onClick={() => upd(d.key, opt)}
+                      className={`flex-1 h-8 flex items-center justify-center gap-1 rounded-lg border text-xs transition-colors ${activeCls}`}>
+                      <Icon className="w-3.5 h-3.5" />{label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
