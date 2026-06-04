@@ -190,6 +190,7 @@ export const MealSchema = z.preprocess(
       protein: [{ name: "", weight: "" }, { name: "", weight: "" }],
       fat: [{ name: "", weight: "" }, { name: "", weight: "" }],
     }),
+    carbCycle: z.boolean().default(false),
     notes: z.string().optional().default(""),
   })
 );
