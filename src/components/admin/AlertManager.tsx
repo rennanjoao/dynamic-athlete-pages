@@ -32,29 +32,71 @@ export const AlertManager = () => {
   const [frequency, setFrequency] = useState("once");
   const [targetDate, setTargetDate] = useState("");
   const [loading, setLoading] = useState(false);
+  const [coachId, setCoachId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStudents();
-    fetchAlerts();
+    // 1. Inicia buscando o Coach autenticado para isolar os dados
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCoachId(user.id);
+        fetchStudents(user.id);
+        fetchAlerts(user.id);
+      }
+    };
+    init();
   }, []);
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (cId: string) => {
+    // 2. Busca estritamente os alunos vinculados ao coach ativo
+    const { data: links } = await supabase
+      .from("coach_students")
+      .select("student_id")
+      .eq("coach_id", cId)
+      .eq("status", "active");
+
+    if (!links || links.length === 0) {
+      setStudents([]);
+      return;
+    }
+
+    const studentIds = links.map((l) => l.student_id);
+
+    // 3. Puxa o nome desses alunos (usamos 'profiles' para evitar alunos ausentes no 'student_profiles')
     const { data } = await supabase
-      .from("student_profiles")
-      .select("user_id, full_name");
-    if (data) setStudents(data);
+      .from("profiles")
+      .select("user_id, full_name")
+      .in("user_id", studentIds);
+
+    if (data) {
+      const validStudents = data.map((d) => ({
+        user_id: d.user_id,
+        full_name: d.full_name || "Aluno",
+      }));
+      setStudents(validStudents);
+    }
   };
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = async (cId: string) => {
+    // 4. Bloqueia o vazamento: puxa apenas alertas deste coach
     const { data } = await supabase
       .from("daily_alerts")
       .select("*")
+      .eq("trainer_id", cId)
       .order("created_at", { ascending: false });
 
-    if (data) {
-      const { data: profiles } = await supabase.from("student_profiles").select("user_id, full_name");
-      const nameMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+    if (data && data.length > 0) {
+      const studentIds = [...new Set(data.map((a) => a.student_id))];
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", studentIds);
+
+      const nameMap = new Map(profiles?.map((p) => [p.user_id, p.full_name]) || []);
       setAlerts(data.map((a) => ({ ...a, student_name: nameMap.get(a.student_id) || "Desconhecido" })));
+    } else {
+      setAlerts([]);
     }
   };
 
@@ -63,12 +105,12 @@ export const AlertManager = () => {
       toast.error("Selecione um aluno e escreva a mensagem");
       return;
     }
+    if (!coachId) return;
+
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
 
     const { error } = await supabase.from("daily_alerts").insert({
-      trainer_id: user.id,
+      trainer_id: coachId,
       student_id: selectedStudent,
       message: message.trim(),
       frequency,
@@ -84,20 +126,20 @@ export const AlertManager = () => {
       setMessage("");
       setSelectedStudent("");
       setTargetDate("");
-      fetchAlerts();
+      fetchAlerts(coachId);
     }
     setLoading(false);
   };
 
   const toggleAlert = async (id: string, current: boolean) => {
     await supabase.from("daily_alerts").update({ is_active: !current }).eq("id", id);
-    fetchAlerts();
+    if (coachId) fetchAlerts(coachId);
   };
 
   const deleteAlert = async (id: string) => {
     await supabase.from("daily_alerts").delete().eq("id", id);
     toast.success("Alerta excluído");
-    fetchAlerts();
+    if (coachId) fetchAlerts(coachId);
   };
 
   const freqLabel: Record<string, string> = { once: "Uma vez", daily: "Diário", weekly: "Semanal" };
