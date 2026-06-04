@@ -927,9 +927,24 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
       </p>
       {payload.meals.map((m, i) => (
         <Card key={i} className="bg-card/60 border-border p-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.8fr_auto] gap-2">
+          <div className="grid grid-cols-[1fr_0.7fr_auto_auto] gap-2 items-center">
             <Input value={m.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-9 text-sm" />
             <Input value={m.time} onChange={(e) => upd(i, { time: e.target.value })} placeholder="07:00" className="h-9 text-sm" />
+            {payload.setup.carbCycle && (
+              <button
+                type="button"
+                onClick={() => upd(i, { carbCycle: !m.carbCycle } as any)}
+                title="Incluir esta refeição no ciclo de carbo"
+                className={`h-9 px-2.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                  m.carbCycle
+                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                    : "border-border/50 text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                Ciclo
+              </button>
+            )}
             <button onClick={() => rm(i)} className="text-muted-foreground hover:text-destructive p-2">
               <Trash2 className="w-4 h-4" />
             </button>
