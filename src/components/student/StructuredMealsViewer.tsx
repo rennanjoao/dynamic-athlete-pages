@@ -178,7 +178,7 @@ function MealCard({ meal, mode, index, highPct, lowPct }: { meal: any; mode: Car
 }
 
 function OptionBlock({
-  kind, title, items, mode, isCooked, optionIndex,
+  kind, title, items, mode, isCooked, optionIndex, highPct = 15, lowPct = 15,
 }: {
   kind: "carb" | "protein" | "fat";
   title: string;
@@ -186,6 +186,8 @@ function OptionBlock({
   mode: CarbMode;
   isCooked: boolean;
   optionIndex: number;
+  highPct?: number;
+  lowPct?: number;
 }) {
   const meta = KIND_META[kind];
   const filled = (items ?? []).filter((it: any) => it?.name?.trim());
@@ -198,7 +200,7 @@ function OptionBlock({
       </h4>
       <ul className="space-y-1.5">
         {filled.map((it: any, idx: number) => {
-          const weightText = applySmartMath(it.weight || "", mode, isCooked, meta.isCarb);
+          const weightText = applySmartMath(it.weight || "", mode, isCooked, meta.isCarb, highPct, lowPct);
           return (
             <li key={idx} className="text-sm text-foreground flex items-start gap-2 pl-2">
               <span className="text-muted-foreground mt-0.5">•</span>
@@ -220,8 +222,8 @@ function OptionBlock({
 }
 
 function SubLine({
-  kind, items, mode, isCooked,
-}: { kind: "carb" | "protein" | "fat"; items: any[]; mode: CarbMode; isCooked: boolean }) {
+  kind, items, mode, isCooked, highPct = 15, lowPct = 15,
+}: { kind: "carb" | "protein" | "fat"; items: any[]; mode: CarbMode; isCooked: boolean; highPct?: number; lowPct?: number }) {
   const meta = KIND_META[kind];
   return (
     <div className="text-xs">
@@ -229,7 +231,7 @@ function SubLine({
       <span className="text-foreground/90">
         {items.map((it: any, idx: number) => {
           const name = typeof it === "string" ? it : it?.name ?? "";
-          const w = typeof it === "string" ? "" : applySmartMath(it?.weight || "", mode, isCooked, meta.isCarb);
+          const w = typeof it === "string" ? "" : applySmartMath(it?.weight || "", mode, isCooked, meta.isCarb, highPct, lowPct);
           return (
             <span key={idx}>
               {idx > 0 && <span className="text-muted-foreground"> · </span>}
