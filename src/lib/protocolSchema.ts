@@ -37,6 +37,24 @@ export const WorkoutDaySchema = z.object({
   exercises: z.array(ExerciseSchema).default([]),
 });
 
+// Aeróbico associado a um dia de treino ou da semana
+export const CardioSchema = z.object({
+  type: z.string().default(""),
+  duration: z.string().default(""),
+  intensity: z.string().default(""),
+  workoutKey: z.string().default(""),
+  associationType: z.enum(["workout", "weekday"]).default("workout"),
+  notes: z.string().default(""),
+});
+
+// Suplemento individual estruturado
+export const SupplementSchema = z.object({
+  name: z.string().default(""),
+  dose: z.string().default(""),
+  timing: z.string().default(""),
+  notes: z.string().default(""),
+});
+
 export const MealMacrosSchema = z.object({
   carbs: z.number().min(0).default(0),
   protein: z.number().min(0).default(0),
