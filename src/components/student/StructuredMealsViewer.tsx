@@ -5,10 +5,12 @@ import { Apple, Clock, Scale, CheckCircle2, Repeat } from "lucide-react";
 import CarbCycleSelector, { type CarbMode } from "@/components/student/CarbCycleSelector";
 
 // Motor Matemático Dinâmico (Regex)
-function applySmartMath(text: string, mode: CarbMode, isCooked: boolean, isCarbGroup: boolean) {
+function applySmartMath(text: string, mode: CarbMode, isCooked: boolean, isCarbGroup: boolean, highPct = 15, lowPct = 15) {
   if (!text) return "";
   let finalStr = text;
-  const carbMult = mode === "high" ? 1.15 : mode === "low" ? 0.85 : mode === "off" ? 0.85 : 1;
+  const carbMult =
+    mode === "high" ? 1 + highPct / 100 :
+    (mode === "low" || mode === "off") ? 1 - lowPct / 100 : 1;
 
   let cookedMult = 1;
   const lStr = text.toLowerCase();
@@ -39,16 +41,20 @@ export default function StructuredMealsViewer({ payload }: { payload: any }) {
   const safeData = payload || {};
   const meals = Array.isArray(safeData.meals) ? safeData.meals : [];
   const [mode, setMode] = useState<CarbMode>("base");
+  const highPct: number = safeData.carbCycleHighPct ?? 15;
+  const lowPct: number = safeData.carbCycleLowPct ?? 15;
 
   if (meals.length === 0) return null;
 
   return (
     <div className="space-y-4 w-full">
-      {safeData.setup?.carbCycle && <CarbCycleSelector value={mode} onChange={setMode} />}
+      {safeData.setup?.carbCycle && (
+        <CarbCycleSelector value={mode} onChange={setMode} highPct={highPct} lowPct={lowPct} />
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full items-stretch">
         {meals.map((meal: any, i: number) => (
-          <MealCard key={i} meal={meal} mode={mode} index={i} />
+          <MealCard key={i} meal={meal} mode={mode} index={i} highPct={highPct} lowPct={lowPct} />
         ))}
       </div>
     </div>
@@ -61,7 +67,7 @@ const KIND_META: Record<string, { emoji: string; label: string; color: string; i
   fat: { emoji: "🔴", label: "Gordura", color: "text-rose-500", isCarb: false },
 };
 
-function MealCard({ meal, mode, index }: { meal: any; mode: CarbMode; index: number }) {
+function MealCard({ meal, mode, index, highPct, lowPct }: { meal: any; mode: CarbMode; index: number; highPct: number; lowPct: number }) {
   const [isCooked, setIsCooked] = useState(false);
 
   const allOptions = Array.isArray(meal.options) ? meal.options : [];
@@ -127,17 +133,22 @@ function MealCard({ meal, mode, index }: { meal: any; mode: CarbMode; index: num
         <div className="space-y-3 flex-1">
           {(["carb", "protein", "fat"] as const).flatMap((kind) => {
             const opts = kind === "carb" ? carbOpts : kind === "protein" ? protOpts : fatOpts;
-            return opts.map((opt: any, idx: number) => (
-              <OptionBlock
-                key={`${kind}-${idx}`}
-                kind={kind}
-                title={opt.title || `${KIND_META[kind].label} — Opção ${idx + 1}`}
-                items={opt.items}
-                mode={mode}
-                isCooked={isCooked}
-                optionIndex={idx + 1}
-              />
-            ));
+            return opts.map((opt: any, idx: number) => {
+              const effectiveMode: CarbMode = meal.carbCycle ? mode : "base";
+              return (
+                <OptionBlock
+                  key={`${kind}-${idx}`}
+                  kind={kind}
+                  title={opt.title || `${KIND_META[kind].label} — Opção ${idx + 1}`}
+                  items={opt.items}
+                  mode={effectiveMode}
+                  isCooked={isCooked}
+                  optionIndex={idx + 1}
+                  highPct={highPct}
+                  lowPct={lowPct}
+                />
+              );
+            });
           })}
 
           {isEmpty && (
@@ -150,9 +161,9 @@ function MealCard({ meal, mode, index }: { meal: any; mode: CarbMode; index: num
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1">
               <Repeat className="w-3 h-3" /> Substituições
             </p>
-            {subCarb.length > 0 && <SubLine kind="carb" items={subCarb} mode={mode} isCooked={isCooked} />}
-            {subProt.length > 0 && <SubLine kind="protein" items={subProt} mode={mode} isCooked={isCooked} />}
-            {subFat.length > 0 && <SubLine kind="fat" items={subFat} mode={mode} isCooked={isCooked} />}
+            {subCarb.length > 0 && <SubLine kind="carb" items={subCarb} mode={meal.carbCycle ? mode : "base"} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />}
+            {subProt.length > 0 && <SubLine kind="protein" items={subProt} mode={meal.carbCycle ? mode : "base"} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />}
+            {subFat.length > 0 && <SubLine kind="fat" items={subFat} mode={meal.carbCycle ? mode : "base"} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />}
           </div>
         )}
 
@@ -167,7 +178,7 @@ function MealCard({ meal, mode, index }: { meal: any; mode: CarbMode; index: num
 }
 
 function OptionBlock({
-  kind, title, items, mode, isCooked, optionIndex,
+  kind, title, items, mode, isCooked, optionIndex, highPct = 15, lowPct = 15,
 }: {
   kind: "carb" | "protein" | "fat";
   title: string;
@@ -175,6 +186,8 @@ function OptionBlock({
   mode: CarbMode;
   isCooked: boolean;
   optionIndex: number;
+  highPct?: number;
+  lowPct?: number;
 }) {
   const meta = KIND_META[kind];
   const filled = (items ?? []).filter((it: any) => it?.name?.trim());
@@ -187,7 +200,7 @@ function OptionBlock({
       </h4>
       <ul className="space-y-1.5">
         {filled.map((it: any, idx: number) => {
-          const weightText = applySmartMath(it.weight || "", mode, isCooked, meta.isCarb);
+          const weightText = applySmartMath(it.weight || "", mode, isCooked, meta.isCarb, highPct, lowPct);
           return (
             <li key={idx} className="text-sm text-foreground flex items-start gap-2 pl-2">
               <span className="text-muted-foreground mt-0.5">•</span>
@@ -209,8 +222,8 @@ function OptionBlock({
 }
 
 function SubLine({
-  kind, items, mode, isCooked,
-}: { kind: "carb" | "protein" | "fat"; items: any[]; mode: CarbMode; isCooked: boolean }) {
+  kind, items, mode, isCooked, highPct = 15, lowPct = 15,
+}: { kind: "carb" | "protein" | "fat"; items: any[]; mode: CarbMode; isCooked: boolean; highPct?: number; lowPct?: number }) {
   const meta = KIND_META[kind];
   return (
     <div className="text-xs">
@@ -218,7 +231,7 @@ function SubLine({
       <span className="text-foreground/90">
         {items.map((it: any, idx: number) => {
           const name = typeof it === "string" ? it : it?.name ?? "";
-          const w = typeof it === "string" ? "" : applySmartMath(it?.weight || "", mode, isCooked, meta.isCarb);
+          const w = typeof it === "string" ? "" : applySmartMath(it?.weight || "", mode, isCooked, meta.isCarb, highPct, lowPct);
           return (
             <span key={idx}>
               {idx > 0 && <span className="text-muted-foreground"> · </span>}

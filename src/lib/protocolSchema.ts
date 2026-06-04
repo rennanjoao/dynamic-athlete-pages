@@ -37,6 +37,24 @@ export const WorkoutDaySchema = z.object({
   exercises: z.array(ExerciseSchema).default([]),
 });
 
+// Aeróbico associado a um dia de treino ou da semana
+export const CardioSchema = z.object({
+  type: z.string().default(""),
+  duration: z.string().default(""),
+  intensity: z.string().default(""),
+  workoutKey: z.string().default(""),
+  associationType: z.enum(["workout", "weekday"]).default("workout"),
+  notes: z.string().default(""),
+});
+
+// Suplemento individual estruturado
+export const SupplementSchema = z.object({
+  name: z.string().default(""),
+  dose: z.string().default(""),
+  timing: z.string().default(""),
+  notes: z.string().default(""),
+});
+
 export const MealMacrosSchema = z.object({
   carbs: z.number().min(0).default(0),
   protein: z.number().min(0).default(0),
@@ -172,6 +190,7 @@ export const MealSchema = z.preprocess(
       protein: [{ name: "", weight: "" }, { name: "", weight: "" }],
       fat: [{ name: "", weight: "" }, { name: "", weight: "" }],
     }),
+    carbCycle: z.boolean().default(false),
     notes: z.string().optional().default(""),
   })
 );
@@ -211,12 +230,18 @@ export const ProtocolPayloadSchema = z.object({
   meals: z.array(MealSchema).default([]),
   carbCycle: z.record(CarbDayTolerant).default({}),
   carbCycleNotes: z.record(z.string()).default({}),
+  carbCycleHighPct: z.number().min(1).max(100).default(15),
+  carbCycleLowPct: z.number().min(1).max(100).default(15),
+  cardio: z.array(CardioSchema).default([]),
+  supplements: z.array(SupplementSchema).default([]),
 });
 
 export type ProtocolPayload = z.infer<typeof ProtocolPayloadSchema>;
 export type MealRow = z.infer<typeof MealSchema>;
 export type MealOption = z.infer<typeof MealOptionSchema>;
 export type MealFoodItem = z.infer<typeof MealFoodItemSchema>;
+export type CardioRow = z.infer<typeof CardioSchema>;
+export type SupplementRow = z.infer<typeof SupplementSchema>;
 
 export function makeEmptyExercise(): z.infer<typeof ExerciseSchema> {
   return { name: "", sets: "", reps: "", cadence: "", rest: "", notes: "" };
@@ -233,6 +258,7 @@ export function makeEmptyMeal(name = "Refeição"): z.infer<typeof MealSchema> {
       protein: [{ name: "", weight: "" }, { name: "", weight: "" }],
       fat: [{ name: "", weight: "" }, { name: "", weight: "" }],
     },
+    carbCycle: false,
     notes: "",
   };
 }
@@ -272,5 +298,9 @@ export function buildBasePayload(setup: {
     workouts,
     meals,
     carbCycle,
+    carbCycleHighPct: 15,
+    carbCycleLowPct: 15,
+    cardio: [],
+    supplements: [],
   });
 }

@@ -28,7 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Save, Plus, Trash2, FileText, Dumbbell, UtensilsCrossed,
-  Calendar, Sparkles, BarChart3,
+  Calendar, Sparkles, BarChart3, Activity, Pill, TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -299,7 +299,7 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
           <Tabs defaultValue="macros">
             <TabsList className="grid grid-cols-5 w-full sm:w-[640px]">
               <TabsTrigger value="macros"><BarChart3 className="w-3.5 h-3.5 mr-1" />Macros</TabsTrigger>
-              <TabsTrigger value="guidelines"><FileText className="w-3.5 h-3.5 mr-1" />Diretrizes</TabsTrigger>
+              <TabsTrigger value="guidelines"><FileText className="w-3.5 h-3.5 mr-1" />Diretrizes & Supl.</TabsTrigger>
               <TabsTrigger value="workouts"><Dumbbell className="w-3.5 h-3.5 mr-1" />Treino</TabsTrigger>
               <TabsTrigger value="diet"><UtensilsCrossed className="w-3.5 h-3.5 mr-1" />Dieta</TabsTrigger>
               <TabsTrigger value="cycle"><Calendar className="w-3.5 h-3.5 mr-1" />Semana</TabsTrigger>
@@ -421,6 +421,77 @@ function MacrosTab({ payload, setPayload }: { payload: ProtocolPayload; setPaylo
           </Select>
         </div>
       </div>
+
+      {/* Ciclo de Carboidratos — percentuais customizáveis */}
+      <div className="border-t border-border/40 pt-3 mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-xs font-semibold">Ciclo de Carboidratos</Label>
+          <Switch
+            checked={payload.setup.carbCycle}
+            onCheckedChange={(v) =>
+              setPayload({
+                ...payload,
+                setup: { ...payload.setup, carbCycle: v },
+                carbCycle: v
+                  ? Object.fromEntries(WEEKDAYS.map((d) => [d.key, "base"]))
+                  : {},
+              })
+            }
+          />
+        </div>
+
+        {payload.setup.carbCycle && (
+          <div className="rounded-lg border border-border/40 bg-card/40 p-3 space-y-3 mt-2">
+            <p className="text-[11px] text-muted-foreground">
+              Variação percentual de carboidratos aplicada automaticamente para o aluno nos dias de ciclo.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-emerald-500">
+                  Dia Alto — + %
+                </Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={payload.carbCycleHighPct ?? 15}
+                    onChange={(e) =>
+                      setPayload({ ...payload, carbCycleHighPct: Number(e.target.value) || 15 })
+                    }
+                    className="h-8 text-xs w-20"
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Carbo base × {(1 + (payload.carbCycleHighPct ?? 15) / 100).toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-amber-500">
+                  Dia Off/Baixo — − %
+                </Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={payload.carbCycleLowPct ?? 15}
+                    onChange={(e) =>
+                      setPayload({ ...payload, carbCycleLowPct: Number(e.target.value) || 15 })
+                    }
+                    className="h-8 text-xs w-20"
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Carbo base × {(1 - (payload.carbCycleLowPct ?? 15) / 100).toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
@@ -439,9 +510,117 @@ function GuidelinesTab({ payload, setPayload }: { payload: ProtocolPayload; setP
       <Field label="Organização da semana" hint="Ex.: Seg/Qua/Sex carbo alto · Ter/Qui/Sab/Dom carbo baixo">
         <Textarea value={payload.guidelines.weekOrganization} onChange={(e) => upd("weekOrganization", e.target.value)} className="min-h-[80px] text-sm" />
       </Field>
-      <Field label="Suplementação" hint="Listar suplementos, horários e dose">
+      <Field label="Suplementação — observações gerais" hint="Texto livre para orientações gerais. Liste suplementos estruturados abaixo.">
         <Textarea value={payload.guidelines.supplementation} onChange={(e) => upd("supplementation", e.target.value)} className="min-h-[100px] text-sm" />
       </Field>
+
+      {/* Suplementos estruturados */}
+      <div className="border-t border-border/40 pt-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <Pill className="w-4 h-4 text-primary" /> Suplementos
+          </Label>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() =>
+              setPayload({
+                ...payload,
+                supplements: [
+                  ...(payload.supplements ?? []),
+                  { name: "", dose: "", timing: "", notes: "" },
+                ],
+              })
+            }
+          >
+            <Plus className="w-3 h-3 mr-1" /> Suplemento
+          </Button>
+        </div>
+
+        {(payload.supplements ?? []).length === 0 && (
+          <p className="text-xs text-muted-foreground italic text-center py-3 border border-dashed border-border/40 rounded-lg">
+            Nenhum suplemento cadastrado.
+          </p>
+        )}
+
+        {(payload.supplements ?? []).map((s, si) => (
+          <Card key={si} className="bg-card/60 border-border p-3">
+            <div className="grid grid-cols-[1fr_auto] gap-2 mb-2">
+              <Input
+                value={s.name}
+                onChange={(e) => {
+                  const next = [...(payload.supplements ?? [])];
+                  next[si] = { ...next[si], name: e.target.value };
+                  setPayload({ ...payload, supplements: next });
+                }}
+                placeholder="Nome (ex.: Creatina, Whey, Ômega-3)"
+                className="h-8 text-xs"
+              />
+              <button
+                onClick={() => {
+                  const next = (payload.supplements ?? []).filter((_, j) => j !== si);
+                  setPayload({ ...payload, supplements: next });
+                }}
+                className="text-muted-foreground hover:text-destructive p-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Dose</Label>
+                <Input
+                  value={s.dose}
+                  onChange={(e) => {
+                    const next = [...(payload.supplements ?? [])];
+                    next[si] = { ...next[si], dose: e.target.value };
+                    setPayload({ ...payload, supplements: next });
+                  }}
+                  placeholder="5g, 1 scoop, 2 caps"
+                  className="h-8 text-xs mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Horário</Label>
+                <Select
+                  value={s.timing || "Outro"}
+                  onValueChange={(v) => {
+                    const next = [...(payload.supplements ?? [])];
+                    next[si] = { ...next[si], timing: v };
+                    setPayload({ ...payload, supplements: next });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[
+                      "Ao acordar (jejum)",
+                      "Pré-treino",
+                      "Intra-treino",
+                      "Pós-treino",
+                      "Com refeição",
+                      "Antes de dormir",
+                      "Outro",
+                    ].map((t) => (
+                      <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Input
+              value={s.notes}
+              onChange={(e) => {
+                const next = [...(payload.supplements ?? [])];
+                next[si] = { ...next[si], notes: e.target.value };
+                setPayload({ ...payload, supplements: next });
+              }}
+              placeholder="Obs. (opcional)"
+              className="h-8 text-xs mt-2"
+            />
+          </Card>
+        ))}
+      </div>
     </Card>
   );
 }
@@ -504,6 +683,155 @@ function WorkoutsTab({ payload, setPayload }: { payload: ProtocolPayload; setPay
           </div>
         </Card>
       ))}
+
+      {/* ── Aeróbicos ── */}
+      <div className="mt-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" /> Aeróbicos
+          </Label>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() =>
+              setPayload({
+                ...payload,
+                cardio: [
+                  ...(payload.cardio ?? []),
+                  { type: "", duration: "", intensity: "", workoutKey: "", associationType: "workout", notes: "" },
+                ],
+              })
+            }
+          >
+            <Plus className="w-3 h-3 mr-1" /> Aeróbico
+          </Button>
+        </div>
+
+        {(payload.cardio ?? []).length === 0 && (
+          <p className="text-xs text-muted-foreground italic text-center py-3 border border-dashed border-border/40 rounded-lg">
+            Nenhum aeróbico cadastrado. Clique em + Aeróbico para adicionar.
+          </p>
+        )}
+
+        {(payload.cardio ?? []).map((c, ci) => (
+          <Card key={ci} className="bg-card/60 border-border p-3">
+            <div className="grid grid-cols-[1fr_auto] gap-2 mb-2">
+              <Select
+                value={c.type || "Outro"}
+                onValueChange={(v) => {
+                  const next = [...(payload.cardio ?? [])];
+                  next[ci] = { ...next[ci], type: v };
+                  setPayload({ ...payload, cardio: next });
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  {["AEJ", "LISS", "HIIT", "Caminhada", "Bicicleta", "Outro"].map((t) => (
+                    <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                onClick={() => {
+                  const next = (payload.cardio ?? []).filter((_, j) => j !== ci);
+                  setPayload({ ...payload, cardio: next });
+                }}
+                className="text-muted-foreground hover:text-destructive p-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Duração</Label>
+                <Input
+                  value={c.duration}
+                  onChange={(e) => {
+                    const next = [...(payload.cardio ?? [])];
+                    next[ci] = { ...next[ci], duration: e.target.value };
+                    setPayload({ ...payload, cardio: next });
+                  }}
+                  placeholder="40 min"
+                  className="h-8 text-xs mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Intensidade</Label>
+                <Select
+                  value={c.intensity || "Moderada"}
+                  onValueChange={(v) => {
+                    const next = [...(payload.cardio ?? [])];
+                    next[ci] = { ...next[ci], intensity: v };
+                    setPayload({ ...payload, cardio: next });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Leve", "Moderada", "Alta"].map((t) => (
+                      <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Associar a</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  value={c.associationType}
+                  onValueChange={(v) => {
+                    const next = [...(payload.cardio ?? [])];
+                    next[ci] = { ...next[ci], associationType: v as "workout" | "weekday", workoutKey: "" };
+                    setPayload({ ...payload, cardio: next });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="workout" className="text-xs">Treino (A/B/C…)</SelectItem>
+                    <SelectItem value="weekday" className="text-xs">Dia da semana</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={c.workoutKey || undefined}
+                  onValueChange={(v) => {
+                    const next = [...(payload.cardio ?? [])];
+                    next[ci] = { ...next[ci], workoutKey: v };
+                    setPayload({ ...payload, cardio: next });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectContent>
+                    {c.associationType === "workout"
+                      ? payload.workouts.map((w) => (
+                          <SelectItem key={w.key} value={w.key} className="text-xs">
+                            Treino {w.key}{w.focus ? ` — ${w.focus}` : ""}
+                          </SelectItem>
+                        ))
+                      : WEEKDAYS.map((d) => (
+                          <SelectItem key={d.key} value={d.key} className="text-xs">{d.label}</SelectItem>
+                        ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Input
+              value={c.notes}
+              onChange={(e) => {
+                const next = [...(payload.cardio ?? [])];
+                next[ci] = { ...next[ci], notes: e.target.value };
+                setPayload({ ...payload, cardio: next });
+              }}
+              placeholder="Observações (opcional)"
+              className="h-8 text-xs mt-2"
+            />
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
@@ -599,9 +927,24 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
       </p>
       {payload.meals.map((m, i) => (
         <Card key={i} className="bg-card/60 border-border p-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.8fr_auto] gap-2">
+          <div className="grid grid-cols-[1fr_0.7fr_auto_auto] gap-2 items-center">
             <Input value={m.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Nome (Café, Almoço...)" className="h-9 text-sm" />
             <Input value={m.time} onChange={(e) => upd(i, { time: e.target.value })} placeholder="07:00" className="h-9 text-sm" />
+            {payload.setup.carbCycle && (
+              <button
+                type="button"
+                onClick={() => upd(i, { carbCycle: !m.carbCycle } as any)}
+                title="Incluir esta refeição no ciclo de carbo"
+                className={`h-9 px-2.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                  m.carbCycle
+                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                    : "border-border/50 text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                Ciclo
+              </button>
+            )}
             <button onClick={() => rm(i)} className="text-muted-foreground hover:text-destructive p-2">
               <Trash2 className="w-4 h-4" />
             </button>

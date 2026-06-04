@@ -2,12 +2,18 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Dumbbell, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, Dumbbell, AlertTriangle, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ProtocolPayloadSchema } from "@/lib/protocolSchema";
 import ProtocolQuestionButton from "@/components/student/ProtocolQuestionButton";
+
+const WEEKDAYS_LABEL: Record<string, string> = {
+  seg: "Segunda", ter: "Terça", qua: "Quarta",
+  qui: "Quinta", sex: "Sexta", sab: "Sábado", dom: "Domingo",
+};
 
 export default function WorkoutPlan() {
   const navigate = useNavigate();
@@ -112,6 +118,34 @@ export default function WorkoutPlan() {
               </AccordionItem>
             ))}
           </Accordion>
+        )}
+
+        {/* Aeróbicos prescritos */}
+        {Array.isArray(safePayload?.cardio) && safePayload.cardio.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-bold text-sm text-foreground flex items-center gap-2 px-1">
+              <Activity className="w-4 h-4 text-primary" /> Aeróbico Prescrito
+            </h2>
+            {safePayload.cardio.map((c: any, i: number) => (
+              <Card key={i} className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-primary">{c.type || "Aeróbico"}</span>
+                  {c.duration && <Badge variant="outline" className="text-xs">{c.duration}</Badge>}
+                </div>
+                <div className="flex gap-2 flex-wrap mb-2">
+                  {c.intensity && <Badge variant="secondary" className="text-xs">{c.intensity}</Badge>}
+                  {c.workoutKey && (
+                    <Badge variant="outline" className="text-xs">
+                      {c.associationType === "workout"
+                        ? `Treino ${c.workoutKey}`
+                        : WEEKDAYS_LABEL[c.workoutKey] ?? c.workoutKey}
+                    </Badge>
+                  )}
+                </div>
+                {c.notes && <p className="text-xs text-muted-foreground italic">{c.notes}</p>}
+              </Card>
+            ))}
+          </div>
         )}
       </main>
     </div>
