@@ -1,11 +1,20 @@
-import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 
 import { TrainerManagement } from "@/components/admin/TrainerManagement";
 import { StudentLinksManagement } from "@/components/admin/StudentLinksManagement";
 import { AlertManager } from "@/components/admin/AlertManager";
 
 const Admin = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
   return (
     <div className="min-h-screen pb-12 bg-background">
       <header className="gradient-primary text-white py-10 px-6 text-center relative shadow-lg">
@@ -16,6 +25,17 @@ const Admin = () => {
           <ArrowLeft className="w-5 h-5" />
           Voltar
         </Link>
+
+        {/* Botão de Sair */}
+        <Button
+          variant="ghost"
+          onClick={handleLogout}
+          className="absolute right-6 top-6 flex items-center gap-2 text-white/90 hover:text-white hover:bg-white/10"
+        >
+          <LogOut className="w-5 h-5" />
+          Sair
+        </Button>
+
         <h1 className="text-3xl md:text-4xl font-bold mb-1">
           Painel Admin
         </h1>
