@@ -1,20 +1,17 @@
 /**
  * CoachDashboard.tsx — Painel completo do Coach
- * Tabs: Alunos, Financeiro, Leads
- * Dados blindados contra retornos de JSON.
+ * Tabs: Alunos, Financeiro
  */
 
 import { useState, useMemo, lazy, Suspense, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCoachStudents, type StudentStatus, type AlertLevel } from "@/hooks/useCoachStudents";
-import { useLeads } from "@/hooks/useLeads";
 import { useCoachFinances } from "@/hooks/useCoachFinances";
 import {
   AlertTriangle, CheckCircle2, Search, Filter, Users,
   Dumbbell, ClipboardList, ArrowLeft,
-  Loader2, Plus, Trash2, DollarSign, UserPlus, Phone, Mail,
-  TrendingUp, Calendar, X, User, LogOut
+  Loader2, Plus, Trash2, DollarSign, UserPlus, Calendar, X, User, LogOut
 } from "lucide-react";
 import CoachNotificationBell from "@/components/coach/CoachNotificationBell";
 import { Input } from "@/components/ui/input";
@@ -25,7 +22,6 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -140,139 +136,6 @@ function StudentRow({
   );
 }
 
-// ─── Leads Tab ───────────────────────────────────────────────────────────────
-
-function LeadsTab({ coachId }: { coachId: string }) {
-  const { data: leads = [], isLoading } = useLeads(coachId);
-  const qc = useQueryClient();
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ full_name: "", email: "", whatsapp: "", notes: "", source: "" });
-
-  const addLead = useMutation({
-    mutationFn: async () => {
-      if (!form.full_name) throw new Error("Nome é obrigatório");
-      const { error } = await supabase.from("coach_leads").insert({
-        coach_id: coachId,
-        full_name: form.full_name,
-        email: form.email || null,
-        whatsapp: form.whatsapp || null,
-        notes: form.notes || null,
-        source: form.source || null,
-        status: "new",
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Lead adicionado!");
-      setForm({ full_name: "", email: "", whatsapp: "", notes: "", source: "" });
-      setShowAdd(false);
-      qc.invalidateQueries({ queryKey: ["coach-leads"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const updateStatus = async (id: string, status: string) => {
-    await supabase.from("coach_leads").update({ status }).eq("id", id);
-    qc.invalidateQueries({ queryKey: ["coach-leads"] });
-    toast.success("Status atualizado");
-  };
-
-  const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
-  const confirmDeleteLead = async () => {
-    if (!deleteLeadId) return;
-    await supabase.from("coach_leads").delete().eq("id", deleteLeadId);
-    qc.invalidateQueries({ queryKey: ["coach-leads"] });
-    toast.success("Lead removido");
-    setDeleteLeadId(null);
-  };
-
-
-  const statusLabels: Record<string, { label: string; cls: string }> = {
-    new: { label: "Novo", cls: "bg-blue-100 text-blue-700" },
-    contacted: { label: "Em contato", cls: "bg-amber-100 text-amber-700" },
-    negotiating: { label: "Negociando", cls: "bg-purple-100 text-purple-700" },
-    converted: { label: "Convertido", cls: "bg-emerald-100 text-emerald-700" },
-    lost: { label: "Perdido", cls: "bg-red-100 text-red-700" },
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Leads</h3>
-        <Button size="sm" onClick={() => setShowAdd(true)}>
-          <Plus className="w-3.5 h-3.5 mr-1" /> Novo Lead
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
-      ) : leads.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">Nenhum lead cadastrado.</p>
-      ) : (
-        <div className="space-y-2">
-          {leads.map((lead) => (
-            <div key={lead.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">{lead.full_name}</p>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                  {lead.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{lead.email}</span>}
-                  {lead.whatsapp && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.whatsapp}</span>}
-                  {lead.source && <span>· {lead.source}</span>}
-                </div>
-                {lead.notes && <p className="text-xs text-muted-foreground mt-1">{lead.notes}</p>}
-              </div>
-              <Select value={lead.status} onValueChange={(v) => updateStatus(lead.id, v)}>
-                <SelectTrigger className="w-32 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(statusLabels).map(([s, info]) => (
-                    <SelectItem key={s} value={s} className="text-xs">{info.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <button onClick={() => setDeleteLeadId(lead.id)} className="p-1.5 text-muted-foreground hover:text-destructive">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader><DialogTitle>Novo Lead</DialogTitle></DialogHeader>
-          <div className="space-y-3 py-2">
-            <div><Label className="text-xs">Nome *</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="mt-1 h-9 text-sm" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 h-9 text-sm" /></div>
-              <div><Label className="text-xs">WhatsApp</Label><Input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} className="mt-1 h-9 text-sm" /></div>
-            </div>
-            <div><Label className="text-xs">Origem</Label><Input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="Instagram, indicação..." className="mt-1 h-9 text-sm" /></div>
-            <div><Label className="text-xs">Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1 text-sm h-16" /></div>
-            <Button onClick={() => addLead.mutate()} disabled={addLead.isPending} className="w-full">
-              {addLead.isPending ? "Salvando..." : "Adicionar Lead"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={!!deleteLeadId} onOpenChange={(o) => !o && setDeleteLeadId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover lead?</AlertDialogTitle>
-            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteLead} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
-
 // ─── Finances Tab ────────────────────────────────────────────────────────────
 
 function FinancesTab({ coachId, students }: { coachId: string; students: StudentStatus[] }) {
@@ -282,7 +145,6 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ student_id: "", description: "", amount: "", due_date: "" });
   
-  // Estado para edição do vencimento
   const [editingFinance, setEditingFinance] = useState<{ id: string, due_date: string } | null>(null);
 
   const addFinance = useMutation({
@@ -369,7 +231,6 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
             </TableHeader>
             <TableBody>
               {students.map((student) => {
-                // Pega a fatura pendente mais antiga desse aluno
                 const activeFinance = finances
                   .filter((f) => f.student_id === student.id && f.status === "pending")
                   .sort((a, b) => new Date(a.due_date || 0).getTime() - new Date(b.due_date || 0).getTime())[0];
@@ -468,14 +329,15 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   );
 }
 
-// ─── Profile (team name) Dialog ──────────────────────────────────────────────
+// ─── Profile Dialog ──────────────────────────────────────────────
 
 function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const [fullName, setFullName] = useState("");
   const [teamName, setTeamName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  const [pixKey, setPixKey] = useState(""); // Novo state do PIX
+  const [pixKey, setPixKey] = useState("");
+  const [billingAlertDays, setBillingAlertDays] = useState<number>(7);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -483,7 +345,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
     if (!open || !coachId) return;
     supabase
       .from("profiles")
-      .select("full_name, team_name, invite_code, pix_key") // Busca da chave PIX no banco
+      .select("full_name, team_name, invite_code, pix_key, billing_alert_days")
       .eq("user_id", coachId)
       .maybeSingle()
       .then(({ data }) => {
@@ -491,6 +353,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
         setTeamName(data?.team_name || "");
         setInviteCode((data as { invite_code?: string } | null)?.invite_code || "");
         setPixKey((data as { pix_key?: string } | null)?.pix_key || "");
+        setBillingAlertDays((data as { billing_alert_days?: number } | null)?.billing_alert_days ?? 7);
       });
   }, [open, coachId]);
 
@@ -501,11 +364,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
       for (let attempt = 0; attempt < 6; attempt++) {
         let code = "";
         for (let i = 0; i < 6; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
-        const { data: exists } = await supabase
-          .from("profiles")
-          .select("user_id")
-          .eq("invite_code", code)
-          .maybeSingle();
+        const { data: exists } = await supabase.from("profiles").select("user_id").eq("invite_code", code).maybeSingle();
         if (!exists) {
           setInviteCode(code);
           toast.success("Código gerado. Lembre de salvar.");
@@ -513,11 +372,7 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
         }
       }
       toast.error("Não foi possível gerar um código único. Tente de novo.");
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setGenerating(false);
-    }
+    } catch (e: any) { toast.error(e.message); } finally { setGenerating(false); }
   };
 
   const copyCode = async () => {
@@ -531,17 +386,8 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
     try {
       const code = inviteCode.trim().toUpperCase() || null;
       if (code) {
-        const { data: clash } = await supabase
-          .from("profiles")
-          .select("user_id")
-          .eq("invite_code", code)
-          .neq("user_id", coachId)
-          .maybeSingle();
-        if (clash) {
-          toast.error("Este código já está em uso por outro coach.");
-          setLoading(false);
-          return;
-        }
+        const { data: clash } = await supabase.from("profiles").select("user_id").eq("invite_code", code).neq("user_id", coachId).maybeSingle();
+        if (clash) { toast.error("Este código já está em uso por outro coach."); setLoading(false); return; }
       }
       const { error } = await supabase
         .from("profiles")
@@ -549,18 +395,15 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
           full_name: fullName, 
           team_name: teamName, 
           invite_code: code,
-          pix_key: pixKey // Atualiza a chave PIX no banco
+          pix_key: pixKey,
+          billing_alert_days: billingAlertDays
         })
         .eq("user_id", coachId);
       if (error) throw error;
       toast.success("Perfil atualizado com sucesso!");
       qc.invalidateQueries({ queryKey: ["coach-profile", coachId] });
       onClose();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e: any) { toast.error(e.message); } finally { setLoading(false); }
   };
 
   return (
@@ -577,36 +420,29 @@ function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: bool
             <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ex: Equipe Performance" className="mt-1 h-9 text-sm" />
           </div>
           
-          {/* Novo campo da Chave PIX */}
-          <div>
-            <Label className="text-xs text-amber-600 font-bold">Chave PIX para Recebimentos</Label>
-            <Input 
-              value={pixKey} 
-              onChange={(e) => setPixKey(e.target.value)} 
-              placeholder="Email, CPF, Telefone ou Aleatória..." 
-              className="mt-1 h-9 text-sm border-amber-500/30 focus-visible:ring-amber-500" 
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-amber-600 font-bold">Chave PIX</Label>
+              <Input value={pixKey} onChange={(e) => setPixKey(e.target.value)} placeholder="Email, CPF..." className="mt-1 h-9 text-sm border-amber-500/30" />
+            </div>
+            <div>
+              <Label className="text-xs text-primary font-bold">Aviso de cobrança</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input type="number" min={1} value={billingAlertDays} onChange={(e) => setBillingAlertDays(Number(e.target.value) || 7)} className="h-9 text-sm w-16 text-center" />
+                <span className="text-xs text-muted-foreground">dias antes</span>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
             <Label className="text-xs text-primary uppercase tracking-wider">Código de convite</Label>
             <p className="text-[11px] text-muted-foreground">
-              Compartilhe este código com seus alunos. Ao usá-lo na anamnese, o aluno é vinculado automaticamente a você.
+              Compartilhe este código com seus alunos.
             </p>
             <div className="flex gap-2">
-              <Input
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                placeholder="EX: ELITE26"
-                maxLength={12}
-                className="h-9 text-sm font-mono tracking-widest uppercase"
-              />
-              <Button type="button" variant="outline" size="sm" onClick={generateCode} disabled={generating}>
-                {generating ? "..." : "Gerar"}
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={copyCode} disabled={!inviteCode}>
-                Copiar
-              </Button>
+              <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value.toUpperCase())} placeholder="EX: ELITE26" maxLength={12} className="h-9 text-sm font-mono tracking-widest uppercase" />
+              <Button type="button" variant="outline" size="sm" onClick={generateCode} disabled={generating}>{generating ? "..." : "Gerar"}</Button>
+              <Button type="button" variant="outline" size="sm" onClick={copyCode} disabled={!inviteCode}>Copiar</Button>
             </div>
           </div>
           <Button onClick={save} disabled={loading} className="w-full">
@@ -672,7 +508,6 @@ export default function CoachDashboard() {
     window.location.href = "/auth";
   };
 
-  // Detail views
   if (view !== "list" && selectedStudent) {
     return (
       <div className="min-h-screen bg-background">
@@ -732,19 +567,15 @@ export default function CoachDashboard() {
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         <Tabs defaultValue="students" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="students" className="gap-1.5 text-xs sm:text-sm">
               <Users className="w-3.5 h-3.5" /> Alunos
             </TabsTrigger>
             <TabsTrigger value="finances" className="gap-1.5 text-xs sm:text-sm">
               <DollarSign className="w-3.5 h-3.5" /> Financeiro
             </TabsTrigger>
-            <TabsTrigger value="leads" className="gap-1.5 text-xs sm:text-sm">
-              <TrendingUp className="w-3.5 h-3.5" /> Leads
-            </TabsTrigger>
           </TabsList>
 
-          {/* ── Students Tab ── */}
           <TabsContent value="students" className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard label="Total de alunos" value={stats.total} icon={<Users className="w-4 h-4" />} accent="#3B82F6" />
@@ -784,7 +615,7 @@ export default function CoachDashboard() {
                 <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-sm text-muted-foreground">
                   {students.length === 0
-                    ? "Nenhum aluno vinculado ainda. Compartilhe seu código de convite — o aluno será vinculado automaticamente ao enviar a anamnese."
+                    ? "Nenhum aluno vinculado ainda. Compartilhe seu código de convite."
                     : "Nenhum aluno encontrado com os filtros atuais."}
                 </p>
               </div>
@@ -803,14 +634,8 @@ export default function CoachDashboard() {
             )}
           </TabsContent>
 
-          {/* ── Finances Tab ── */}
           <TabsContent value="finances">
             {coachId && <FinancesTab coachId={coachId} students={students} />}
-          </TabsContent>
-
-          {/* ── Leads Tab ── */}
-          <TabsContent value="leads">
-            {coachId && <LeadsTab coachId={coachId} />}
           </TabsContent>
         </Tabs>
 
