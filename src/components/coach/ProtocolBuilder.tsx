@@ -28,7 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Save, Plus, Trash2, FileText, Dumbbell, UtensilsCrossed,
-  Calendar, Sparkles, BarChart3,
+  Calendar, Sparkles, BarChart3, Activity, Pill, TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
