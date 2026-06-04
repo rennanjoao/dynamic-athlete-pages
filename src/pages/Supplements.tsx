@@ -34,7 +34,8 @@ export default function Supplements() {
   const parsed = ProtocolPayloadSchema.safeParse(rawPayload);
   const safePayload: any = parsed.success ? parsed.data : rawPayload;
   
-  const supplementationGuideline = safePayload?.guidelines?.supplementation;
+  const supplementationGuideline: string = safePayload?.guidelines?.supplementation ?? "";
+  const supplements: any[] = Array.isArray(safePayload?.supplements) ? safePayload.supplements : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -47,45 +48,43 @@ export default function Supplements() {
         <ProtocolQuestionButton context="supplement" variant="icon" />
       </header>
 
-
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-        <Card className="bg-card border-border shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-6 border-b border-border/50 pb-4">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <Pill className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-foreground">Protocolo Ativo</h2>
-                <p className="text-sm text-muted-foreground">Siga as dosagens prescritas.</p>
-              </div>
-            </div>
-
-            {supplementationGuideline ? (
-              <div className="space-y-4">
-                <div className="bg-muted/30 p-4 rounded-xl border border-border/50">
-                  <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
-                    {supplementationGuideline}
-                  </p>
+        {supplements.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
+              <Pill className="w-4 h-4 text-primary" /> Suplementos
+            </h2>
+            {supplements.map((s: any, i: number) => (
+              <Card key={i} className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-foreground">{s.name}</span>
+                  {s.timing && <Badge variant="outline" className="text-xs">{s.timing}</Badge>}
                 </div>
-                
-                <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg flex items-start gap-2">
-                  <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-                  <p className="text-xs text-blue-600/90 dark:text-blue-400">
-                    A suplementação tem horários estratégicos. Em caso de desconforto gástrico, suspenda o uso e comunique o treinador.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground italic py-8">Nenhum protocolo de suplementação publicado.</p>
-            )}
+                {s.dose && <p className="text-sm text-primary font-semibold">{s.dose}</p>}
+                {s.notes && <p className="text-xs text-muted-foreground italic mt-1">{s.notes}</p>}
+              </Card>
+            ))}
+          </div>
+        )}
 
-            {/* BOTÃO DE DÚVIDA DA SUPLEMENTAÇÃO */}
-            <div className="mt-6 border-t border-border/50 pt-6">
-              <ProtocolQuestionButton context="supplement" variant="full" />
-            </div>
-          </CardContent>
-        </Card>
+        {supplementationGuideline.trim() && (
+          <div className="bg-card border border-border rounded-xl p-4">
+            <h3 className="text-sm font-bold mb-2 text-muted-foreground flex items-center gap-2">
+              <Info className="w-4 h-4" /> Observações gerais
+            </h3>
+            <p className="text-sm whitespace-pre-wrap text-foreground/90">{supplementationGuideline}</p>
+          </div>
+        )}
+
+        {supplements.length === 0 && !supplementationGuideline.trim() && (
+          <p className="text-center text-muted-foreground italic py-10">
+            Suplementação ainda não publicada pelo coach.
+          </p>
+        )}
+
+        <div className="pt-2">
+          <ProtocolQuestionButton context="supplement" variant="full" />
+        </div>
       </main>
     </div>
   );
