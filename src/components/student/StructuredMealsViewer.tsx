@@ -41,16 +41,20 @@ export default function StructuredMealsViewer({ payload }: { payload: any }) {
   const safeData = payload || {};
   const meals = Array.isArray(safeData.meals) ? safeData.meals : [];
   const [mode, setMode] = useState<CarbMode>("base");
+  const highPct: number = safeData.carbCycleHighPct ?? 15;
+  const lowPct: number = safeData.carbCycleLowPct ?? 15;
 
   if (meals.length === 0) return null;
 
   return (
     <div className="space-y-4 w-full">
-      {safeData.setup?.carbCycle && <CarbCycleSelector value={mode} onChange={setMode} />}
+      {safeData.setup?.carbCycle && (
+        <CarbCycleSelector value={mode} onChange={setMode} highPct={highPct} lowPct={lowPct} />
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full items-stretch">
         {meals.map((meal: any, i: number) => (
-          <MealCard key={i} meal={meal} mode={mode} index={i} />
+          <MealCard key={i} meal={meal} mode={mode} index={i} highPct={highPct} lowPct={lowPct} />
         ))}
       </div>
     </div>
@@ -63,7 +67,7 @@ const KIND_META: Record<string, { emoji: string; label: string; color: string; i
   fat: { emoji: "🔴", label: "Gordura", color: "text-rose-500", isCarb: false },
 };
 
-function MealCard({ meal, mode, index }: { meal: any; mode: CarbMode; index: number }) {
+function MealCard({ meal, mode, index, highPct, lowPct }: { meal: any; mode: CarbMode; index: number; highPct: number; lowPct: number }) {
   const [isCooked, setIsCooked] = useState(false);
 
   const allOptions = Array.isArray(meal.options) ? meal.options : [];
