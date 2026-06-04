@@ -33,10 +33,10 @@ export default function WorkoutPlan() {
 
   const rawPayload = planData?.workout_periodization_json || {};
   const parsed = ProtocolPayloadSchema.safeParse(rawPayload);
-  const safePayload = parsed.success ? parsed.data : rawPayload;
+  const safePayload: any = parsed.success ? parsed.data : rawPayload;
   
-  const workouts = Array.isArray(safePayload.workouts) ? safePayload.workouts : [];
-  const trainingGuideline = safePayload.guidelines?.training;
+  const workouts = Array.isArray(safePayload?.workouts) ? safePayload.workouts : [];
+  const trainingGuideline = safePayload?.guidelines?.training;
 
   return (
     <div className="min-h-screen bg-background">
