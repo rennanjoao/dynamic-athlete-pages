@@ -5,33 +5,21 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info, Zap } from "lucide-react";
 
 export const TrainerAlert = () => {
-  // 1. Puxamos os dados dinâmicos do aluno (que já têm Realtime ativo na tabela protocols)
   const { protocol, studentId } = useStudentData();
-  
   const [message, setMessage] = useState<string | null>(null);
-  
-  // Estado para controlar o Pop-up de Vibração
   const [protocolUpdateAlert, setProtocolUpdateAlert] = useState(false);
-  
-  // Guardamos a última data do protocolo em memória para não causar re-renders infinitos
   const prevProtocolDate = useRef<string | null>(null);
 
-  // 2. Detetor de Atualização em Tempo Real (Treino / Dieta)
   useEffect(() => {
     if (protocol?.updated_at) {
-      // Se já tínhamos registo de uma data anterior, e ela acabou de mudar na base de dados...
       if (prevProtocolDate.current && prevProtocolDate.current !== protocol.updated_at) {
-        // Dispara o alerta vibratório!
         setProtocolUpdateAlert(true);
-        
-        // Opcional: O alerta fecha-se sozinho após 15 segundos
         setTimeout(() => setProtocolUpdateAlert(false), 15000);
       }
       prevProtocolDate.current = protocol.updated_at;
     }
   }, [protocol?.updated_at]);
 
-  // 3. O código original que deteta as Mensagens Diárias
   useEffect(() => {
     if (!studentId) return;
 
@@ -45,13 +33,24 @@ export const TrainerAlert = () => {
         .limit(1);
 
       if (data && data.length > 0) {
-        const today = new Date().toISOString().split("T")[0];
+        const today = new Date();
+        const todayString = today.toISOString().split("T")[0];
+        const currentDay = today.getDay(); // 0 = Domingo, 1 = Segunda-feira...
+        
         const alert = data[0];
-        if (alert.frequency === "daily" || alert.frequency === "weekly" || (alert.frequency === "once" && alert.target_date === today)) {
+
+        // Regra de validação estrita para o tipo de frequência
+        if (
+          alert.frequency === "daily" || 
+          (alert.frequency === "weekly" && currentDay === 1) || 
+          (alert.frequency === "once" && alert.target_date === todayString)
+        ) {
           setMessage(alert.message);
         } else {
           setMessage(null);
         }
+      } else {
+        setMessage(null);
       }
     };
 
@@ -69,7 +68,6 @@ export const TrainerAlert = () => {
 
   return (
     <>
-      {/* Estilo embutido para a Animação de Vibração sem mexer no Tailwind Config */}
       <style>
         {`
           @keyframes softPulse {
@@ -82,7 +80,6 @@ export const TrainerAlert = () => {
         `}
       </style>
 
-      {/* POP-UP 1: ATUALIZAÇÃO DO TREINO / DIETA (Tem prioridade, vibra e aparece no topo) */}
       {protocolUpdateAlert && (
         <Alert 
           className="mb-6 border backdrop-blur-md animate-soft-pulse cursor-pointer shadow-lg transition-all" 
@@ -102,7 +99,6 @@ export const TrainerAlert = () => {
         </Alert>
       )}
 
-      {/* POP-UP 2: MENSAGEM DIÁRIA ORIGINAL (Aparece se o alerta vibratório não estiver ativo) */}
       {message && !protocolUpdateAlert && (
         <Alert className="mb-6 border backdrop-blur-md animate-fade-in-down" style={{
           backgroundColor: "hsla(145, 63%, 42%, 0.1)",
