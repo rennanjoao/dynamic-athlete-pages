@@ -1,6 +1,6 @@
 /**
  * StudentArea.tsx — Hub Central do Aluno
- * Tela inicial limpa com acesso rápido aos pilares do protocolo e alertas financeiros.
+ * Tela inicial limpa com acesso rápido aos pilares do protocolo e alertas financeiros/atualizações.
  */
 
 import { useEffect, useState } from "react";
@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
   Apple, Dumbbell, Pill, TrendingUp, CheckCircle2, 
-  Loader2, User, AlertCircle, Copy, Check, X, LogOut 
+  Loader2, User, AlertCircle, Copy, Check, X, LogOut, Sparkles
 } from "lucide-react";
 
 export default function StudentArea() {
@@ -43,7 +43,38 @@ export default function StudentArea() {
     },
   });
 
-  // Busca faturas próximas do vencimento (<= 7 dias) ou atrasadas
+  // ─── ALERTA 1: Novo Protocolo / Atualização Recente ───
+  const { data: protocolAlert } = useQuery({
+    queryKey: ["student-protocol-alert", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("protocols")
+        .select("id, name, updated_at")
+        .eq("student_id", userId)
+        .eq("is_template", false)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!data) return null;
+      
+      const updatedDate = new Date(data.updated_at);
+      const diffHours = (new Date().getTime() - updatedDate.getTime()) / (1000 * 60 * 60);
+
+      // Se o coach atualizou o protocolo nas últimas 72 horas (3 dias), mostra aviso
+      if (diffHours < 72) { 
+        return { 
+          id: `proto-${data.id}-${data.updated_at}`, 
+          name: data.name, 
+          date: data.updated_at 
+        };
+      }
+      return null;
+    }
+  });
+
+  // ─── ALERTA 2: Cobrança / Financeiro Editável pelo Coach ───
   const { data: billingAlert } = useQuery({
     queryKey: ["student-billing-alert", userId],
     enabled: !!userId,
@@ -51,7 +82,8 @@ export default function StudentArea() {
       const { data: link } = await supabase.from("coach_students").select("coach_id").eq("student_id", userId).eq("status", "active").maybeSingle();
       if (!link?.coach_id) return null;
 
-      const { data: coach } = await supabase.from("profiles").select("pix_key").eq("user_id", link.coach_id).maybeSingle();
+      // Puxa a chave PIX e os dias de aviso escolhidos pelo coach
+      const { data: coach } = await supabase.from("profiles").select("pix_key, billing_alert_days").eq("user_id", link.coach_id).maybeSingle();
 
       const { data: finance } = await supabase.from("coach_finances")
         .select("*")
@@ -71,8 +103,9 @@ export default function StudentArea() {
       
       const diffTime = dueDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const alertThreshold = coach?.billing_alert_days ?? 7; // Usa o padrão de 7 se o coach não tiver alterado
 
-      if (diffDays <= 7) {
+      if (diffDays <= alertThreshold) {
         return {
           id: finance.id,
           amount: finance.amount,
@@ -139,8 +172,28 @@ export default function StudentArea() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
         
+        {/* ALERTA DE PROTOCOLO ATUALIZADO */}
+        {protocolAlert && !dismissedAlerts.includes(protocolAlert.id) && (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 relative shadow-sm">
+             <button onClick={() => dismissAlert(protocolAlert.id)} className="absolute top-3 right-3 text-emerald-600 hover:text-emerald-700">
+               <X className="w-4 h-4" />
+             </button>
+             <div className="flex items-start gap-3">
+               <Sparkles className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+               <div className="space-y-1 w-full">
+                 <h3 className="text-sm font-bold text-emerald-700 dark:text-emerald-500">
+                   Protocolo Atualizado!
+                 </h3>
+                 <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 pr-4">
+                   Seu treinador atualizou seu protocolo em {new Date(protocolAlert.date).toLocaleDateString('pt-BR')}. Acesse os módulos abaixo para conferir as novidades.
+                 </p>
+               </div>
+             </div>
+          </div>
+        )}
+
         {/* ALERTA DE COBRANÇA */}
         {billingAlert && !dismissedAlerts.includes(billingAlert.id) && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 relative shadow-sm">
@@ -184,7 +237,7 @@ export default function StudentArea() {
           </div>
         )}
 
-        <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-2">
+        <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-2 pt-2">
           Seu Protocolo
         </h2>
         
