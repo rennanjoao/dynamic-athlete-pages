@@ -133,17 +133,22 @@ function MealCard({ meal, mode, index, highPct, lowPct }: { meal: any; mode: Car
         <div className="space-y-3 flex-1">
           {(["carb", "protein", "fat"] as const).flatMap((kind) => {
             const opts = kind === "carb" ? carbOpts : kind === "protein" ? protOpts : fatOpts;
-            return opts.map((opt: any, idx: number) => (
-              <OptionBlock
-                key={`${kind}-${idx}`}
-                kind={kind}
-                title={opt.title || `${KIND_META[kind].label} — Opção ${idx + 1}`}
-                items={opt.items}
-                mode={mode}
-                isCooked={isCooked}
-                optionIndex={idx + 1}
-              />
-            ));
+            return opts.map((opt: any, idx: number) => {
+              const effectiveMode: CarbMode = meal.carbCycle ? mode : "base";
+              return (
+                <OptionBlock
+                  key={`${kind}-${idx}`}
+                  kind={kind}
+                  title={opt.title || `${KIND_META[kind].label} — Opção ${idx + 1}`}
+                  items={opt.items}
+                  mode={effectiveMode}
+                  isCooked={isCooked}
+                  optionIndex={idx + 1}
+                  highPct={highPct}
+                  lowPct={lowPct}
+                />
+              );
+            });
           })}
 
           {isEmpty && (
@@ -156,9 +161,9 @@ function MealCard({ meal, mode, index, highPct, lowPct }: { meal: any; mode: Car
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1">
               <Repeat className="w-3 h-3" /> Substituições
             </p>
-            {subCarb.length > 0 && <SubLine kind="carb" items={subCarb} mode={mode} isCooked={isCooked} />}
-            {subProt.length > 0 && <SubLine kind="protein" items={subProt} mode={mode} isCooked={isCooked} />}
-            {subFat.length > 0 && <SubLine kind="fat" items={subFat} mode={mode} isCooked={isCooked} />}
+            {subCarb.length > 0 && <SubLine kind="carb" items={subCarb} mode={meal.carbCycle ? mode : "base"} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />}
+            {subProt.length > 0 && <SubLine kind="protein" items={subProt} mode={meal.carbCycle ? mode : "base"} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />}
+            {subFat.length > 0 && <SubLine kind="fat" items={subFat} mode={meal.carbCycle ? mode : "base"} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />}
           </div>
         )}
 
