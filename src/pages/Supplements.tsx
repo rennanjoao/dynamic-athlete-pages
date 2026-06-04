@@ -31,9 +31,9 @@ export default function Supplements() {
 
   const rawPayload = planData?.diet_strategy_json || {};
   const parsed = ProtocolPayloadSchema.safeParse(rawPayload);
-  const safePayload = parsed.success ? parsed.data : rawPayload;
+  const safePayload: any = parsed.success ? parsed.data : rawPayload;
   
-  const supplementationGuideline = safePayload.guidelines?.supplementation;
+  const supplementationGuideline = safePayload?.guidelines?.supplementation;
 
   return (
     <div className="min-h-screen bg-background">
