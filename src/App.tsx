@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminGuard } from "./components/admin/AdminGuard";
 import { AnamnesisGuard } from "./components/student/AnamnesisGuard";
 import { NavigationControls } from "@/components/NavigationControls";
+import { GlobalAIAssistant } from "@/components/GlobalAIAssistant";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
 const Index        = lazyWithRetry(() => import("./pages/Index"));
@@ -84,6 +85,7 @@ const App = () => {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          <GlobalAIAssistant />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
