@@ -8,18 +8,17 @@ import { useState, useMemo, lazy, Suspense, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCoachStudents, type StudentStatus, type AlertLevel } from "@/hooks/useCoachStudents";
-import { useLeads, type Lead } from "@/hooks/useLeads";
-import { useCoachFinances, type FinanceRecord } from "@/hooks/useCoachFinances";
+import { useLeads } from "@/hooks/useLeads";
+import { useCoachFinances } from "@/hooks/useCoachFinances";
 import {
   AlertTriangle, CheckCircle2, Search, Filter, Users,
   Dumbbell, ClipboardList, ArrowLeft,
   Loader2, Plus, Trash2, DollarSign, UserPlus, Phone, Mail,
-  TrendingUp, Calendar, Save, X, User, FileText, LogOut
+  TrendingUp, Calendar, X, User, LogOut
 } from "lucide-react";
 import CoachNotificationBell from "@/components/coach/CoachNotificationBell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -28,7 +27,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -280,22 +278,21 @@ function LeadsTab({ coachId }: { coachId: string }) {
 function FinancesTab({ coachId, students }: { coachId: string; students: StudentStatus[] }) {
   const { data: finances = [], isLoading } = useCoachFinances(coachId);
   const qc = useQueryClient();
+  
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({
-    student_id: "",
-    description: "",
-    amount: "",
-    due_date: "",
-  });
+  const [form, setForm] = useState({ student_id: "", description: "", amount: "", due_date: "" });
+  
+  // Estado para edição do vencimento
+  const [editingFinance, setEditingFinance] = useState<{ id: string, due_date: string } | null>(null);
 
   const addFinance = useMutation({
     mutationFn: async () => {
-      if (!form.description || !form.amount) throw new Error("Descrição e valor são obrigatórios");
+      if (!form.description) throw new Error("Descrição é obrigatória");
       const { error } = await supabase.from("coach_finances").insert({
         coach_id: coachId,
         student_id: form.student_id || null,
         description: form.description,
-        amount: Number(form.amount),
+        amount: Number(form.amount || 0),
         due_date: form.due_date || null,
         status: "pending",
       });
@@ -320,9 +317,19 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   };
 
   const deleteFinance = async (id: string) => {
-    if (!confirm("Remover registro?")) return;
+    if (!confirm("Remover registro financeiro?")) return;
     await supabase.from("coach_finances").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["coach-finances"] });
+  };
+
+  const updateDueDate = async () => {
+    if (!editingFinance) return;
+    await supabase.from("coach_finances")
+      .update({ due_date: editingFinance.due_date || null })
+      .eq("id", editingFinance.id);
+    qc.invalidateQueries({ queryKey: ["coach-finances"] });
+    setEditingFinance(null);
+    toast.success("Data de vencimento atualizada!");
   };
 
   const totalReceita = finances.filter((f) => f.status === "paid").reduce((s, f) => s + Number(f.amount), 0);
@@ -332,63 +339,80 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Receita (pago)" value={`R$ ${totalReceita.toFixed(0)}`} icon={<DollarSign className="w-4 h-4" />} accent="#10B981" />
+        <StatCard label="Receita (Pago)" value={`R$ ${totalReceita.toFixed(0)}`} icon={<DollarSign className="w-4 h-4" />} accent="#10B981" />
         <StatCard label="Pendente" value={`R$ ${totalPendente.toFixed(0)}`} icon={<Calendar className="w-4 h-4" />} accent="#F59E0B" />
         <StatCard label="Atrasado" value={`R$ ${totalAtrasado.toFixed(0)}`} icon={<AlertTriangle className="w-4 h-4" />} accent="#EF4444" />
       </div>
 
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Registros Financeiros</h3>
+      <div className="flex items-center justify-between mt-6">
+        <h3 className="text-sm font-semibold text-foreground">Alunos Ativos & Mensalidades</h3>
         <Button size="sm" onClick={() => setShowAdd(true)}>
-          <Plus className="w-3.5 h-3.5 mr-1" /> Novo Registro
+          <Plus className="w-3.5 h-3.5 mr-1" /> Cobrança Avulsa
         </Button>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
-      ) : finances.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">Nenhum registro financeiro.</p>
+      ) : students.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">Nenhum aluno ativo para faturar.</p>
       ) : (
-        <div className="rounded-xl border overflow-hidden">
+        <div className="rounded-xl border overflow-hidden bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs">Descrição</TableHead>
                 <TableHead className="text-xs">Aluno</TableHead>
-                <TableHead className="text-xs text-right">Valor</TableHead>
-                <TableHead className="text-xs">Vencimento</TableHead>
+                <TableHead className="text-xs">Ativação (Anamnese)</TableHead>
+                <TableHead className="text-xs">Vencimento Atual</TableHead>
                 <TableHead className="text-xs">Status</TableHead>
-                <TableHead className="text-xs w-16"></TableHead>
+                <TableHead className="text-xs text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {finances.map((f) => {
-                const studentName = students.find((s) => s.id === f.student_id)?.name;
-                const isOverdue = f.status === "pending" && f.due_date && new Date(f.due_date) < new Date();
+              {students.map((student) => {
+                // Pega a fatura pendente mais antiga desse aluno
+                const activeFinance = finances
+                  .filter((f) => f.student_id === student.id && f.status === "pending")
+                  .sort((a, b) => new Date(a.due_date || 0).getTime() - new Date(b.due_date || 0).getTime())[0];
+
+                const isOverdue = activeFinance?.status === "pending" && activeFinance.due_date && new Date(activeFinance.due_date) < new Date();
+
                 return (
-                  <TableRow key={f.id}>
-                    <TableCell className="text-sm font-medium">{f.description}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{studentName || "—"}</TableCell>
-                    <TableCell className="text-sm font-semibold text-right">R$ {Number(f.amount).toFixed(2)}</TableCell>
-                    <TableCell className="text-xs">{f.due_date ? new Date(f.due_date).toLocaleDateString("pt-BR") : "—"}</TableCell>
-                    <TableCell>
-                      <button
-                        onClick={() => togglePaid(f.id, f.status === "paid")}
-                        className={`text-xs font-semibold px-2 py-0.5 rounded-full border cursor-pointer ${
-                          f.status === "paid"
-                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                            : isOverdue
-                              ? "bg-red-100 text-red-700 border-red-200"
-                              : "bg-amber-100 text-amber-700 border-amber-200"
-                        }`}
-                      >
-                        {f.status === "paid" ? "Pago" : isOverdue ? "Atrasado" : "Pendente"}
-                      </button>
+                  <TableRow key={student.id}>
+                    <TableCell className="text-sm font-semibold">{student.name}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {student.lastAnamnesis ? new Date(student.lastAnamnesis).toLocaleDateString("pt-BR") : "Aguardando Envio"}
+                    </TableCell>
+                    <TableCell className="text-xs font-medium">
+                      {activeFinance?.due_date ? new Date(activeFinance.due_date).toLocaleDateString("pt-BR") : "Sem pendências"}
                     </TableCell>
                     <TableCell>
-                      <button onClick={() => deleteFinance(f.id)} className="p-1 text-muted-foreground hover:text-destructive">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {activeFinance ? (
+                        <button
+                          onClick={() => togglePaid(activeFinance.id, false)}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors hover:opacity-80 ${
+                            isOverdue ? "bg-red-100 text-red-700 border-red-200" : "bg-amber-100 text-amber-700 border-amber-200"
+                          }`}
+                        >
+                          {isOverdue ? "Atrasado" : "Pendente"}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">Em dia</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {activeFinance && (
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => setEditingFinance({ id: activeFinance.id, due_date: activeFinance.due_date || "" })} title="Alterar Data">
+                            <Calendar className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-emerald-500" onClick={() => togglePaid(activeFinance.id, false)} title="Marcar como Pago">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteFinance(activeFinance.id)} title="Excluir Cobrança">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -398,27 +422,45 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
         </div>
       )}
 
+      {/* Modal para Editar Vencimento */}
+      <Dialog open={!!editingFinance} onOpenChange={(open) => !open && setEditingFinance(null)}>
+        <DialogContent className="sm:max-w-[300px]">
+          <DialogHeader><DialogTitle>Alterar Vencimento</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs">Nova Data de Vencimento</Label>
+              <Input 
+                type="date" 
+                value={editingFinance?.due_date || ""} 
+                onChange={(e) => setEditingFinance(prev => prev ? { ...prev, due_date: e.target.value } : null)} 
+                className="mt-1 h-9" 
+              />
+            </div>
+            <Button onClick={updateDueDate} className="w-full">Salvar Alteração</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Nova Cobrança Avulsa */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader><DialogTitle>Novo Registro Financeiro</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Lançar Cobrança Manual</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            <div><Label className="text-xs">Descrição *</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ex: Mensalidade Janeiro" className="mt-1 h-9 text-sm" /></div>
+            <div><Label className="text-xs">Descrição *</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ex: Ajuste de Protocolo" className="mt-1 h-9 text-sm" /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">Valor (R$) *</Label><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="mt-1 h-9 text-sm" /></div>
+              <div><Label className="text-xs">Valor (R$)</Label><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="mt-1 h-9 text-sm" /></div>
               <div><Label className="text-xs">Vencimento</Label><Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="mt-1 h-9 text-sm" /></div>
             </div>
             <div>
-              <Label className="text-xs">Aluno (opcional)</Label>
+              <Label className="text-xs">Vincular Aluno</Label>
               <Select value={form.student_id} onValueChange={(v) => setForm({ ...form, student_id: v })}>
-                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="Selecionar aluno" /></SelectTrigger>
+                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
                   {students.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => addFinance.mutate()} disabled={addFinance.isPending} className="w-full">
-              {addFinance.isPending ? "Salvando..." : "Adicionar Registro"}
-            </Button>
+            <Button onClick={() => addFinance.mutate()} disabled={addFinance.isPending} className="w-full">Adicionar Lançamento</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -426,7 +468,7 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   );
 }
 
-// ──// ─── Profile (team name) Dialog ──────────────────────────────────────────────
+// ─── Profile (team name) Dialog ──────────────────────────────────────────────
 
 function ProfileDialog({ coachId, open, onClose }: { coachId: string; open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
