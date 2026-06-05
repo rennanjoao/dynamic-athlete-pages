@@ -46,6 +46,18 @@ export const FitnessChatBot = ({ athleteContext }: FitnessChatBotProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Atualiza dinamicamente a mensagem inicial com o nome do usuário quando ele carregar
+  useEffect(() => {
+    if (athleteContext?.name && messages.length === 1 && messages[0].id === "welcome") {
+      const firstName = athleteContext.name.split(" ")[0];
+      setMessages([{
+        id: "welcome",
+        role: "assistant",
+        content: `Fala, **${firstName}**! 💪 Sou seu **Elite Performance Coach**. Posso te ajudar com treinos, nutrição, suplementação e análise de performance. Use os atalhos abaixo ou me pergunte qualquer coisa!`,
+      }]);
+    }
+  }, [athleteContext?.name]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
