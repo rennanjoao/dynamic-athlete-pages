@@ -3,26 +3,44 @@ import { Clock, TrendingUp, TrendingDown, Minus, Scale, Flame, Dna, Wheat, Dropl
 import { type CarbMode } from "@/components/student/CarbCycleSelector";
 
 // ─── Math engine ──────────────────────────────────────────────────────────────
-function applySmartMath(text: string, mode: CarbMode, isCooked: boolean, isCarbGroup: boolean, highPct = 15, lowPct = 15): string {
+// Conversão real cru → cozido (multiplicadores baseados em tabela TACO/USDA)
+// Aplicado quando o coach cadastra o valor em CRU e o aluno escolhe ver em COZIDO.
+function getCookedMultiplier(name: string): number {
+  const s = name.toLowerCase();
+  // Carboidratos que absorvem água
+  if (/\barroz(?!\s+integral)/.test(s)) return 2.5;      // arroz branco
+  if (/arroz\s+integral/.test(s)) return 2.4;
+  if (/(macarr[aã]o|massa|talharim|espaguete|penne|p[aã]o)/.test(s)) return 2.2;
+  if (/(cuscuz|quinoa)/.test(s)) return 2.4;
+  if (/aveia/.test(s)) return 2.5;
+  if (/feij[aã]o/.test(s)) return 2.3;
+  if (/lentilha|gr[aã]o[- ]de[- ]bico/.test(s)) return 2.4;
+  // Tubérculos perdem água
+  if (/(batata\s+doce|batata|mandioca|aipim|inhame|cará)/.test(s)) return 0.85;
+  // Proteínas perdem água ao cozinhar
+  if (/(frango|peito\s+de\s+frango|peru)/.test(s)) return 0.70;
+  if (/(patinho|alcatra|coxão|filé\s+mignon|carne\s+vermelha|carne\s+moída|carne\s+bovina|boi|suíno|porco|lombo)/.test(s)) return 0.70;
+  if (/(peixe|til[áa]pia|salm[ãa]o|atum|merluza|pescada|bacalhau)/.test(s)) return 0.75;
+  if (/(camar[ãa]o|fruto.*mar)/.test(s)) return 0.75;
+  if (/(ovo)/.test(s)) return 0.90;
+  if (/(coração|fígado|moela)/.test(s)) return 0.70;
+  return 1;
+}
+
+function applySmartMath(text: string, mode: CarbMode, isCooked: boolean, isCarbGroup: boolean, foodName = "", highPct = 15, lowPct = 15): string {
   if (!text) return "";
   const carbMult = mode === "high" ? 1 + highPct / 100 : (mode === "low" || mode === "off") ? 1 - lowPct / 100 : 1;
-  let cookedMult = 1;
-  const lStr = text.toLowerCase();
-  if (isCooked) {
-    if (/(arroz|macarrão|massa|cuscuz|creme de arroz|aveia)/.test(lStr)) cookedMult = 3;
-    else if (/(mandioca|batata)/.test(lStr)) cookedMult = 1.3;
-    else if (/(frango|carne|patinho|peixe|tilápia|salmão|boi|suíno|porco|coração)/.test(lStr)) cookedMult = 0.7;
-  }
-  let out = text.replace(/(\d+)(\s*)(g|ml|kg)/gi, (_, num, sp, unit) => {
-    let v = Number(num);
+  const cookedMult = isCooked ? getCookedMultiplier(foodName || text) : 1;
+  let out = text.replace(/(\d+(?:[.,]\d+)?)(\s*)(g|ml|kg)/gi, (_, num, sp, unit) => {
+    let v = Number(String(num).replace(",", "."));
     if (isCarbGroup) v *= carbMult;
     v *= cookedMult;
     return `${Math.round(v)}${sp}${unit}`;
   });
   if (isCooked) {
-    out = out.replace(/\bcru(a)?\b/gi, "pronto").replace(/\b(cozido|grelhado|assado)\b/gi, "pronto");
+    out = out.replace(/\bcru(a)?\b/gi, "cozido").replace(/\b(grelhado|assado)\b/gi, "cozido");
   } else {
-    out = out.replace(/\bpronto(a)?\b/gi, "cru").replace(/\bcozido(a)?\b/gi, "cru");
+    out = out.replace(/\b(pronto|cozido|grelhado|assado)(a)?\b/gi, "cru");
   }
   return out;
 }
