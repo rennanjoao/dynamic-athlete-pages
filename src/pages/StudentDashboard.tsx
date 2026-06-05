@@ -8,18 +8,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { 
-  Flame, Droplets, Dumbbell, UtensilsCrossed, TrendingUp, CheckCircle2, 
-  Circle, ChevronRight, Apple, Pill, Loader2, LogOut 
+  Flame, Droplets, Dumbbell, UtensilsCrossed, TrendingUp, 
+  Apple, Pill, Loader2, LogOut 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-
-// Gamification Components (Certifique-se de que esses arquivos existam, senão comente as chamadas deles no JSX)
-import ScoreCard from "@/components/gamification/ScoreCard";
-import RankingTeaser from "@/components/gamification/RankingTeaser";
 
 // ─── GRÁFICO OTIMIZADO ───
 function WeightChart({ data }: { data: any[] }) {
@@ -199,10 +195,6 @@ export default function StudentDashboard() {
             <TrendingUp className="w-3.5 h-3.5 mr-1.5 text-emerald-500" /> Evolução
           </Button>
         </div>
-
-        {/* GAMIFICAÇÃO (Se estiver usando no projeto, descomente os dois abaixo) */}
-        {/* <ScoreCard /> */}
-        {/* <RankingTeaser /> */}
 
         {/* CHECKLIST DIÁRIO */}
         <div className="bg-card rounded-2xl border border-border p-4 shadow-sm space-y-4">
