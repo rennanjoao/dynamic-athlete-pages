@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -46,6 +47,30 @@ export const InfoChatBot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Tenta buscar o nome do usuário ativo (se houver sessão) para personalizar a mensagem inicial
+  useEffect(() => {
+    const fetchUserName = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const { data } = await supabase.from("profiles").select("full_name").eq("user_id", session.user.id).single();
+        if (data?.full_name) {
+          const firstName = data.full_name.split(" ")[0];
+          setMessages(prev => {
+            if (prev.length === 1 && prev[0].id === "welcome") {
+              return [{
+                id: "welcome",
+                role: "assistant",
+                content: `Olá, **${firstName}**! 👋 Sou o **Guia Elite** da plataforma. Posso te contar tudo sobre o que fazemos aqui, dar dicas de **saúde, hidratação, sono e nutrição**, e te direcionar para a área certa!\n\nUse os atalhos abaixo ou me pergunte qualquer coisa! 🚀`
+              }];
+            }
+            return prev;
+          });
+        }
+      }
+    };
+    fetchUserName();
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
