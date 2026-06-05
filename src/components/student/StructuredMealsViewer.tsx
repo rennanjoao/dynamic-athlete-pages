@@ -1,35 +1,14 @@
-/**
- * StructuredMealsViewer.tsx
- *
- * CORREÇÕES APLICADAS:
- * [LAYOUT] Peso cru/cozido NÃO aparece no layout — só muda os valores
- *   quando o botão é clicado. Botão compacto no header do card.
- * [FIX] rawWeight: usa o campo `rawWeight` do item (salvo pelo editor)
- *   para calcular o peso pronto dinamicamente via cookFactor
- * [FIX] dangerouslySetInnerHTML removido — dados agora são texto limpo
- * [FIX] Botões Alto/Base/Off do CarbCycleSelector já funcionavam;
- *   mantidos sem alteração
- */
-
 import { useState } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Apple, Clock, Scale, CheckCircle2, Repeat } from "lucide-react";
+import { Apple, Clock, TrendingUp, TrendingDown, Minus, Scale, Flame, Dna, Wheat, Droplets } from "lucide-react";
 import CarbCycleSelector, { type CarbMode } from "@/components/student/CarbCycleSelector";
 
-// ─── Motor matemático ─────────────────────────────────────────────────────────
+// ─── Math engine (unchanged logic) ───────────────────────────────────────────
 function applySmartMath(
-  text: string,
-  mode: CarbMode,
-  isCooked: boolean,
-  isCarbGroup: boolean,
-  highPct = 15,
-  lowPct = 15
-) {
+  text: string, mode: CarbMode, isCooked: boolean,
+  isCarbGroup: boolean, highPct = 15, lowPct = 15
+): string {
   if (!text) return "";
-  const carbMult =
-    mode === "high" ? 1 + highPct / 100 :
-    (mode === "low" || mode === "off") ? 1 - lowPct / 100 : 1;
-
+  const carbMult = mode === "high" ? 1 + highPct / 100 : (mode === "low" || mode === "off") ? 1 - lowPct / 100 : 1;
   let cookedMult = 1;
   const lStr = text.toLowerCase();
   if (isCooked) {
@@ -37,251 +16,305 @@ function applySmartMath(
     else if (/(mandioca|batata)/.test(lStr)) cookedMult = 1.3;
     else if (/(frango|carne|patinho|peixe|tilápia|salmão|boi|suíno|porco|coração)/.test(lStr)) cookedMult = 0.7;
   }
-
-  let finalStr = text.replace(/(\d+)(\s*)(g|ml|kg)/gi, (_, num, space, unit) => {
-    let val = Number(num);
-    if (isCarbGroup) val = val * carbMult;
-    val = val * cookedMult;
-    return `${Math.round(val)}${space}${unit}`;
+  let out = text.replace(/(\d+)(\s*)(g|ml|kg)/gi, (_, num, sp, unit) => {
+    let v = Number(num);
+    if (isCarbGroup) v *= carbMult;
+    v *= cookedMult;
+    return `${Math.round(v)}${sp}${unit}`;
   });
-
   if (isCooked) {
-    finalStr = finalStr.replace(/\bcru(a)?\b/gi, "pronto").replace(/\b(cozido|grelhado|assado)\b/gi, "pronto");
+    out = out.replace(/\bcru(a)?\b/gi, "pronto").replace(/\b(cozido|grelhado|assado)\b/gi, "pronto");
   } else {
-    finalStr = finalStr.replace(/\bpronto(a)?\b/gi, "cru").replace(/\bcozido(a)?\b/gi, "cru");
+    out = out.replace(/\bpronto(a)?\b/gi, "cru").replace(/\bcozido(a)?\b/gi, "cru");
   }
-
-  return finalStr;
+  return out;
 }
 
-// ─── Root ─────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
+const KIND_META = {
+  carb:    { label: "CARBOIDRATO", color: "text-amber-400",  border: "border-amber-500/20", bg: "bg-amber-500/5"  },
+  protein: { label: "PROTEÍNA",    color: "text-blue-400",   border: "border-blue-500/20",  bg: "bg-blue-500/5"   },
+  fat:     { label: "GORDURA",     color: "text-rose-400",   border: "border-rose-500/20",  bg: "bg-rose-500/5"   },
+} as const;
 
-export default function StructuredMealsViewer({ payload }: { payload: any }) {
-  const safeData = payload || {};
-  const meals = Array.isArray(safeData.meals) ? safeData.meals : [];
-  const [mode, setMode] = useState<CarbMode>("base");
-  const highPct: number = safeData.carbCycleHighPct ?? 15;
-  const lowPct: number = safeData.carbCycleLowPct ?? 15;
+// ─── NutritionStrategyHeader ─────────────────────────────────────────────────
+function NutritionStrategyHeader({
+  payload, isCooked, setIsCooked, mode, setMode,
+}: {
+  payload: any;
+  isCooked: boolean;
+  setIsCooked: (v: boolean) => void;
+  mode: CarbMode;
+  setMode: (m: CarbMode) => void;
+}) {
+  const m = payload?.macros ?? {};
+  const hasCarbCycle = payload?.setup?.carbCycle === true;
+  const highPct = payload?.carbCycleHighPct ?? 15;
+  const lowPct  = payload?.carbCycleLowPct  ?? 15;
 
-  if (meals.length === 0) return null;
+  const macros = [
+    { icon: Flame,    value: m.calories ?? "—", unit: "kcal",     label: "Energia"  },
+    { icon: Dna,      value: m.protein  ?? "—", unit: "g",        label: "Proteína" },
+    { icon: Wheat,    value: m.carbs    ?? "—", unit: "g",        label: "Carbo"    },
+    { icon: Droplets, value: m.fat      ?? "—", unit: "g",        label: "Gordura"  },
+  ];
 
   return (
-    <div className="space-y-4 w-full">
-      {safeData.setup?.carbCycle && (
-        <CarbCycleSelector value={mode} onChange={setMode} highPct={highPct} lowPct={lowPct} />
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full items-stretch">
-        {meals.map((meal: any, i: number) => (
-          <MealCard key={i} meal={meal} mode={mode} index={i} highPct={highPct} lowPct={lowPct} />
+    <div className="glass-strong rounded-2xl overflow-hidden glow-primary mb-6">
+      {/* Top bar */}
+      <div className="gradient-primary-soft px-5 py-3 border-b border-white/5">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-primary/70 font-bold">Estratégia Nutricional</p>
+      </div>
+
+      {/* Macros row */}
+      <div className="grid grid-cols-4 divide-x divide-white/5 px-0">
+        {macros.map(({ icon: Icon, value, unit, label }) => (
+          <div key={label} className="flex flex-col items-center py-4 px-2">
+            <Icon className="w-3.5 h-3.5 text-primary/60 mb-1.5" />
+            <span className="text-xl font-black text-foreground leading-none">{value}</span>
+            <span className="text-[10px] text-primary font-bold mt-0.5">{unit}</span>
+            <span className="text-[9px] uppercase tracking-wider text-muted-foreground mt-0.5">{label}</span>
+          </div>
         ))}
+      </div>
+
+      {/* Controls */}
+      <div className="px-4 pb-4 space-y-2.5">
+        {/* Cru / Cozido */}
+        <div className="flex gap-2">
+          {[false, true].map((cooked) => (
+            <button
+              key={String(cooked)}
+              type="button"
+              onClick={() => setIsCooked(cooked)}
+              className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all ${
+                isCooked === cooked
+                  ? "gradient-primary text-white border-primary/40 glow-primary"
+                  : "glass border-white/10 text-muted-foreground hover:border-white/20"
+              }`}
+            >
+              <Scale className="w-3.5 h-3.5 inline mr-1.5 opacity-70" />
+              {cooked ? "COZIDO" : "CRU"}
+            </button>
+          ))}
+        </div>
+
+        {/* Carb cycle */}
+        {hasCarbCycle && (
+          <div className="flex gap-2">
+            {([
+              { id: "base" as CarbMode, label: "DIA BASE",  Icon: Minus,        cls: "data-[on=true]:bg-blue-500/20  data-[on=true]:border-blue-500/40  data-[on=true]:text-blue-300"  },
+              { id: "high" as CarbMode, label: `DIA ALTO +${highPct}%`,  Icon: TrendingUp,   cls: "data-[on=true]:bg-emerald-500/20 data-[on=true]:border-emerald-500/40 data-[on=true]:text-emerald-300" },
+              { id: "off"  as CarbMode, label: `DIA OFF −${lowPct}%`,   Icon: TrendingDown, cls: "data-[on=true]:bg-amber-500/20  data-[on=true]:border-amber-500/40  data-[on=true]:text-amber-300"  },
+            ] as const).map(({ id, label, Icon, cls }) => (
+              <button
+                key={id}
+                type="button"
+                data-on={mode === id}
+                onClick={() => setMode(id)}
+                className={`flex-1 h-9 rounded-xl text-[10px] font-bold border border-white/10 glass flex items-center justify-center gap-1 transition-all ${cls}`}
+              >
+                <Icon className="w-3 h-3" />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-const KIND_META: Record<string, { emoji: string; label: string; color: string; isCarb: boolean }> = {
-  carb:    { emoji: "🟡", label: "Carbo",    color: "text-amber-600", isCarb: true  },
-  protein: { emoji: "🔵", label: "Proteína", color: "text-blue-600",  isCarb: false },
-  fat:     { emoji: "🔴", label: "Gordura",  color: "text-rose-500",  isCarb: false },
-};
-
-// ─── MealCard ─────────────────────────────────────────────────────────────────
-
-function MealCard({
-  meal, mode, index, highPct, lowPct,
-}: {
-  meal: any; mode: CarbMode; index: number; highPct: number; lowPct: number;
-}) {
-  // FIX: isCooked só altera os valores calculados — não aparece separado no layout.
-  // O botão fica compacto no header do card.
-  const [isCooked, setIsCooked] = useState(false);
-
-  const allOptions = Array.isArray(meal.options) ? meal.options : [];
-  const grouped: Record<string, any[]> = { carb: [], protein: [], fat: [] };
-  allOptions.forEach((o: any) => { const k = o?.kind ?? "carb"; if (grouped[k]) grouped[k].push(o); });
-
-  const filterOpt = (opts: any[]) =>
-    opts.filter((o) => Array.isArray(o.items) && o.items.some((it: any) => it?.name?.trim()));
-
-  const carbOpts    = filterOpt(grouped.carb);
-  const protOpts    = filterOpt(grouped.protein);
-  const fatOpts     = filterOpt(grouped.fat);
-
-  const subs      = meal.substitutions ?? {};
-  const filterSub = (arr: any) => (Array.isArray(arr) ? arr : []).filter((s: any) => typeof s === "string" ? s.trim() : s?.name?.trim());
-  const subCarb   = filterSub(subs.carb);
-  const subProt   = filterSub(subs.protein);
-  const subFat    = filterSub(subs.fat);
-
-  const isEmpty = !carbOpts.length && !protOpts.length && !fatOpts.length;
-
-  return (
-    <Card className="bg-card/60 border border-border/60 rounded-xl shadow-sm flex flex-col h-full overflow-hidden">
-      <CardHeader className="px-4 py-3 border-b border-border/40 bg-muted/10">
-        <div className="flex items-center justify-between w-full gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Apple className="w-4 h-4 text-primary" />
-            </div>
-            <span className="font-bold text-base text-foreground truncate">
-              {meal.name || `Refeição ${index + 1}`}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {meal.time && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground bg-background px-2 py-1 rounded-md border">
-                <Clock className="w-3 h-3" /> {meal.time}
-              </span>
-            )}
-            {/* FIX: botão CRU/PRONTO compacto no header — não gera linha extra no layout */}
-            <button
-              onClick={() => setIsCooked(!isCooked)}
-              title={isCooked ? "Mostrar peso cru" : "Mostrar peso pronto (cozido)"}
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold border transition-colors ${
-                isCooked
-                  ? "bg-orange-500 text-white border-orange-600"
-                  : "bg-background text-muted-foreground border-border hover:border-primary/50"
-              }`}
-            >
-              <Scale className="w-3 h-3" />
-              {isCooked ? "Pronto" : "Cru"}
-            </button>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="px-4 py-4 flex-1 flex flex-col">
-        <div className="space-y-3 flex-1">
-          {(["carb", "protein", "fat"] as const).flatMap((kind) => {
-            const opts = kind === "carb" ? carbOpts : kind === "protein" ? protOpts : fatOpts;
-            return opts.map((opt: any, idx: number) => {
-              const effectiveMode: CarbMode = meal.carbCycle ? mode : "base";
-              return (
-                <OptionBlock
-                  key={`${kind}-${idx}`}
-                  kind={kind}
-                  opt={opt}
-                  mode={effectiveMode}
-                  isCooked={isCooked}
-                  optionIndex={idx + 1}
-                  highPct={highPct}
-                  lowPct={lowPct}
-                />
-              );
-            });
-          })}
-          {isEmpty && <p className="text-sm text-muted-foreground italic text-center py-4">Refeição em branco.</p>}
-        </div>
-
-        {(subCarb.length > 0 || subProt.length > 0 || subFat.length > 0) && (
-          <div className="mt-4 pt-3 border-t border-border/40 space-y-2">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1">
-              <Repeat className="w-3 h-3" /> Substituições
-            </p>
-            {subCarb.length > 0 && <SubLine kind="carb"    items={subCarb} mode={meal.carbCycle ? mode : "base"} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />}
-            {subProt.length > 0 && <SubLine kind="protein" items={subProt} mode={meal.carbCycle ? mode : "base"} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />}
-            {subFat.length  > 0 && <SubLine kind="fat"     items={subFat}  mode={meal.carbCycle ? mode : "base"} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />}
-          </div>
-        )}
-
-        {meal.notes && (
-          <div className="mt-4 pt-3 border-t border-border/40">
-            <p className="text-xs text-muted-foreground italic">{meal.notes}</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── OptionBlock ─────────────────────────────────────────────────────────────
-
-function OptionBlock({
-  kind, opt, mode, isCooked, optionIndex, highPct = 15, lowPct = 15,
+// ─── MacroSection — grouped options ──────────────────────────────────────────
+function MacroSection({
+  kind, opts, mode, isCooked, highPct, lowPct,
 }: {
   kind: "carb" | "protein" | "fat";
-  opt: any;
+  opts: any[];
   mode: CarbMode;
   isCooked: boolean;
-  optionIndex: number;
-  highPct?: number;
-  lowPct?: number;
+  highPct: number;
+  lowPct: number;
 }) {
-  const meta = KIND_META[kind];
-  const items = (opt?.items ?? []).filter((it: any) => it?.name?.trim());
-  if (!items.length) return null;
-
-  const title = opt?.title || `${meta.label} — Opção ${optionIndex}`;
+  const cfg = KIND_META[kind];
+  const filledOpts = opts.filter((o: any) =>
+    Array.isArray(o.items) && o.items.some((it: any) => (it?.name || it?.baseName)?.trim())
+  );
+  if (!filledOpts.length) return null;
 
   return (
-    <div className="bg-background rounded-lg border border-border/60 p-3 shadow-sm">
-      <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5 ${meta.color}`}>
-        <CheckCircle2 className="w-3.5 h-3.5" /> {meta.emoji} {title}
-      </h4>
-
-      {/* Observação da opção */}
-      {opt?.notes && (
-        <p className="text-[11px] text-muted-foreground italic mb-2 pl-1">{opt.notes}</p>
-      )}
-
+    <div className={`rounded-xl border ${cfg.border} ${cfg.bg} p-3`}>
+      <p className={`text-[10px] uppercase tracking-[0.18em] font-black mb-2.5 ${cfg.color}`}>
+        ESCOLHA 1 {cfg.label}
+      </p>
       <ul className="space-y-1.5">
-        {items.map((it: any, idx: number) => {
-          // FIX: usa rawWeight (TACO) ou weight (livre) para o cálculo
-          const rawText = it.rawWeight ? `${it.rawWeight}g` : (it.weight || "");
-          const weightText = rawText
-            ? applySmartMath(rawText, mode, isCooked, meta.isCarb, highPct, lowPct)
-            : "";
-
-          // Nome limpo — sem HTML injetado
-          const displayName = it.baseName || it.name || "";
-
-          return (
-            <li key={idx} className="text-sm text-foreground flex items-start gap-2 pl-2">
-              <span className="text-muted-foreground mt-0.5">•</span>
-              <span className="leading-relaxed flex-1">
-                <span className="font-medium">{displayName}</span>
-                {weightText && (
-                  <span className="text-muted-foreground"> — {weightText}</span>
-                )}
-              </span>
-            </li>
-          );
-        })}
+        {filledOpts.flatMap((opt: any, oi: number) =>
+          (opt.items as any[])
+            .filter((it: any) => (it?.name || it?.baseName)?.trim())
+            .map((it: any, ii: number) => {
+              const name = it.baseName || it.name || "";
+              const rawText = it.rawWeight ? `${it.rawWeight}g` : (it.weight || "");
+              const weightText = rawText
+                ? applySmartMath(rawText, mode, isCooked, kind === "carb", highPct, lowPct)
+                : "";
+              const isFirst = oi === 0 && ii === 0;
+              return (
+                <li
+                  key={`${oi}-${ii}`}
+                  className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-colors ${
+                    isFirst
+                      ? "bg-white/5 border border-white/8"
+                      : "hover:bg-white/3"
+                  }`}
+                >
+                  <span className="text-sm text-foreground/90 leading-snug">{name}</span>
+                  {weightText && (
+                    <span className={`text-xs font-bold shrink-0 tabular-nums ${cfg.color}`}>
+                      {weightText}
+                    </span>
+                  )}
+                </li>
+              );
+            })
+        )}
       </ul>
+      {/* Optional note */}
+      {filledOpts.some((o: any) => o.notes?.trim()) && (
+        <p className="text-[11px] text-muted-foreground italic mt-2 pl-1">
+          {filledOpts.find((o: any) => o.notes?.trim())?.notes}
+        </p>
+      )}
     </div>
   );
 }
 
-// ─── SubLine ─────────────────────────────────────────────────────────────────
+// ─── MealCard ─────────────────────────────────────────────────────────────────
+const MEAL_ICONS = ["☀️", "🥗", "💪", "🍽️", "🌙", "⚡", "🥤", "🌿"];
 
-function SubLine({
-  kind, items, mode, isCooked, highPct = 15, lowPct = 15,
+function MealCard({
+  meal, index, mode, isCooked, highPct, lowPct,
 }: {
-  kind: "carb" | "protein" | "fat";
-  items: any[];
+  meal: any;
+  index: number;
   mode: CarbMode;
   isCooked: boolean;
-  highPct?: number;
-  lowPct?: number;
+  highPct: number;
+  lowPct: number;
 }) {
-  const meta = KIND_META[kind];
+  const [open, setOpen] = useState(index === 0);
+
+  const allOptions: any[] = Array.isArray(meal.options) ? meal.options : [];
+  const grouped: Record<string, any[]> = { carb: [], protein: [], fat: [] };
+  allOptions.forEach((o: any) => {
+    const k = o?.kind ?? "carb";
+    if (grouped[k]) grouped[k].push(o);
+  });
+
+  const effectiveMode: CarbMode = meal.carbCycle ? mode : "base";
+  const icon = MEAL_ICONS[index % MEAL_ICONS.length];
+
   return (
-    <div className="text-xs">
-      <span className={`font-bold ${meta.color}`}>{meta.emoji} {meta.label}:</span>{" "}
-      <span className="text-foreground/90">
-        {items.map((it: any, idx: number) => {
-          const name = typeof it === "string" ? it : it?.name ?? "";
-          const rawW = typeof it === "string" ? "" : (it?.rawWeight ? `${it.rawWeight}g` : (it?.weight || ""));
-          const w = rawW ? applySmartMath(rawW, mode, isCooked, meta.isCarb, highPct, lowPct) : "";
-          return (
-            <span key={idx}>
-              {idx > 0 && <span className="text-muted-foreground"> · </span>}
-              <span>{name}</span>
-              {w && <span className="text-muted-foreground"> ({w})</span>}
-            </span>
-          );
-        })}
-      </span>
+    <div className="glass rounded-2xl overflow-hidden card-hover border border-white/[0.06]">
+      {/* Header — tap to expand on mobile */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-xl leading-none">{icon}</span>
+          <div>
+            <p className="font-bold text-foreground text-sm leading-tight">{meal.name || `Refeição ${index + 1}`}</p>
+            {meal.time && (
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                <Clock className="w-3 h-3" />{meal.time}
+              </p>
+            )}
+          </div>
+        </div>
+        <span className={`text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
+          ▾
+        </span>
+      </button>
+
+      {/* Content */}
+      {open && (
+        <div className="px-4 pb-4 space-y-2.5 border-t border-white/5 pt-3">
+          <MacroSection kind="carb"    opts={grouped.carb}    mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
+          <MacroSection kind="protein" opts={grouped.protein} mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
+          <MacroSection kind="fat"     opts={grouped.fat}     mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
+
+          {/* Substituições */}
+          {meal.substitutions && Object.values(meal.substitutions).some((arr: any) => arr?.length) && (
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 mt-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Substituições</p>
+              {(["carb", "protein", "fat"] as const).map((k) => {
+                const items: any[] = meal.substitutions?.[k] ?? [];
+                const filled = items.filter((it: any) => (typeof it === "string" ? it : it?.name)?.trim());
+                if (!filled.length) return null;
+                const cfg = KIND_META[k];
+                return (
+                  <div key={k} className="flex flex-wrap gap-1.5 mb-1.5">
+                    <span className={`text-[10px] font-bold uppercase ${cfg.color} shrink-0`}>{cfg.label}:</span>
+                    {filled.map((it: any, i: number) => {
+                      const name = typeof it === "string" ? it : it?.name ?? "";
+                      const rawW = typeof it === "string" ? "" : (it?.rawWeight ? `${it.rawWeight}g` : (it?.weight || ""));
+                      const w = rawW ? applySmartMath(rawW, effectiveMode, isCooked, k === "carb", highPct, lowPct) : "";
+                      return (
+                        <span key={i} className="text-xs text-foreground/70">
+                          {name}{w ? ` (${w})` : ""}{i < filled.length - 1 ? " ·" : ""}
+                        </span>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {meal.notes && (
+            <p className="text-xs text-muted-foreground italic px-1">{meal.notes}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+export default function StructuredMealsViewer({ payload }: { payload: any }) {
+  const safeData = payload || {};
+  const meals: any[] = Array.isArray(safeData.meals) ? safeData.meals : [];
+  const [mode, setMode] = useState<CarbMode>("base");
+  const [isCooked, setIsCooked] = useState(false);
+  const highPct: number = safeData.carbCycleHighPct ?? 15;
+  const lowPct: number  = safeData.carbCycleLowPct  ?? 15;
+
+  if (meals.length === 0) return null;
+
+  return (
+    <div className="space-y-4 w-full">
+      <NutritionStrategyHeader
+        payload={safeData}
+        isCooked={isCooked}
+        setIsCooked={setIsCooked}
+        mode={mode}
+        setMode={setMode}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {meals.map((meal: any, i: number) => (
+          <MealCard
+            key={i}
+            meal={meal}
+            index={i}
+            mode={mode}
+            isCooked={isCooked}
+            highPct={highPct}
+            lowPct={lowPct}
+          />
+        ))}
+      </div>
     </div>
   );
 }
