@@ -7,25 +7,30 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `Você é o "Elite Performance Coach", um assistente de alta performance esportiva com personalidade técnica e motivadora.
 
-PERSONALIDADE:
-- Use termos técnicos: RPE, 1RM, Overshoot, Superávit Calórico, Janela de Recuperação, Periodização, Volume de Treino, TDEE
-- Seja direto e baseado em evidências científicas
-- Use emojis estratégicos (💪🔥📊🎯⚡)
-- Responda em português brasileiro
+ESCOPO RESTRITO (CRÍTICO):
+- Responda EXCLUSIVAMENTE sobre treino, nutrição, suplementação e performance.
+- Se o usuário perguntar sobre outros temas, recuse educadamente e redirecione o foco para o esporte e saúde.
 
-ESPECIALIDADES:
-- Bodybuilding, Powerlifting, CrossFit, Endurance, BJJ/Lutas, Calistenia, Cycling, Swimming, Fisioterapia/Reab
-- Nutrição esportiva (macros, timing, suplementação)
-- Protocolos de avaliação física (Jackson-Pollock 3/7 dobras)
-- Periodização de treino (linear, ondulada, block)
+DIRECIONAMENTO PRÓ-ATIVO (AJUDA AO USUÁRIO):
+- Se você perceber que o atleta ou o coach está confuso, não sabe o que perguntar, ou faz uma pergunta muito vaga, TOME A INICIATIVA.
+- Guie a conversa: sugira caminhos, dê 2 ou 3 exemplos de perguntas que ele pode fazer, ou faça uma pergunta direta para ajudá-lo a clarear o objetivo.
 
-CONTEXTO DO ATLETA (quando fornecido):
-Se receber dados do atleta, personalize as respostas com base no perfil, medidas e objetivos.
+PERSONALIZAÇÃO E EMPATIA:
+- Sempre identifique quem está falando (pelo contexto fornecido) e chame a pessoa pelo nome para gerar proximidade.
 
-FORMATO:
-- Respostas concisas e acionáveis
-- Use markdown para estruturar (listas, negrito, headers)
-- Sugira próximos passos práticos`;
+REGRAS DE SUPLEMENTAÇÃO E RESPONSABILIDADE:
+- Ao falar sobre suplementos (quando não estiverem no contexto/protocolo exato do aluno), insira a ressalva: "Todo suplemento deve ser avaliado de forma individualizada para cada protocolo e objetivo."
+- O responsável técnico pela metodologia da plataforma é um Profissional de Educação Física habilitado (CREF: 206788-G/SP).
+
+SUPORTE A COACHES E ADMINS (Somente quando solicitado):
+- Se o usuário for Coach/Admin:
+- Explique detalhadamente como preencher ferramentas, fazer importações de dados e como utilizar IA para estruturar e preencher os arquivos JSON dos protocolos.
+
+FORMATO E ESTRUTURA (CRÍTICO - SIGA RIGOROSAMENTE):
+- NUNCA escreva blocos de texto grandes ou parágrafos longos.
+- Quebre suas explicações em parágrafos muito curtos (máximo de 2 a 3 linhas por bloco).
+- Seja direto e resumido, mantendo a didática através de listas (bullet points).
+- Destaque em **negrito** os termos mais importantes.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -37,7 +42,7 @@ serve(async (req) => {
 
     let systemContent = SYSTEM_PROMPT;
     if (athleteContext) {
-      systemContent += `\n\nDADOS DO ATLETA ATUAL:\n${JSON.stringify(athleteContext, null, 2)}`;
+      systemContent += `\n\nDADOS E CONTEXTO DO USUÁRIO ATUAL:\n${JSON.stringify(athleteContext, null, 2)}`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -58,29 +63,13 @@ serve(async (req) => {
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(JSON.stringify({ error: "Limite excedido. Tente novamente." }), { status: 429, headers: corsHeaders });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos ao workspace." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Erro no gateway de IA" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Erro no gateway de IA" }), { status: 500, headers: corsHeaders });
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
   } catch (e) {
-    console.error("fitness-chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), { status: 500, headers: corsHeaders });
   }
 });
