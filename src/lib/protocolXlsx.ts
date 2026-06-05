@@ -237,10 +237,10 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
       type: String(r["Tipo"] || ""),
       duration: String(r["Duração"] || ""),
       intensity: String(r["Intensidade"] || ""),
-      associationType: String(r["Associação (Treino/Dia)"] || "").toLowerCase().includes('treino') ? 'workout' : 'weekday',
+      associationType: (String(r["Associação (Treino/Dia)"] || "").toLowerCase().includes('treino') ? 'workout' : 'weekday') as 'workout' | 'weekday',
       workoutKey: String(r["Chave (A, B, seg...)"] || ""),
       notes: String(r["Observações"] || "")
-    })).filter(c => c.type || c.duration); // Filtra linhas vazias
+    })).filter(c => c.type || c.duration);
   }
 
   // Importar Suplementos
