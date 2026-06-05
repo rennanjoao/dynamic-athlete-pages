@@ -220,7 +220,7 @@ export default function StudentDashboard() {
               </div>
             </div>
             <Switch 
-              checked={dailyLog?.diet_ok} 
+              checked={(dailyLog as any)?.diet_ok} 
               onCheckedChange={(v) => updateDaily.mutate({ diet_ok: v })} 
             />
           </div>
@@ -234,7 +234,7 @@ export default function StudentDashboard() {
               </div>
             </div>
             <Switch 
-              checked={dailyLog?.workout_ok} 
+              checked={(dailyLog as any)?.workout_ok} 
               onCheckedChange={(v) => updateDaily.mutate({ workout_ok: v })} 
             />
           </div>
@@ -248,7 +248,7 @@ export default function StudentDashboard() {
               </div>
             </div>
             <Switch 
-              checked={dailyLog?.water_ok} 
+              checked={(dailyLog as any)?.water_ok} 
               onCheckedChange={(v) => updateDaily.mutate({ water_ok: v })} 
             />
           </div>
