@@ -223,23 +223,6 @@ export default function CheckIn() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
-        {/* Fotos de progresso */}
-        <Card className="bg-card/60 border-border p-5">
-          <h2 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">
-            Fotos de Progresso
-          </h2>
-          <div className="grid grid-cols-4 gap-2">
-            {FOTO_KEYS.map((key) => (
-              <FotoSlot
-                key={key}
-                label={FOTO_LABELS[key]}
-                preview={fotoPreviews[key]}
-                onFile={(f) => handleFotoFile(key, f)}
-                onRemove={() => handleFotoRemove(key)}
-              />
-            ))}
-          </div>
-        </Card>
 
         {/* Métricas com delta */}
         <Card className="bg-card/60 border-border p-5">
@@ -299,6 +282,24 @@ export default function CheckIn() {
             </div>
           </Card>
         ))}
+
+        {/* Fotos de progresso — ao final */}
+        <Card className="bg-card/60 border-border p-5">
+          <h2 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">
+            Fotos de Progresso
+          </h2>
+          <div className="grid grid-cols-4 gap-2">
+            {FOTO_KEYS.map((key) => (
+              <FotoSlot
+                key={key}
+                label={FOTO_LABELS[key]}
+                preview={fotoPreviews[key]}
+                onFile={(f) => handleFotoFile(key, f)}
+                onRemove={() => handleFotoRemove(key)}
+              />
+            ))}
+          </div>
+        </Card>
       </main>
 
       <footer className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border z-20">
