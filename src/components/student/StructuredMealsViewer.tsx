@@ -248,32 +248,8 @@ function MealCard({ meal, index, mode, highPct, lowPct }: {
           <MacroSection kind="fat"     opts={fatOpts}     mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
           <MacroSection kind="veg"     opts={vegOpts}     mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
 
-          {meal.substitutions && Object.values(meal.substitutions).some((arr: any) => arr?.length) && (
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Substituições</p>
-              {(["carb", "protein", "fat"] as const).map((k) => {
-                const items: any[] = meal.substitutions?.[k] ?? [];
-                const filled = items.filter((it: any) => stripHtml(typeof it === "string" ? it : it?.name || ""));
-                if (!filled.length) return null;
-                const cfg = KIND_META[k];
-                return (
-                  <div key={k} className="flex flex-wrap gap-x-2 gap-y-0.5 mb-1">
-                    <span className={`text-[10px] font-bold uppercase ${cfg.color} shrink-0`}>{cfg.label}:</span>
-                    {filled.map((it: any, i: number) => {
-                      const name = stripHtml(typeof it === "string" ? it : it?.name ?? "");
-                      const rawW = typeof it === "string" ? "" : (it?.rawWeight ? `${it.rawWeight}g` : stripHtml(it?.weight || ""));
-                      const w = rawW ? applySmartMath(rawW, effectiveMode, isCooked, k === "carb", highPct, lowPct) : "";
-                      return (
-                        <span key={i} className="text-xs text-foreground/60 break-words">
-                          {name}{w ? ` (${w})` : ""}{i < filled.length - 1 ? " ·" : ""}
-                        </span>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+
+
 
           {meal.notes && <p className="text-xs text-muted-foreground italic px-1 break-words">{stripHtml(meal.notes)}</p>}
         </div>
