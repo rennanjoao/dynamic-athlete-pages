@@ -47,7 +47,7 @@ export default function WorkoutPlan() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-background border-b px-4 py-3 flex items-center gap-3 shadow-sm">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/student-area")}><ArrowLeft className="w-5 h-5" /></Button>
         <div className="flex-1">
           <h1 className="text-lg font-bold text-foreground">Plano de Treino</h1>
           <p className="text-xs text-muted-foreground">Biomecânica e Periodização</p>
