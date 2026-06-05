@@ -1,6 +1,9 @@
 /**
- * ProtocolImportExport.tsx — Permite ao coach baixar/importar o protocolo
- * em JSON ou Excel (.xlsx) para edição manual no PC ou via IA.
+ * ProtocolImportExport.tsx
+ *
+ * FIX: sanitizePayload() aplicado antes de exportar JSON/XLSX.
+ * Remove HTML injetado em item.name, corrige kind inválido para "carb",
+ * garante campos rawWeight/baseName/isTaco em todos os itens.
  */
 
 import { useRef } from "react";
@@ -16,6 +19,81 @@ interface Props {
   onImport: (next: ProtocolPayload) => void;
 }
 
+// ─── HTML stripper ────────────────────────────────────────────────────────────
+function stripHtml(str: string): string {
+  return (str || "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/class\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// ─── Detects if a string looks like an HTML-injected field ───────────────────
+function looksInjected(str: string): boolean {
+  return /<[a-z]/i.test(str || "");
+}
+
+// ─── Extracts clean text + raw/cooked weights from legacy HTML-injected names ─
+// Pattern: <span class='peso-cru'>Xg (CRU)</span><span class='peso-pronto'>Yg (PRONTO)</span> Nome
+function parseInjectedItem(raw: string): { name: string; rawWeight: number; displayWeight: string } {
+  const cruMatch  = raw.match(/peso-cru[^>]*>(\d+)g?\s*\(CRU\)/i);
+  const prontoMatch = raw.match(/peso-pronto[^>]*>(\d+)g?\s*\(PRONTO\)/i);
+  const rawW = cruMatch   ? Number(cruMatch[1])   : 0;
+  const displayW = prontoMatch ? `${prontoMatch[1]}g` : "";
+  const name = stripHtml(raw).replace(/\d+g?\s*\(CRU\)/gi, "").replace(/\d+g?\s*\(PRONTO\)/gi, "").trim();
+  return { name, rawWeight: rawW, displayWeight: displayW };
+}
+
+const VALID_KINDS = new Set(["carb", "protein", "fat", "veg"]);
+
+// ─── Sanitize full payload before export ─────────────────────────────────────
+function sanitizePayload(p: ProtocolPayload): ProtocolPayload {
+  const meals = (p.meals || []).map((meal: any) => {
+    const options = (meal.options || []).map((opt: any) => {
+      // Fix kind
+      const kind = VALID_KINDS.has(opt.kind) ? opt.kind : "carb";
+
+      const items = (opt.items || []).map((it: any) => {
+        const rawName: string = it.name || it.baseName || "";
+
+        if (looksInjected(rawName)) {
+          // Legacy HTML-injected item — extract data cleanly
+          const { name, rawWeight, displayWeight } = parseInjectedItem(rawName);
+          return {
+            name,
+            baseName: name,
+            weight: it.weight || displayWeight,
+            rawWeight: it.rawWeight || rawWeight,
+            cookFactor: it.cookFactor ?? 1,
+            isTaco: it.isTaco ?? (rawWeight > 0),
+          };
+        }
+
+        return {
+          name: stripHtml(rawName),
+          baseName: stripHtml(it.baseName || rawName),
+          weight: stripHtml(it.weight || ""),
+          rawWeight: it.rawWeight ?? 0,
+          cookFactor: it.cookFactor ?? 1,
+          isTaco: it.isTaco ?? false,
+        };
+      });
+
+      return { ...opt, kind, items };
+    });
+
+    return {
+      ...meal,
+      options,
+      notes: stripHtml(meal.notes || ""),
+    };
+  });
+
+  return { ...p, meals } as ProtocolPayload;
+}
+
+// ─── Template wrapper ─────────────────────────────────────────────────────────
 function buildTemplateNotes(p: ProtocolPayload) {
   return {
     _instructions: [
@@ -23,7 +101,7 @@ function buildTemplateNotes(p: ProtocolPayload) {
       "Mantenha a mesma estrutura. Campos opcionais podem ficar vazios.",
       "Importe de volta pelo painel do Coach > Protocolo > Importar.",
     ],
-    payload: p,
+    payload: sanitizePayload(p),
   };
 }
 
@@ -51,7 +129,7 @@ export default function ProtocolImportExport({ payload, studentName, onImport }:
 
   const downloadXlsx = () => {
     try {
-      exportProtocolXlsx(ensurePayload(), studentName);
+      exportProtocolXlsx(sanitizePayload(ensurePayload()), studentName);
     } catch (e) {
       toast.error("Falha ao gerar Excel: " + (e instanceof Error ? e.message : ""));
     }
@@ -63,30 +141,27 @@ export default function ProtocolImportExport({ payload, studentName, onImport }:
     try {
       const text = await file.text();
       const raw = JSON.parse(text);
-      // aceita { payload: {...} } ou o próprio payload na raiz
       const candidate = raw?.payload && typeof raw.payload === "object" ? raw.payload : raw;
-      // Tenta primeiro o schema estrito (com preprocess tolerante embutido).
-      // Se falhar, faz parse parcial e completa com defaults para nunca
-      // bloquear a importação por campos descritivos extras.
+      // Sanitize before parsing to avoid schema rejection on dirty legacy data
+      const sanitized = sanitizePayload(candidate as ProtocolPayload);
       let parsed: ProtocolPayload;
-      const safe = ProtocolPayloadSchema.safeParse(candidate);
+      const safe = ProtocolPayloadSchema.safeParse(sanitized);
       if (safe.success) {
         parsed = safe.data;
       } else {
-        // fallback: mantém apenas campos válidos por seção
         const fallback = ProtocolPayloadSchema.parse({
-          setup: candidate?.setup ?? {},
-          macros: candidate?.macros ?? {},
-          guidelines: candidate?.guidelines ?? {},
-          workouts: Array.isArray(candidate?.workouts) ? candidate.workouts : [],
-          meals: Array.isArray(candidate?.meals) ? candidate.meals : [],
-          carbCycle: candidate?.carbCycle ?? {},
-          carbCycleNotes: candidate?.carbCycleNotes ?? {},
+          setup: sanitized?.setup ?? {},
+          macros: sanitized?.macros ?? {},
+          guidelines: sanitized?.guidelines ?? {},
+          workouts: Array.isArray(sanitized?.workouts) ? sanitized.workouts : [],
+          meals: Array.isArray(sanitized?.meals) ? sanitized.meals : [],
+          carbCycle: sanitized?.carbCycle ?? {},
+          carbCycleNotes: sanitized?.carbCycleNotes ?? {},
         });
         parsed = fallback;
         const issues = safe.error.issues.slice(0, 3).map((i) => i.path.join(".") || "raiz").join(", ");
         toast.warning("Importado com adaptações", {
-          description: `Alguns campos vieram fora do padrão e foram normalizados (${issues}). Revise antes de salvar.`,
+          description: `Alguns campos foram normalizados (${issues}). Revise antes de salvar.`,
           duration: 6000,
         });
       }
