@@ -52,9 +52,9 @@ export const FitnessChatBot = ({ athleteContext }: FitnessChatBotProps) => {
       const firstName = athleteContext.name.split(" ")[0];
       const isCoach = athleteContext.isCoach;
       
-      const content = isCoach 
-        ? `Fala, Coach **${firstName}**! 🎯 Sou seu braço direito da Inteligência Artificial. Estou pronto para te ajudar a estruturar periodizações para seus alunos, gerar cálculos avançados, analisar anamneses e montar arquivos JSON de dieta e treino. Qual é a missão de hoje?`
-        : `Fala, **${firstName}**! 💪 Sou seu **Elite Performance Coach**. Posso te ajudar com treinos, nutrição, suplementação e análise de performance. Use os atalhos abaixo ou me pergunte qualquer coisa!`;
+      const content = isCoach
+        ? `Olá, Coach **${firstName}**! Como posso ajudar?`
+        : `Olá, **${firstName}**! Dúvida sobre treino ou nutrição?`;
 
       setMessages([{
         id: "welcome",
@@ -65,7 +65,7 @@ export const FitnessChatBot = ({ athleteContext }: FitnessChatBotProps) => {
         setMessages([{
             id: "welcome",
             role: "assistant",
-            content: "Fala, atleta! 💪 Sou seu **Elite Performance Coach**. Posso te ajudar com treinos, nutrição, suplementação e análise de performance. Use os atalhos abaixo ou me pergunte qualquer coisa!",
+            content: "Olá! Dúvida sobre treino ou nutrição?",
         }]);
     }
   }, [athleteContext?.name, athleteContext?.isCoach]);
