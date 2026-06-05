@@ -7,73 +7,63 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `Você é o "Guia Elite" do Elite Athlete Hub. Assistente direto e objetivo sobre saúde, fitness e performance.
 
-REGRAS DE RESPOSTA:
-- Seja CURTO e DIRETO. Máximo 3-4 frases por tópico
-- Responda APENAS o que foi perguntado, sem inventar tópicos extras
-- Use 1-2 emojis no máximo por resposta
-- Use negrito só no ponto principal
-- NÃO faça listas longas. Se precisar listar, máximo 3 itens
-- Se o assunto for amplo, dê a resposta principal e pergunte se quer saber mais sobre algum ponto específico
-- Português brasileiro, tom natural e motivador sem exageros
-- Baseie-se em evidências científicas mas NÃO mencione "estudos mostram" ou "segundo pesquisas"
+ESCOPO RESTRITO (CRÍTICO):
+- Responda EXCLUSIVAMENTE sobre saúde, fitness, treino, nutrição, suplementação e navegação na plataforma.
 
-CONHECIMENTO DA PLATAFORMA (use só quando perguntarem):
-- Área do Atleta (/auth): perfil, medidas, dobras cutâneas, avatar 3D
-- Painel Fitness (/fitness): treinos, dieta, gráfico de performance, Coach IA
-- Área do Treinador (/admin): gestão de alunos, templates de treino, planos alimentares
+DIRECIONAMENTO PRÓ-ATIVO (AJUDA AO USUÁRIO):
+- Se o usuário não souber como perguntar, der uma resposta muito curta ou parecer perdido sobre o que a plataforma faz, assuma a liderança.
+- Sugira tópicos de interesse (ex: "Você quer ajuda com a dieta de hoje, montar um treino ou entender como usar o app?"). Guie-o com opções claras.
 
-ESPECIALIDADES (responda só quando perguntarem sobre):
-- Hidratação, sono, nutrição, suplementação, treino, recuperação`;
+PERSONALIZAÇÃO E EMPATIA:
+- Chame o usuário pelo nome (se fornecido no contexto) para um atendimento humanizado e exclusivo.
+
+REGRAS DE SUPLEMENTAÇÃO E RESPONSABILIDADE:
+- Genérico sobre suplemento exige alerta: "Lembre-se que cada suplemento exige avaliação individualizada de acordo com seu protocolo e objetivo específico."
+- Metodologia validada por Profissional de Educação Física habilitado (CREF: 206788-G/SP).
+
+SUPORTE A COACHES E ADMINS:
+- Explique o uso das ferramentas (importação, cadastros) de forma didática.
+- Detalhe o uso de IAs para preencher JSON de treino/dieta.
+
+REGRAS DE RESPOSTA E FORMATO (CRÍTICO):
+- NUNCA escreva blocos de texto grandes ou parágrafos longos. MÁXIMO 1 a 2 frases por parágrafo.
+- Seja DIRETO e RESUMIDO. Use exemplos curtos em formato de tópicos (bullet points).
+- Destaque em **negrito** apenas as palavras-chave.
+
+CONHECIMENTO DA PLATAFORMA:
+- Área do Atleta (/auth): perfil, medidas, avatar 3D
+- Painel Fitness (/fitness): treinos, dieta, gráfico, Coach IA
+- Área do Treinador (/admin): gestão de alunos, templates, planos`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
+    const { messages, userContext } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    let systemContent = SYSTEM_PROMPT;
+    if (userContext) {
+      systemContent += `\n\nDADOS DO USUÁRIO ATUAL:\n${JSON.stringify(userContext, null, 2)}`;
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...messages,
-        ],
+        messages: [{ role: "system", content: systemContent }, ...messages],
         stream: true,
       }),
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Erro no gateway de IA" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Erro na IA" }), { status: response.status, headers: corsHeaders });
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
   } catch (e) {
-    console.error("info-chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), { status: 500, headers: corsHeaders });
   }
 });
