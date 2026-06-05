@@ -111,9 +111,9 @@ export function exportProtocolXlsx(payload: ProtocolPayload, studentName: string
   // 5. Aba de Ciclo de Carbo
   const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
   const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-  const cycleData = dayKeys.map((key, i) => ({
+  const cycleData: Array<{ Configuração: string; "Valor (high/base/off)": string }> = dayKeys.map((key, i) => ({
     "Configuração": days[i],
-    "Valor (high/base/off)": payload.carbCycle?.[key] || "base"
+    "Valor (high/base/off)": (payload.carbCycle?.[key as keyof typeof payload.carbCycle] as string) || "base"
   }));
   cycleData.push({ "Configuração": "ATIVO?", "Valor (high/base/off)": payload.setup?.carbCycle ? "SIM" : "NAO" });
   cycleData.push({ "Configuração": "PCT ALTO (%)", "Valor (high/base/off)": String(payload.carbCycleHighPct || 15) });
