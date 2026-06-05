@@ -209,12 +209,12 @@ export default function ProtocolBuilder({ studentId, studentName }: Props) {
           </Card>
 
           <Tabs defaultValue="macros">
-            <TabsList className="grid grid-cols-5 w-full sm:w-[640px]">
-              <TabsTrigger value="macros"><BarChart3 className="w-3.5 h-3.5 mr-1" />Macros</TabsTrigger>
-              <TabsTrigger value="guidelines"><FileText className="w-3.5 h-3.5 mr-1" />Diretrizes</TabsTrigger>
-              <TabsTrigger value="workouts"><Dumbbell className="w-3.5 h-3.5 mr-1" />Treino</TabsTrigger>
-              <TabsTrigger value="diet"><UtensilsCrossed className="w-3.5 h-3.5 mr-1" />Dieta</TabsTrigger>
-              <TabsTrigger value="cycle"><Calendar className="w-3.5 h-3.5 mr-1" />Semana</TabsTrigger>
+            <TabsList className="flex w-full overflow-x-auto gap-0 h-auto p-1">
+              <TabsTrigger value="macros" className="shrink-0"><BarChart3 className="w-3.5 h-3.5 mr-1" />Macros</TabsTrigger>
+              <TabsTrigger value="guidelines" className="shrink-0"><FileText className="w-3.5 h-3.5 mr-1" />Diretrizes</TabsTrigger>
+              <TabsTrigger value="workouts" className="shrink-0"><Dumbbell className="w-3.5 h-3.5 mr-1" />Treino</TabsTrigger>
+              <TabsTrigger value="diet" className="shrink-0"><UtensilsCrossed className="w-3.5 h-3.5 mr-1" />Dieta</TabsTrigger>
+              <TabsTrigger value="cycle" className="shrink-0"><Calendar className="w-3.5 h-3.5 mr-1" />Semana</TabsTrigger>
             </TabsList>
             <TabsContent value="macros" className="mt-4"><MacrosTab payload={payload} setPayload={setPayload} /></TabsContent>
             <TabsContent value="guidelines" className="mt-4"><GuidelinesTab payload={payload} setPayload={setPayload} /></TabsContent>
