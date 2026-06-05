@@ -267,7 +267,7 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
       const val = String(r["Valor (high/base/off)"] || "").trim();
       
       if (dayMap[label]) {
-        base.carbCycle![dayMap[label]] = val;
+        (base.carbCycle as Record<string, "base" | "high" | "low" | "off">)[dayMap[label]] = (["base","high","low","off"].includes(val) ? val : "base") as "base" | "high" | "low" | "off";
       } else if (label === "ATIVO?") {
         base.setup.carbCycle = val.toUpperCase() === "SIM";
       } else if (label === "PCT ALTO (%)") {
