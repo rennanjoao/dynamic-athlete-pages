@@ -123,7 +123,7 @@ export default function StudentDashboard() {
     queryKey: ["daily-log", userId, today],
     enabled: !!userId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("daily_logs")
         .select("*")
         .eq("student_id", userId)
@@ -132,18 +132,18 @@ export default function StudentDashboard() {
       
       // Se a tabela não existir ou der erro, retornamos falso para tudo
       if (error) return { diet_ok: false, workout_ok: false, water_ok: false };
-      return data || { diet_ok: false, workout_ok: false, water_ok: false };
+      return (data as any) || { diet_ok: false, workout_ok: false, water_ok: false };
     }
   });
 
   const updateDaily = useMutation({
     mutationFn: async (updates: any) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("daily_logs")
         .upsert({
           student_id: userId,
           log_date: today,
-          ...(dailyLog || {}),
+          ...((dailyLog as any) || {}),
           ...updates,
         }, { onConflict: "student_id, log_date" });
       if (error) throw error;
