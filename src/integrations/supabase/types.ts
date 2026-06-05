@@ -514,37 +514,46 @@ export type Database = {
       }
       profiles: {
         Row: {
+          billing_alert_days: number | null
           created_at: string
           cref: string | null
           email: string | null
+          feedback_interval_days: number
           full_name: string | null
           id: string
           invite_code: string | null
           notification_email: string | null
+          pix_key: string | null
           team_name: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          billing_alert_days?: number | null
           created_at?: string
           cref?: string | null
           email?: string | null
+          feedback_interval_days?: number
           full_name?: string | null
           id?: string
           invite_code?: string | null
           notification_email?: string | null
+          pix_key?: string | null
           team_name?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          billing_alert_days?: number | null
           created_at?: string
           cref?: string | null
           email?: string | null
+          feedback_interval_days?: number
           full_name?: string | null
           id?: string
           invite_code?: string | null
           notification_email?: string | null
+          pix_key?: string | null
           team_name?: string | null
           updated_at?: string
           user_id?: string
