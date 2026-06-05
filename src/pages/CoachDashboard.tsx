@@ -172,6 +172,9 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ student_id: "", description: "", amount: "", due_date: "" });
   const [editingFinance, setEditingFinance] = useState<{ id: string; due_date: string } | null>(null);
+  // Modal de cobrança rápida vinculada ao aluno
+  const [quickBilling, setQuickBilling] = useState<{ student_id: string; student_name: string } | null>(null);
+  const [quickForm, setQuickForm] = useState({ description: "Mensalidade", amount: "", due_date: "" });
 
   const addFinance = useMutation({
     mutationFn: async () => {
@@ -222,6 +225,22 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
     toast.success("Data de vencimento atualizada!");
   };
 
+  const createQuickBilling = async () => {
+    if (!quickBilling) return;
+    const { error } = await supabase.from("coach_finances").insert({
+      coach_id: coachId,
+      student_id: quickBilling.student_id,
+      description: quickForm.description || "Mensalidade",
+      amount: Number(quickForm.amount || 0),
+      due_date: quickForm.due_date || null,
+      status: "pending",
+    });
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["coach-finances"] });
+    setQuickBilling(null);
+    setQuickForm({ description: "Mensalidade", amount: "", due_date: "" });
+    toast.success(`Cobrança criada para ${quickBilling.student_name}. O aluno receberá o alerta.`);
+  };
   const totalReceita  = finances.filter((f) => f.status === "paid").reduce((s, f) => s + Number(f.amount), 0);
   const totalPendente = finances.filter((f) => f.status === "pending").reduce((s, f) => s + Number(f.amount), 0);
   const totalAtrasado = finances.filter((f) => f.status === "pending" && f.due_date && new Date(f.due_date) < new Date()).reduce((s, f) => s + Number(f.amount), 0);
@@ -289,9 +308,8 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {activeFinance && (
+                      {activeFinance ? (
                         <div className="flex justify-end gap-1">
-                          {/* FIX: botão de editar data — abre dialog editável */}
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
                             onClick={() => setEditingFinance({ id: activeFinance.id, due_date: activeFinance.due_date || "" })} title="Alterar Data">
                             <Calendar className="w-4 h-4" />
@@ -305,6 +323,11 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
+                      ) : (
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                          onClick={() => { setQuickBilling({ student_id: student.id, student_name: student.name }); setQuickForm({ description: "Mensalidade", amount: "", due_date: "" }); }}>
+                          <Plus className="w-3 h-3" /> Gerar Cobrança
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>
@@ -314,6 +337,36 @@ function FinancesTab({ coachId, students }: { coachId: string; students: Student
           </Table>
         </div>
       )}
+
+      {/* Modal cobrança rápida por aluno */}
+      <Dialog open={!!quickBilling} onOpenChange={(open) => !open && setQuickBilling(null)}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>Gerar Cobrança</DialogTitle>
+            <p className="text-xs text-muted-foreground mt-1">Para: <strong>{quickBilling?.student_name}</strong></p>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-xs">Descrição</Label>
+              <Input value={quickForm.description} onChange={(e) => setQuickForm({ ...quickForm, description: e.target.value })} className="mt-1 h-9 text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Valor (R$)</Label>
+                <Input type="number" value={quickForm.amount} onChange={(e) => setQuickForm({ ...quickForm, amount: e.target.value })} placeholder="0,00" className="mt-1 h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">Vencimento</Label>
+                <Input type="date" value={quickForm.due_date} onChange={(e) => setQuickForm({ ...quickForm, due_date: e.target.value })} className="mt-1 h-9 text-sm" />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+              O aluno verá um alerta de cobrança no painel dele assim que a data de vencimento se aproximar.
+            </p>
+            <Button onClick={createQuickBilling} className="w-full">Criar Cobrança</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* FIX: Modal para editar vencimento — campo date funcional */}
       <Dialog open={!!editingFinance} onOpenChange={(open) => !open && setEditingFinance(null)}>
