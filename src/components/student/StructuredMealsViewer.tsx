@@ -27,23 +27,17 @@ function applySmartMath(text: string, mode: CarbMode, isCooked: boolean, isCarbG
   return out;
 }
 
+// Strip any HTML tags that may have been injected into saved data
+function stripHtml(str: string): string {
+  return (str || "").replace(/<[^>]*>/g, "").trim();
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const KIND_META = {
-  carb:    { label: "CARBOIDRATO", color: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-500/5" },
-  protein: { label: "PROTEÍNA",    color: "text-blue-400",  border: "border-blue-500/20",  bg: "bg-blue-500/5"  },
-  fat:     { label: "GORDURA",     color: "text-rose-400",  border: "border-rose-500/20",  bg: "bg-rose-500/5"  },
+  carb:    { label: "CARBOIDRATO", color: "text-amber-400",  border: "border-amber-500/20",  bg: "bg-amber-500/5"  },
+  protein: { label: "PROTEÍNA",    color: "text-blue-400",   border: "border-blue-500/20",   bg: "bg-blue-500/5"   },
+  fat:     { label: "GORDURA",     color: "text-rose-400",   border: "border-rose-500/20",   bg: "bg-rose-500/5"   },
 } as const;
-
-// Priority config by position index (0-based)
-const PRIORITY = [
-  { label: "Preferencial", dot: "bg-emerald-400", rowBg: "bg-emerald-500/5",  rowBorder: "border-emerald-500/20", text: "text-emerald-400" },
-  { label: "Alternativa",  dot: "bg-amber-400",   rowBg: "bg-amber-500/5",    rowBorder: "border-amber-500/20",   text: "text-amber-400"   },
-  { label: "Eventual",     dot: "bg-rose-400",    rowBg: "bg-rose-500/5",     rowBorder: "border-rose-500/20",    text: "text-rose-400"    },
-] as const;
-
-function getPriority(index: number) {
-  return PRIORITY[Math.min(index, PRIORITY.length - 1)];
-}
 
 // ─── NutritionStrategyHeader ─────────────────────────────────────────────────
 function NutritionStrategyHeader({
@@ -106,67 +100,66 @@ function NutritionStrategyHeader({
 }
 
 // ─── MacroSection ─────────────────────────────────────────────────────────────
+// Each kind is filtered STRICTLY — only opts where opt.kind === kind.
+// Items are rendered per-option, never flattened across kinds.
 function MacroSection({
   kind, opts, mode, isCooked, highPct, lowPct,
 }: {
   kind: "carb" | "protein" | "fat"; opts: any[]; mode: CarbMode; isCooked: boolean; highPct: number; lowPct: number;
 }) {
   const cfg = KIND_META[kind];
+  const isCarb = kind === "carb";
 
-  // Flatten all filled items across all options, preserving order = priority
-  const allItems: { name: string; rawText: string }[] = [];
-  opts.forEach((opt: any) => {
-    if (!Array.isArray(opt.items)) return;
-    opt.items.forEach((it: any) => {
-      const name = (it?.baseName || it?.name || "").trim();
+  // Only options that strictly belong to this kind (already pre-filtered by caller)
+  const filledOpts = opts.filter((o: any) =>
+    Array.isArray(o.items) && o.items.some((it: any) => stripHtml(it?.baseName || it?.name || ""))
+  );
+  if (!filledOpts.length) return null;
+
+  // Build flat ordered list of items from all options of this kind
+  const items: { name: string; weight: string; isFirst: boolean }[] = [];
+  filledOpts.forEach((opt: any) => {
+    (opt.items as any[]).forEach((it: any) => {
+      const name = stripHtml(it?.baseName || it?.name || "");
       if (!name) return;
-      const rawText = it.rawWeight ? `${it.rawWeight}g` : (it.weight || "");
-      allItems.push({ name, rawText });
+      const rawText = it.rawWeight ? `${it.rawWeight}g` : stripHtml(it.weight || "");
+      const weight = rawText ? applySmartMath(rawText, mode, isCooked, isCarb, highPct, lowPct) : "";
+      items.push({ name, weight, isFirst: items.length === 0 });
     });
   });
 
-  if (!allItems.length) return null;
+  if (!items.length) return null;
 
-  const note = opts.find((o: any) => o.notes?.trim())?.notes;
+  const note = filledOpts.find((o: any) => o.notes?.trim())?.notes;
 
   return (
     <div className={`rounded-xl border ${cfg.border} ${cfg.bg} p-3`}>
-      <p className={`text-[10px] uppercase tracking-[0.18em] font-black mb-3 ${cfg.color}`}>
+      <p className={`text-[10px] uppercase tracking-[0.18em] font-black mb-2.5 ${cfg.color}`}>
         ESCOLHA 1 {cfg.label}
       </p>
-
-      <div className="space-y-1.5">
-        {allItems.map((item, idx) => {
-          const prio = getPriority(idx);
-          const weightText = item.rawText
-            ? applySmartMath(item.rawText, mode, isCooked, kind === "carb", highPct, lowPct)
-            : "";
-          return (
-            <div
-              key={idx}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border ${prio.rowBorder} ${prio.rowBg} transition-colors`}
-            >
-              {/* Priority dot + label */}
-              <div className="flex items-center gap-1.5 shrink-0 w-24">
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${prio.dot}`} />
-                <span className={`text-[10px] font-bold uppercase tracking-wide ${prio.text}`}>{prio.label}</span>
-              </div>
-
-              {/* Food name */}
-              <span className="flex-1 text-sm text-foreground/90 leading-snug">{item.name}</span>
-
-              {/* Weight */}
-              {weightText && (
-                <span className={`text-xs font-bold tabular-nums shrink-0 ${cfg.color}`}>{weightText}</span>
+      <ul className="space-y-1">
+        {items.map((item, idx) => (
+          <li key={idx} className="flex items-baseline justify-between gap-3 px-1 py-1">
+            <div className="flex items-center gap-2 min-w-0">
+              {item.isFirst && (
+                <span className="text-[9px] text-muted-foreground/60 shrink-0 font-medium">✓</span>
               )}
+              {!item.isFirst && (
+                <span className="text-[9px] text-muted-foreground/30 shrink-0">·</span>
+              )}
+              <span className={`text-sm leading-snug truncate ${item.isFirst ? "text-foreground font-medium" : "text-foreground/70"}`}>
+                {item.name}
+              </span>
             </div>
-          );
-        })}
-      </div>
-
-      {note && (
-        <p className="text-[11px] text-muted-foreground italic mt-2.5 pl-1">{note}</p>
-      )}
+            {item.weight && (
+              <span className={`text-xs tabular-nums shrink-0 ${item.isFirst ? `font-bold ${cfg.color}` : "text-muted-foreground"}`}>
+                {item.weight}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {note && <p className="text-[11px] text-muted-foreground italic mt-2 pl-1">{note}</p>}
     </div>
   );
 }
@@ -174,15 +167,17 @@ function MacroSection({
 // ─── MealCard ─────────────────────────────────────────────────────────────────
 const MEAL_ICONS = ["☀️", "🥗", "💪", "🍽️", "🌙", "⚡", "🥤", "🌿"];
 
-function MealCard({
-  meal, index, mode, isCooked, highPct, lowPct,
-}: {
+function MealCard({ meal, index, mode, isCooked, highPct, lowPct }: {
   meal: any; index: number; mode: CarbMode; isCooked: boolean; highPct: number; lowPct: number;
 }) {
   const [open, setOpen] = useState(index === 0);
   const allOptions: any[] = Array.isArray(meal.options) ? meal.options : [];
-  const grouped: Record<string, any[]> = { carb: [], protein: [], fat: [] };
-  allOptions.forEach((o: any) => { const k = o?.kind ?? "carb"; if (grouped[k]) grouped[k].push(o); });
+
+  // Strict per-kind grouping — never mix
+  const carbOpts    = allOptions.filter((o: any) => o?.kind === "carb");
+  const proteinOpts = allOptions.filter((o: any) => o?.kind === "protein");
+  const fatOpts     = allOptions.filter((o: any) => o?.kind === "fat");
+
   const effectiveMode: CarbMode = meal.carbCycle ? mode : "base";
   const icon = MEAL_ICONS[index % MEAL_ICONS.length];
 
@@ -201,32 +196,32 @@ function MealCard({
             )}
           </div>
         </div>
-        <span className={`text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`}>▾</span>
+        <span className={`text-muted-foreground transition-transform duration-200 text-xs ${open ? "rotate-180" : ""}`}>▾</span>
       </button>
 
       {open && (
         <div className="px-4 pb-4 space-y-2.5 border-t border-white/5 pt-3">
-          <MacroSection kind="carb"    opts={grouped.carb}    mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
-          <MacroSection kind="protein" opts={grouped.protein} mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
-          <MacroSection kind="fat"     opts={grouped.fat}     mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
+          <MacroSection kind="carb"    opts={carbOpts}    mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
+          <MacroSection kind="protein" opts={proteinOpts} mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
+          <MacroSection kind="fat"     opts={fatOpts}     mode={effectiveMode} isCooked={isCooked} highPct={highPct} lowPct={lowPct} />
 
           {meal.substitutions && Object.values(meal.substitutions).some((arr: any) => arr?.length) && (
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 mt-1">
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Substituições</p>
               {(["carb", "protein", "fat"] as const).map((k) => {
                 const items: any[] = meal.substitutions?.[k] ?? [];
-                const filled = items.filter((it: any) => (typeof it === "string" ? it : it?.name)?.trim());
+                const filled = items.filter((it: any) => stripHtml(typeof it === "string" ? it : it?.name || ""));
                 if (!filled.length) return null;
                 const cfg = KIND_META[k];
                 return (
-                  <div key={k} className="flex flex-wrap gap-1.5 mb-1.5">
+                  <div key={k} className="flex flex-wrap gap-x-2 gap-y-0.5 mb-1">
                     <span className={`text-[10px] font-bold uppercase ${cfg.color} shrink-0`}>{cfg.label}:</span>
                     {filled.map((it: any, i: number) => {
-                      const name = typeof it === "string" ? it : it?.name ?? "";
-                      const rawW = typeof it === "string" ? "" : (it?.rawWeight ? `${it.rawWeight}g` : (it?.weight || ""));
+                      const name = stripHtml(typeof it === "string" ? it : it?.name ?? "");
+                      const rawW = typeof it === "string" ? "" : (it?.rawWeight ? `${it.rawWeight}g` : stripHtml(it?.weight || ""));
                       const w = rawW ? applySmartMath(rawW, effectiveMode, isCooked, k === "carb", highPct, lowPct) : "";
                       return (
-                        <span key={i} className="text-xs text-foreground/70">
+                        <span key={i} className="text-xs text-foreground/60">
                           {name}{w ? ` (${w})` : ""}{i < filled.length - 1 ? " ·" : ""}
                         </span>
                       );
@@ -237,7 +232,7 @@ function MealCard({
             </div>
           )}
 
-          {meal.notes && <p className="text-xs text-muted-foreground italic px-1">{meal.notes}</p>}
+          {meal.notes && <p className="text-xs text-muted-foreground italic px-1">{stripHtml(meal.notes)}</p>}
         </div>
       )}
     </div>
