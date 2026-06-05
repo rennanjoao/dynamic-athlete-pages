@@ -14,6 +14,7 @@ interface Message {
 
 interface AthleteContext {
   name?: string;
+  isCoach?: boolean;
   goal?: string;
   weight?: number;
   bodyFat?: number;
@@ -36,7 +37,7 @@ const QUICK_ACTIONS = [
 const INITIAL_MESSAGE: Message = {
   id: "welcome",
   role: "assistant",
-  content: "Fala, atleta! 💪 Sou seu **Elite Performance Coach**. Posso te ajudar com treinos, nutrição, suplementação e análise de performance. Use os atalhos abaixo ou me pergunte qualquer coisa!",
+  content: "Carregando...",
 };
 
 export const FitnessChatBot = ({ athleteContext }: FitnessChatBotProps) => {
@@ -46,17 +47,28 @@ export const FitnessChatBot = ({ athleteContext }: FitnessChatBotProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Atualiza dinamicamente a mensagem inicial com o nome do usuário quando ele carregar
   useEffect(() => {
     if (athleteContext?.name && messages.length === 1 && messages[0].id === "welcome") {
       const firstName = athleteContext.name.split(" ")[0];
+      const isCoach = athleteContext.isCoach;
+      
+      const content = isCoach 
+        ? `Fala, Coach **${firstName}**! 🎯 Sou seu braço direito da Inteligência Artificial. Estou pronto para te ajudar a estruturar periodizações para seus alunos, gerar cálculos avançados, analisar anamneses e montar arquivos JSON de dieta e treino. Qual é a missão de hoje?`
+        : `Fala, **${firstName}**! 💪 Sou seu **Elite Performance Coach**. Posso te ajudar com treinos, nutrição, suplementação e análise de performance. Use os atalhos abaixo ou me pergunte qualquer coisa!`;
+
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: `Fala, **${firstName}**! 💪 Sou seu **Elite Performance Coach**. Posso te ajudar com treinos, nutrição, suplementação e análise de performance. Use os atalhos abaixo ou me pergunte qualquer coisa!`,
+        content: content,
       }]);
+    } else if (messages.length === 1 && messages[0].id === "welcome" && athleteContext === null) {
+        setMessages([{
+            id: "welcome",
+            role: "assistant",
+            content: "Fala, atleta! 💪 Sou seu **Elite Performance Coach**. Posso te ajudar com treinos, nutrição, suplementação e análise de performance. Use os atalhos abaixo ou me pergunte qualquer coisa!",
+        }]);
     }
-  }, [athleteContext?.name]);
+  }, [athleteContext?.name, athleteContext?.isCoach]);
 
   useEffect(() => {
     if (scrollRef.current) {
