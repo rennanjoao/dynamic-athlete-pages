@@ -145,7 +145,7 @@ function MacroSection({
               const name = stripHtml(it?.baseName || it?.name || "");
               if (!name) return null;
               const rawText = it.rawWeight ? `${it.rawWeight}g` : stripHtml(it.weight || "");
-              const weight = rawText ? applySmartMath(rawText, mode, isCooked, isCarb, highPct, lowPct) : "";
+              const weight = rawText ? applySmartMath(rawText, mode, isCooked, isCarb, name, highPct, lowPct) : "";
               return { name, weight };
             })
             .filter(Boolean) as { name: string; weight: string }[];
