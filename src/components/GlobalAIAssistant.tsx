@@ -15,9 +15,11 @@ export const GlobalAIAssistant = () => {
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess.session?.user?.id;
       if (!uid) { if (!cancelled) setCtx(undefined); return; }
+      
       const sb: any = supabase;
-      const [profile, plan, anam, checkins, measure, skin, protocol] = await Promise.all([
+      const [profile, roleReq, plan, anam, checkins, measure, skin, protocol] = await Promise.all([
         sb.from("profiles").select("full_name,email").eq("user_id", uid).maybeSingle(),
+        sb.from("user_roles").select("role").eq("user_id", uid).maybeSingle(),
         sb.from("coach_plans").select("*").eq("student_id", uid).maybeSingle(),
         sb.from("anamnesis").select("baseline_metrics,payload,submitted_at").eq("student_id", uid).maybeSingle(),
         sb.from("check_ins").select("current_metrics,coach_feedback,submitted_at").eq("student_id", uid).order("submitted_at", { ascending: false }).limit(3),
@@ -25,9 +27,15 @@ export const GlobalAIAssistant = () => {
         sb.from("skinfold_measurements").select("*").eq("user_id", uid).order("measurement_date", { ascending: false }).limit(1),
         sb.from("protocols").select("name,payload").eq("student_id", uid).eq("active", true).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
+      
       if (cancelled) return;
+      
+      const userRole = roleReq?.data?.role;
+      const isCoach = userRole === 'coach' || userRole === 'admin';
+
       setCtx({
         name: profile?.data?.full_name,
+        isCoach: isCoach,
         plan: plan?.data ? {
           goal: plan.data.goal,
           calories: plan.data.calories,
