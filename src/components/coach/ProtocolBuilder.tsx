@@ -571,20 +571,28 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
                           {/* Alimentos */}
                           <div className="space-y-1.5">
                             {items.map((it: any, ii: number) => (
-                              <div key={ii} className="flex items-center gap-1.5 bg-background rounded border border-border/40 px-2 py-1.5">
-                                <div className="flex-1 min-w-0">
+                              <div key={ii} className="bg-background rounded border border-border/40 px-2 py-2 space-y-1.5">
+                                {/* Linha 1: nome do alimento */}
+                                <div className="flex items-center gap-1.5">
+                                  {/* Campo de texto livre — principal para alimentos não-TACO */}
+                                  <Input
+                                    value={it.baseName || it.name || ""}
+                                    onChange={(e) => updItem(mealIdx, kind, optIdx, ii, { name: e.target.value, baseName: e.target.value, isTaco: false, rawWeight: 0 })}
+                                    placeholder="Nome do alimento (ex: Ovos inteiros, Frango grelhado...)"
+                                    className="h-8 text-xs flex-1"
+                                  />
+                                  {/* Busca TACO opcional */}
                                   <Popover>
                                     <PopoverTrigger asChild>
-                                      <Button variant="ghost" role="combobox" className="w-full justify-between h-7 text-xs font-normal px-1.5 hover:bg-muted/40">
-                                        <span className="truncate">{it.baseName || it.name || "Selecionar alimento..."}</span>
-                                        <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-40" />
+                                      <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" title="Buscar na tabela TACO">
+                                        <ChevronsUpDown className="h-3 w-3" />
                                       </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-[300px] p-0" align="start">
+                                    <PopoverContent className="w-[300px] p-0" align="end">
                                       <Command>
                                         <CommandInput placeholder="Buscar na TACO..." className="h-9 text-xs" />
                                         <CommandList>
-                                          <CommandEmpty className="py-2 px-4 text-xs text-muted-foreground">Não encontrado — use nome livre abaixo.</CommandEmpty>
+                                          <CommandEmpty className="py-2 px-4 text-xs text-muted-foreground">Não encontrado — use o campo de nome à esquerda.</CommandEmpty>
                                           <CommandGroup heading="Tabela TACO (UNICAMP)">
                                             {TACO_DATA.map((taco) => (
                                               <CommandItem key={taco.id} value={taco.name}
@@ -600,20 +608,23 @@ function DietTab({ payload, setPayload }: { payload: ProtocolPayload; setPayload
                                       </Command>
                                     </PopoverContent>
                                   </Popover>
-                                  {!it.isTaco && (
-                                    <Input value={it.name ?? ""} onChange={(e) => updItem(mealIdx, kind, optIdx, ii, { name: e.target.value, baseName: e.target.value, isTaco: false })} placeholder="ou digite o nome..." className="h-6 text-[11px] mt-0.5 bg-transparent border-0 border-b border-dashed rounded-none px-1.5" />
+                                  <button onClick={() => rmItem(mealIdx, kind, optIdx, ii)} className="text-muted-foreground hover:text-destructive p-1 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                                {/* Linha 2: quantidade / peso */}
+                                <div className="flex items-center gap-2">
+                                  {it.isTaco ? (
+                                    <>
+                                      <label className="text-[10px] text-muted-foreground shrink-0">Peso (g cru)</label>
+                                      <Input type="number" value={it.rawWeight || ""} onChange={(e) => updItem(mealIdx, kind, optIdx, ii, { rawWeight: Number(e.target.value) })} placeholder="ex: 100" className="h-7 text-xs w-24" />
+                                      <span className="text-[10px] text-muted-foreground">g — cozido calculado automaticamente</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <label className="text-[10px] text-muted-foreground shrink-0">Quantidade</label>
+                                      <Input value={it.weight ?? ""} onChange={(e) => updItem(mealIdx, kind, optIdx, ii, { weight: e.target.value })} placeholder="ex: 8 unidades, 200g, 2 fatias..." className="h-7 text-xs flex-1" />
+                                    </>
                                   )}
                                 </div>
-                                {/* Peso — sem rótulo CRU/PRONTO no editor; viewer cuida disso */}
-                                {it.isTaco ? (
-                                  <div className="flex items-center gap-0.5 shrink-0">
-                                    <Input type="number" value={it.rawWeight || ""} onChange={(e) => updItem(mealIdx, kind, optIdx, ii, { rawWeight: Number(e.target.value) })} placeholder="g" className="h-7 text-xs w-14 text-center" />
-                                    <span className="text-[10px] text-muted-foreground">g</span>
-                                  </div>
-                                ) : (
-                                  <Input value={it.weight ?? ""} onChange={(e) => updItem(mealIdx, kind, optIdx, ii, { weight: e.target.value })} placeholder="qtd" className="h-7 text-xs w-20 shrink-0" />
-                                )}
-                                <button onClick={() => rmItem(mealIdx, kind, optIdx, ii)} className="text-muted-foreground hover:text-destructive p-1 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
                             ))}
                           </div>
