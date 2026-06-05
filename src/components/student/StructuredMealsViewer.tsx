@@ -73,7 +73,7 @@ function NutritionStrategyHeader({
   payload: any; mode: CarbMode; setMode: (m: CarbMode) => void;
 }) {
   const m = payload?.macros ?? {};
-  const hasCarbCycle = payload?.setup?.carbCycle === true;
+  const hasCarbCycle = payload?.setup?.carbCycle === true || payload?.carbCycle === true;
   const highPct = payload?.carbCycleHighPct ?? 15;
   const lowPct  = payload?.carbCycleLowPct  ?? 15;
   const macros = [
