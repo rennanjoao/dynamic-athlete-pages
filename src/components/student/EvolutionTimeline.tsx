@@ -124,6 +124,20 @@ export default function EvolutionTimeline({ checkIns }: Props) {
                         );
                       })}
                     </div>
+
+                    {/* Miniaturas de fotos do check-in */}
+                    {(() => {
+                      const fotos = (c.payload as any)?.fotos as Record<string, string> | undefined;
+                      const urls = fotos ? Object.values(fotos).filter(Boolean) : [];
+                      if (urls.length === 0) return null;
+                      return (
+                        <div className="grid grid-cols-4 gap-1.5 mt-1">
+                          {urls.map((url, idx) => (
+                            <img key={idx} src={url} alt={`foto-${idx}`} className="w-full aspect-[3/4] object-cover rounded-lg border border-border/40" />
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </Card>
                 </button>
               </div>
@@ -140,6 +154,27 @@ export default function EvolutionTimeline({ checkIns }: Props) {
               <DialogHeader>
                 <DialogTitle>Check-in — {fmtDate(selected.submitted_at)}</DialogTitle>
               </DialogHeader>
+              {/* Fotos do check-in no modal */}
+              {(() => {
+                const fotos = (selected.payload as any)?.fotos as Record<string, string> | undefined;
+                const LABELS: Record<string, string> = { frente: "Frente", lateral_dir: "Lateral Dir.", lateral_esq: "Lateral Esq.", costas: "Costas" };
+                const entries = fotos ? Object.entries(fotos).filter(([, v]) => Boolean(v)) : [];
+                if (entries.length === 0) return null;
+                return (
+                  <div className="mt-4">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Fotos</h3>
+                    <div className="grid grid-cols-4 gap-2">
+                      {entries.map(([key, url]) => (
+                        <div key={key} className="space-y-1">
+                          <img src={url} alt={key} className="w-full aspect-[3/4] object-cover rounded-xl border border-border/40" />
+                          <p className="text-[10px] text-center text-muted-foreground">{LABELS[key] ?? key}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <DialogFooter className="mt-4">
                 <Button variant="outline" onClick={() => setSelected(null)}>Fechar</Button>
               </DialogFooter>
