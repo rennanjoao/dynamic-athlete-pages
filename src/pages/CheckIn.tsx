@@ -4,12 +4,13 @@
  * Métricas atuais comparam contra `anamnesis.baseline_metrics`.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CHECKIN_SECTIONS, CHECKIN_METRICS } from "@/lib/checkInSchema";
 import { notifyCoach } from "@/lib/notifyCoach";
+import { uploadToCloudinary } from "@/lib/anamnesisSchema";
 import { FormField } from "@/components/student/FormField";
 import { useStudentData } from "@/hooks/useStudentData";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,60 @@ import { cn } from "@/lib/utils";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb: any = supabase;
 
+const FOTO_KEYS = ["frente", "lateral_dir", "lateral_esq", "costas"] as const;
+const FOTO_LABELS: Record<string, string> = {
+  frente: "Frente",
+  lateral_dir: "Lateral Dir.",
+  lateral_esq: "Lateral Esq.",
+  costas: "Costas",
+};
+
+function FotoSlot({
+  label,
+  preview,
+  onFile,
+  onRemove,
+}: {
+  label: string;
+  preview: string | null;
+  onFile: (f: File) => void;
+  onRemove: () => void;
+}) {
+  const inp = useRef<HTMLInputElement>(null);
+  return (
+    <div
+      onClick={() => !preview && inp.current?.click()}
+      className={cn(
+        "relative aspect-[3/4] rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden",
+        preview ? "border-primary/40 border-solid" : "border-border/40 hover:border-primary/40"
+      )}
+    >
+      <input
+        ref={inp}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); }}
+      />
+      {preview ? (
+        <>
+          <img src={preview} alt={label} className="absolute inset-0 w-full h-full object-cover" />
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-full bg-black/70 border border-border text-white text-xs flex items-center justify-center"
+          >✕</button>
+        </>
+      ) : (
+        <>
+          <span className="text-2xl mb-1">📷</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground text-center px-1">{label}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function CheckIn() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -32,9 +87,15 @@ export default function CheckIn() {
   const [metrics, setMetrics] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
+  const [fotoFiles, setFotoFiles] = useState<Record<string, File | null>>({
+    frente: null, lateral_dir: null, lateral_esq: null, costas: null,
+  });
+  const [fotoPreviews, setFotoPreviews] = useState<Record<string, string | null>>({
+    frente: null, lateral_dir: null, lateral_esq: null, costas: null,
+  });
+
   const baseline = anamnesis?.baseline_metrics ?? {};
 
-  // pré-preenche ini com baseline
   useEffect(() => {
     if (Object.keys(metrics).length === 0 && baseline) {
       const init: Record<string, string> = {};
@@ -61,6 +122,17 @@ export default function CheckIn() {
     return cur - ini;
   }
 
+  function handleFotoFile(key: string, file: File) {
+    setFotoFiles((p) => ({ ...p, [key]: file }));
+    const url = URL.createObjectURL(file);
+    setFotoPreviews((p) => ({ ...p, [key]: url }));
+  }
+
+  function handleFotoRemove(key: string) {
+    setFotoFiles((p) => ({ ...p, [key]: null }));
+    setFotoPreviews((p) => ({ ...p, [key]: null }));
+  }
+
   async function submit() {
     if (!studentId) { toast.error("Não autenticado"); return; }
     setSaving(true);
@@ -70,14 +142,23 @@ export default function CheckIn() {
         const v = parseFloat(metrics[`cur_${m.key}`] ?? "");
         if (!isNaN(v)) current_metrics[m.key] = v;
       });
+
+      // Upload fotos (best-effort)
+      const fotos: Record<string, string> = {};
+      for (const key of FOTO_KEYS) {
+        const file = fotoFiles[key];
+        if (file) {
+          try { fotos[key] = await uploadToCloudinary(file); } catch { fotos[key] = ""; }
+        }
+      }
+
       const { error } = await sb.from("check_ins").insert({
         student_id: studentId,
         current_metrics,
-        payload: { ...data, metrics_raw: metrics },
+        payload: { ...data, metrics_raw: metrics, fotos },
       });
       if (error) throw error;
 
-      // Notifica o coach por e-mail (best-effort, não bloqueia o aluno).
       try {
         const { data: link } = await sb
           .from("coach_students")
@@ -102,7 +183,7 @@ export default function CheckIn() {
               studentEmail,
               kind: "checkin",
               summary: "Aluno enviou um novo check-in quinzenal.",
-              data: { ...data, ...current_metrics },
+              data: { ...data, ...current_metrics, fotos },
             });
           }
         }
@@ -125,7 +206,7 @@ export default function CheckIn() {
     <div className="min-h-screen bg-background pb-32">
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/student-area")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex-1">
@@ -142,6 +223,24 @@ export default function CheckIn() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+        {/* Fotos de progresso */}
+        <Card className="bg-card/60 border-border p-5">
+          <h2 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">
+            Fotos de Progresso
+          </h2>
+          <div className="grid grid-cols-4 gap-2">
+            {FOTO_KEYS.map((key) => (
+              <FotoSlot
+                key={key}
+                label={FOTO_LABELS[key]}
+                preview={fotoPreviews[key]}
+                onFile={(f) => handleFotoFile(key, f)}
+                onRemove={() => handleFotoRemove(key)}
+              />
+            ))}
+          </div>
+        </Card>
+
         {/* Métricas com delta */}
         <Card className="bg-card/60 border-border p-5">
           <h2 className="text-sm font-bold text-primary uppercase tracking-wider mb-4">
