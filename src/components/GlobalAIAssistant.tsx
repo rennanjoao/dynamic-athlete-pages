@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { FitnessChatBot } from "@/components/fitness/FitnessChatBot";
 import { supabase } from "@/integrations/supabase/client";
 
-const HIDDEN_ROUTES = new Set(["/", "/auth", "/admin-login", "/student"]);
+const HIDDEN_ROUTES = new Set(["/", "/auth", "/admin-login", "/student", "/anamnesis"]);
 
 export const GlobalAIAssistant = () => {
   const { pathname } = useLocation();
