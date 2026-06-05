@@ -123,7 +123,7 @@ export default function StudentDashboard() {
     queryKey: ["daily-log", userId, today],
     enabled: !!userId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("daily_logs")
         .select("*")
         .eq("student_id", userId)
@@ -132,18 +132,18 @@ export default function StudentDashboard() {
       
       // Se a tabela não existir ou der erro, retornamos falso para tudo
       if (error) return { diet_ok: false, workout_ok: false, water_ok: false };
-      return data || { diet_ok: false, workout_ok: false, water_ok: false };
+      return (data as any) || { diet_ok: false, workout_ok: false, water_ok: false };
     }
   });
 
   const updateDaily = useMutation({
     mutationFn: async (updates: any) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("daily_logs")
         .upsert({
           student_id: userId,
           log_date: today,
-          ...(dailyLog || {}),
+          ...((dailyLog as any) || {}),
           ...updates,
         }, { onConflict: "student_id, log_date" });
       if (error) throw error;
@@ -220,7 +220,7 @@ export default function StudentDashboard() {
               </div>
             </div>
             <Switch 
-              checked={dailyLog?.diet_ok} 
+              checked={(dailyLog as any)?.diet_ok} 
               onCheckedChange={(v) => updateDaily.mutate({ diet_ok: v })} 
             />
           </div>
@@ -234,7 +234,7 @@ export default function StudentDashboard() {
               </div>
             </div>
             <Switch 
-              checked={dailyLog?.workout_ok} 
+              checked={(dailyLog as any)?.workout_ok} 
               onCheckedChange={(v) => updateDaily.mutate({ workout_ok: v })} 
             />
           </div>
@@ -248,7 +248,7 @@ export default function StudentDashboard() {
               </div>
             </div>
             <Switch 
-              checked={dailyLog?.water_ok} 
+              checked={(dailyLog as any)?.water_ok} 
               onCheckedChange={(v) => updateDaily.mutate({ water_ok: v })} 
             />
           </div>

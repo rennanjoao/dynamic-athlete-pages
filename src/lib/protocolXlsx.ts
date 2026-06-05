@@ -111,9 +111,9 @@ export function exportProtocolXlsx(payload: ProtocolPayload, studentName: string
   // 5. Aba de Ciclo de Carbo
   const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
   const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-  const cycleData = dayKeys.map((key, i) => ({
+  const cycleData: Array<{ Configuração: string; "Valor (high/base/off)": string }> = dayKeys.map((key, i) => ({
     "Configuração": days[i],
-    "Valor (high/base/off)": payload.carbCycle?.[key] || "base"
+    "Valor (high/base/off)": (payload.carbCycle?.[key as keyof typeof payload.carbCycle] as string) || "base"
   }));
   cycleData.push({ "Configuração": "ATIVO?", "Valor (high/base/off)": payload.setup?.carbCycle ? "SIM" : "NAO" });
   cycleData.push({ "Configuração": "PCT ALTO (%)", "Valor (high/base/off)": String(payload.carbCycleHighPct || 15) });
@@ -237,10 +237,10 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
       type: String(r["Tipo"] || ""),
       duration: String(r["Duração"] || ""),
       intensity: String(r["Intensidade"] || ""),
-      associationType: String(r["Associação (Treino/Dia)"] || "").toLowerCase().includes('treino') ? 'workout' : 'weekday',
+      associationType: (String(r["Associação (Treino/Dia)"] || "").toLowerCase().includes('treino') ? 'workout' : 'weekday') as 'workout' | 'weekday',
       workoutKey: String(r["Chave (A, B, seg...)"] || ""),
       notes: String(r["Observações"] || "")
-    })).filter(c => c.type || c.duration); // Filtra linhas vazias
+    })).filter(c => c.type || c.duration);
   }
 
   // Importar Suplementos
@@ -267,7 +267,7 @@ export async function importProtocolXlsx(file: File): Promise<ProtocolPayload> {
       const val = String(r["Valor (high/base/off)"] || "").trim();
       
       if (dayMap[label]) {
-        base.carbCycle![dayMap[label]] = val;
+        (base.carbCycle as Record<string, "base" | "high" | "low" | "off">)[dayMap[label]] = (["base","high","low","off"].includes(val) ? val : "base") as "base" | "high" | "low" | "off";
       } else if (label === "ATIVO?") {
         base.setup.carbCycle = val.toUpperCase() === "SIM";
       } else if (label === "PCT ALTO (%)") {
