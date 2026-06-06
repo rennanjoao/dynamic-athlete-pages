@@ -1,11 +1,3 @@
-/**
- * useStudentData.ts
- * Fetch + Realtime das tabelas anamnesis, check_ins e protocols.
- * Aluno consome SEU próprio dado (RLS já filtra por auth.uid()).
- *
- * Coach/admin podem passar um studentId explicitamente.
- */
-
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,16 +32,13 @@ export interface Protocol {
   updated_at: string;
 }
 
-// New tables (anamnesis/check_ins/protocols) not yet present on the
-// generated Database type — bypass with a permissive cast.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb: any = supabase;
 
 export function useStudentData(explicitStudentId?: string) {
   const qc = useQueryClient();
 
-  // Resolve effective studentId
-  const { data: sessionUserId } = useQuery({
+  const { data: sessionUserId, isLoading: sessionLoading } = useQuery({
     queryKey: ["session-user-id"],
     queryFn: async () => {
       const { data } = await supabase.auth.getSession();
@@ -105,7 +94,6 @@ export function useStudentData(explicitStudentId?: string) {
     },
   });
 
-  // Realtime invalidation
   useEffect(() => {
     if (!studentId) return;
     const ch = sb
@@ -133,12 +121,16 @@ export function useStudentData(explicitStudentId?: string) {
     };
   }, [studentId, qc]);
 
+  const isExplicit = !!explicitStudentId;
+
   return {
     studentId,
     anamnesis: anamnesisQ.data ?? null,
     checkIns: checkInsQ.data ?? [],
     protocol: protocolQ.data ?? null,
-    loading: anamnesisQ.isLoading || checkInsQ.isLoading || protocolQ.isLoading,
+    loading:
+      (!isExplicit && sessionLoading) ||
+      (!!studentId && (anamnesisQ.isLoading || checkInsQ.isLoading || protocolQ.isLoading)),
     error: anamnesisQ.error || checkInsQ.error || protocolQ.error,
   };
 }
