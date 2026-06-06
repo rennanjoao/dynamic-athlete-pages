@@ -140,7 +140,8 @@ const Index = () => {
         </motion.div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          <FeatureCard icon={Dumbbell} title="Treinos Inteligentes" description="Protocolos com RPE, cadência, séries e descanso. Modalidades de Bodybuilding, Triathlon, BJJ e mais." delay={0.1} />
+          <FeatureCard icon={Dumbbell} title="Treinos Inteligentes" description="Protocolos personalizados com RPE, cadência, séries, descanso e métricas de evolução. Desenvolvido para coaches, atletas e alunos de qualquer modalidade."
+ delay={0.1} />
           <FeatureCard icon={UtensilsCrossed} title="Estratégias Nutricionais" description="Diretrizes e recomendações alimentares para apoiar seus objetivos de emagrecimento, saúde e performance." delay={0.2} />
           <FeatureCard icon={TrendingUp} title="Painel de Evolução" description="Visualize sua evolução através de métricas corporais, registros fotográficos e indicadores de performance ao longo do processo." delay={0.3} />
         </div>
