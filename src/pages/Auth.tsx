@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowLeft, Lock, Mail, Zap } from "lucide-react";
+import { ArrowLeft, Lock, Mail, Zap, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Auth = () => {
