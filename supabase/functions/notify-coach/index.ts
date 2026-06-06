@@ -1,12 +1,9 @@
-/**
- * notify-coach — Envia notificação por email ao coach
- * quando o aluno submete uma anamnese ou um check-in.
- *
- * Usa Resend diretamente (RESEND_API_KEY no Vault).
- * Substitui o Web3Forms (que dependia de plano Pro para to_email custom).
- */
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 interface NotifyBody {
   coachEmail: string;
@@ -14,16 +11,13 @@ interface NotifyBody {
   studentEmail?: string;
   kind: "anamnesis" | "checkin" | "question";
   subject?: string;
-  summary?: string;          // texto plano resumido
-  data?: Record<string, unknown>; // dados estruturados (renderizados em <pre>)
+  summary?: string;
+  data?: Record<string, unknown>;
   photos?: Record<string, string>;
 }
 
 function escapeHtml(s: string) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function renderHtml(body: NotifyBody): string {
@@ -33,25 +27,17 @@ function renderHtml(body: NotifyBody): string {
     "Nova Dúvida do Aluno";
 
   const studentLine = body.studentName
-    ? `<p style="margin:0 0 4px 0"><strong>Aluno:</strong> ${escapeHtml(body.studentName)}</p>`
-    : "";
+    ? `<p style="margin:0 0 4px 0"><strong>Aluno:</strong> ${escapeHtml(body.studentName)}</p>` : "";
   const emailLine = body.studentEmail
-    ? `<p style="margin:0 0 4px 0"><strong>E-mail:</strong> ${escapeHtml(body.studentEmail)}</p>`
-    : "";
+    ? `<p style="margin:0 0 4px 0"><strong>E-mail:</strong> ${escapeHtml(body.studentEmail)}</p>` : "";
 
   let dataBlock = "";
   if (body.data && Object.keys(body.data).length) {
     const rows = Object.entries(body.data)
       .filter(([, v]) => v !== undefined && v !== null && v !== "")
-      .map(
-        ([k, v]) =>
-          `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:600;color:#444;vertical-align:top;white-space:nowrap">${escapeHtml(
-            k
-          )}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#222">${escapeHtml(
-            typeof v === "object" ? JSON.stringify(v) : String(v)
-          )}</td></tr>`
-      )
-      .join("");
+      .map(([k, v]) =>
+        `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:600;color:#444;vertical-align:top;white-space:nowrap">${escapeHtml(k)}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#222">${escapeHtml(typeof v === "object" ? JSON.stringify(v) : String(v))}</td></tr>`
+      ).join("");
     dataBlock = `<table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:13px">${rows}</table>`;
   }
 
@@ -59,76 +45,52 @@ function renderHtml(body: NotifyBody): string {
   if (body.photos && Object.keys(body.photos).length) {
     const items = Object.entries(body.photos)
       .filter(([, url]) => !!url)
-      .map(
-        ([k, url]) =>
-          `<li style="margin-bottom:4px"><strong>${escapeHtml(k)}:</strong> <a href="${escapeHtml(url)}">${escapeHtml(url)}</a></li>`
-      )
-      .join("");
+      .map(([k, url]) =>
+        `<li style="margin-bottom:4px"><strong>${escapeHtml(k)}:</strong> <a href="${escapeHtml(url)}">${escapeHtml(url)}</a></li>`
+      ).join("");
     if (items) photosBlock = `<h3 style="margin:18px 0 6px 0;font-size:14px">Fotos</h3><ul style="padding-left:18px;margin:0">${items}</ul>`;
   }
 
   const summaryBlock = body.summary
-    ? `<p style="margin:12px 0;color:#333;line-height:1.5">${escapeHtml(body.summary)}</p>`
-    : "";
+    ? `<p style="margin:12px 0;color:#333;line-height:1.5">${escapeHtml(body.summary)}</p>` : "";
 
   return `<!doctype html>
 <html><body style="margin:0;padding:0;background:#f6f7f9;font-family:Inter,Arial,sans-serif;color:#111">
   <div style="max-width:640px;margin:0 auto;padding:24px">
     <div style="background:#fff;border-radius:14px;padding:24px;border:1px solid #eaeaea">
       <h1 style="margin:0 0 12px 0;font-size:20px;color:#0F172A">Elite Lab <span style="color:#E11D48">Hub</span> — ${title}</h1>
-      ${studentLine}
-      ${emailLine}
-      ${summaryBlock}
-      ${dataBlock}
-      ${photosBlock}
+      ${studentLine}${emailLine}${summaryBlock}${dataBlock}${photosBlock}
       <p style="margin-top:24px;color:#888;font-size:12px">Mensagem automática — acesse o painel para responder.</p>
     </div>
   </div>
 </body></html>`;
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const body = (await req.json()) as NotifyBody;
     if (!body?.coachEmail || !body?.kind) {
       return new Response(JSON.stringify({ error: "missing fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const RESEND_KEY = Deno.env.get("RESEND_API_KEY");
     if (!RESEND_KEY) {
       return new Response(JSON.stringify({ error: "RESEND_API_KEY not set" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const subject =
-      body.subject ||
-      (body.kind === "anamnesis"
-        ? `Nova Anamnese — ${body.studentName ?? "Aluno"}`
-        : body.kind === "checkin"
-          ? `Novo Check-in — ${body.studentName ?? "Aluno"}`
-          : `Nova Dúvida — ${body.studentName ?? "Aluno"}`);
-
+    const subject = body.subject || (
+      body.kind === "anamnesis" ? `Nova Anamnese — ${body.studentName ?? "Aluno"}` :
+      body.kind === "checkin" ? `Novo Check-in — ${body.studentName ?? "Aluno"}` :
+      `Nova Dúvida — ${body.studentName ?? "Aluno"}`
+    );
 
     const html = renderHtml(body);
-
-    // Usa onboarding@resend.dev (não exige domínio verificado).
-    // Quando houver domínio, trocar para Elite Lab Hub <no-reply@SEU-DOMINIO>.
-    const payload = {
-      from: "Elite Lab Hub <onboarding@resend.dev>",
-      to: [body.coachEmail],
-      reply_to: body.studentEmail || undefined,
-      subject,
-      html,
-    };
 
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -136,14 +98,19 @@ Deno.serve(async (req: Request) => {
         Authorization: `Bearer ${RESEND_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        from: "Elite Lab Hub <onboarding@resend.dev>",
+        to: [body.coachEmail],
+        reply_to: body.studentEmail || undefined,
+        subject,
+        html,
+      }),
     });
+
     const out = await r.json().catch(() => ({}));
     if (!r.ok) {
-      console.error("Resend error", r.status, out);
       return new Response(JSON.stringify({ error: "resend_failed", status: r.status, detail: out }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -153,8 +120,7 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown";
     return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
