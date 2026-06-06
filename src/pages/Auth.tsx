@@ -97,7 +97,7 @@ const Auth = () => {
               </div>
             </div>
             <Button type="submit" className="w-full rounded-xl h-11 glow-primary mt-4" disabled={isLoading}>
-              {isLoading ? "Entrando..." : "Entrar"}
+              {isLoading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Entrando...</>) : "Entrar"}
             </Button>
           </form>
         </div>
