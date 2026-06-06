@@ -5,7 +5,6 @@
 
 export const CLOUDINARY_CLOUD = "dkpgoisly";
 export const CLOUDINARY_PRESET = "Fitness";
-export const WEB3FORMS_KEY = "ab9159c3-f1e5-462a-aec7-5632170454e5";
 
 export const NEURO_SLIDERS = [
   { key: "neuro_motivacao",    label: "Motivação" },
