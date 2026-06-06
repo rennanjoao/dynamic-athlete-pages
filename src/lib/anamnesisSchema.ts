@@ -144,12 +144,12 @@ export async function sendAnamnesisEmail(
   tpm: string[],
   quedaF: string[],
   fotos: Record<string, string>,
-  coachEmail: string
+  coachEmail: string,
+  accessKey = WEB3FORMS_KEY
 ): Promise<boolean> {
   if (!coachEmail) return false;
-
   const fd = new FormData();
-  fd.append("access_key", WEB3FORMS_KEY);
+  fd.append("access_key", accessKey);
   fd.append("subject", `Anamnese — ${payload.nome}`);
   fd.append("from_name", String(payload.nome ?? "Aluno"));
   fd.append("replyto", String(payload.email ?? ""));
