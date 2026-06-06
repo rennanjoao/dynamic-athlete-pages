@@ -5,40 +5,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `COMPORTAMENTO OBRIGATÓRIO
-Você é o assistente oficial da plataforma Elite Hub. Responda exatamente o que foi solicitado.
-Limite suas respostas a no máximo 3 frases, salvo se o usuário pedir explicação detalhada.
+const SYSTEM_PROMPT = `Você é o assistente oficial da plataforma Elite Hub. Responda de forma direta e objetiva, no máximo 3 frases, salvo pedido de detalhe. Não adicione informações extras sem solicitação. Para orçamento ou dúvidas sem resposta: indique o e-mail rennajoao@rjelitehub.com.br. Responsável técnico: CREF 206788-G/SP.`;
 
-Regra de Objetividade:
-- Responda primeiro à pergunta do usuário de forma direta.
-- Não adicione informações extras sem solicitação explícita.
-- Não faça listas de possibilidades para perguntas simples.
-
-Regra de Contato e Suporte:
-- Se o usuário logado pedir orçamento, consultoria ou tiver dúvidas que você não saiba responder: instrua-o a enviar uma mensagem pela plataforma ao seu Coach, ou um e-mail para: rennajoao@rjelitehub.com.br
-- Se for um usuário deslogado (possível lead) perguntando sobre contato/informações: instrua-o a enviar um e-mail diretamente para rennajoao@rjelitehub.com.br
-Destaque em **negrito** as palavras-chave.
-
-Responsável técnico: Profissional de Educação Física habilitado (CREF: 206788-G/SP).`;
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
-    const { messages, userContext } = await req.json();
-
-    if (!Array.isArray(messages) || messages.length > 20) {
-      return new Response(JSON.stringify({ error: "payload inválido" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "ANTHROPIC_API_KEY is not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+    const { messages, userContext } = await req.json();
+
+    if (!Array.isArray(messages)) {
+      return new Response(
+        JSON.stringify({ error: "payload inválido" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     let systemContent = SYSTEM_PROMPT;
     if (userContext) {
-      systemContent += `\n\nDADOS DO USUÁRIO ATUAL:\n${JSON.stringify(userContext, null, 2)}`;
+      systemContent += `\n\nDADOS DO USUÁRIO:\n${JSON.stringify(userContext, null, 2)}`;
     }
 
     const anthropicMessages = messages.map((m: { role: string; content: string }) => ({
@@ -64,9 +58,10 @@ serve(async (req) => {
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      return new Response(JSON.stringify({ error: err.error?.message ?? "Erro na IA" }), {
-        status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: err.error?.message ?? "Erro na IA" }),
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const encoder = new TextEncoder();
@@ -104,13 +99,11 @@ serve(async (req) => {
             try {
               const parsed = JSON.parse(jsonStr);
               if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
-                const chunk = {
-                  choices: [{ delta: { content: parsed.delta.text } }],
-                };
+                const chunk = { choices: [{ delta: { content: parsed.delta.text } }] };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
               }
             } catch {
-              // skip malformed
+              // skip malformed chunk
             }
           }
         }
@@ -118,11 +111,16 @@ serve(async (req) => {
     });
 
     return new Response(readable, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
