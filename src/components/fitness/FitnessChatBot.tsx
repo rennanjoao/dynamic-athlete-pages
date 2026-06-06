@@ -209,7 +209,7 @@ export const FitnessChatBot = ({ athleteContext }: FitnessChatBotProps) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-3rem)] h-[560px] flex flex-col glass-strong rounded-2xl overflow-hidden shadow-2xl border border-border/20"
+            className="fixed bottom-3 right-3 left-3 sm:left-auto sm:bottom-6 sm:right-6 z-50 sm:w-[400px] max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-3rem)] h-[min(560px,calc(100vh-1.5rem))] flex flex-col glass-strong rounded-2xl overflow-hidden shadow-2xl border border-border/20"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/20 bg-card/80">
