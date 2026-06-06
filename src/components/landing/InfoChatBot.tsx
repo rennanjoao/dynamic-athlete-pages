@@ -88,8 +88,7 @@ export const InfoChatBot = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
       body: JSON.stringify({ messages: allMessages }),
     });
@@ -141,8 +140,7 @@ export const InfoChatBot = () => {
             });
           }
         } catch {
-          textBuffer = line + "\n" + textBuffer;
-          break;
+          // chunk malformed, skip
         }
       }
     }
