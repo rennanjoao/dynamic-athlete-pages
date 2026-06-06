@@ -422,6 +422,42 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_logs: {
+        Row: {
+          created_at: string
+          diet_ok: boolean
+          id: string
+          log_date: string
+          notes: string | null
+          student_id: string
+          updated_at: string
+          water_ok: boolean
+          workout_ok: boolean
+        }
+        Insert: {
+          created_at?: string
+          diet_ok?: boolean
+          id?: string
+          log_date?: string
+          notes?: string | null
+          student_id: string
+          updated_at?: string
+          water_ok?: boolean
+          workout_ok?: boolean
+        }
+        Update: {
+          created_at?: string
+          diet_ok?: boolean
+          id?: string
+          log_date?: string
+          notes?: string | null
+          student_id?: string
+          updated_at?: string
+          water_ok?: boolean
+          workout_ok?: boolean
+        }
+        Relationships: []
+      }
       diet_progress: {
         Row: {
           completed: boolean
