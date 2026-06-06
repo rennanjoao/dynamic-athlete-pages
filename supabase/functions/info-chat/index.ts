@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `Você é o assistente oficial da plataforma Elite Hub. Responda de forma direta e objetiva, no máximo 3 frases, salvo pedido de detalhe. Não adicione informações extras sem solicitação. Para orçamento ou dúvidas sem resposta: indique o e-mail rennajoao@rjelitehub.com.br. Responsável técnico: CREF 206788-G/SP.`;
+const SYSTEM_PROMPT = `Você é o assistente oficial da plataforma Elite Hub. Responda de forma direta e objetiva, no máximo 3 frases, salvo pedido de detalhe. Não adicione informações extras sem solicitação. Para orçamento ou dúvidas sem resposta: indique o e-mail rennanjoao@rjelitehub.com.br. Responsável técnico: CREF 206788-G/SP.`;
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -15,19 +15,19 @@ serve(async (req: Request) => {
   try {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY is not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "ANTHROPIC_API_KEY is not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const { messages, userContext } = await req.json();
 
     if (!Array.isArray(messages)) {
-      return new Response(JSON.stringify({ error: "payload inválido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "payload inválido" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     let systemContent = SYSTEM_PROMPT;
@@ -58,10 +58,10 @@ serve(async (req: Request) => {
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      return new Response(JSON.stringify({ error: err.error?.message ?? "Erro na IA" }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: err.error?.message ?? "Erro na IA" }),
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const encoder = new TextEncoder();
@@ -118,9 +118,9 @@ serve(async (req: Request) => {
       },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
