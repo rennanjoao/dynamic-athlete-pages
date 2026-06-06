@@ -19,6 +19,7 @@ interface Message {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/info-chat`;
+const BUBBLE_DURATION = 6000;
 
 const QUICK_ACTIONS = [
   { label: "O que posso fazer aqui?", prompt: "O que posso fazer nesta plataforma? Me explique todas as funcionalidades.", icon: Zap },
@@ -34,10 +35,12 @@ const NAV_LINKS = [
   { label: "Área do Treinador", path: "/admin-login", icon: Dumbbell, description: "Gestão dos seus alunos" },
 ];
 
+const DEFAULT_WELCOME = "Olá, sou o agente virtual da Elite Hub. Como posso ajudar?";
+
 const INITIAL_MESSAGE: Message = {
   id: "welcome",
   role: "assistant",
-  content: "Olá! 👋 Sou o **Guia Elite** da plataforma. Posso te contar tudo sobre o que fazemos aqui, dar dicas de **saúde, hidratação, sono e nutrição**, e te direcionar para a área certa!\n\nUse os atalhos abaixo ou me pergunte qualquer coisa! 🚀",
+  content: DEFAULT_WELCOME,
 };
 
 export const InfoChatBot = () => {
@@ -45,29 +48,31 @@ export const InfoChatBot = () => {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showBubble, setShowBubble] = useState(false);
+  const [bubbleText, setBubbleText] = useState(DEFAULT_WELCOME);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Tenta buscar o nome do usuário ativo (se houver sessão) para personalizar a mensagem inicial
   useEffect(() => {
     const fetchUserName = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      let text = DEFAULT_WELCOME;
       if (session?.user?.id) {
-        const { data } = await supabase.from("profiles").select("full_name").eq("user_id", session.user.id).single();
+        const { data } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", session.user.id)
+          .single();
         if (data?.full_name) {
           const firstName = data.full_name.split(" ")[0];
-          setMessages(prev => {
-            if (prev.length === 1 && prev[0].id === "welcome") {
-              return [{
-                id: "welcome",
-                role: "assistant",
-                content: `Olá, **${firstName}**! 👋 Sou o **Guia Elite** da plataforma. Posso te contar tudo sobre o que fazemos aqui, dar dicas de **saúde, hidratação, sono e nutrição**, e te direcionar para a área certa!\n\nUse os atalhos abaixo ou me pergunte qualquer coisa! 🚀`
-              }];
-            }
-            return prev;
-          });
+          text = `Olá ${firstName}, sou o agente virtual da Elite Hub. Estou aqui para te ajudar com a plataforma!`;
         }
       }
+      setBubbleText(text);
+      setMessages([{ id: "welcome", role: "assistant", content: text }]);
+      setShowBubble(true);
+      const timer = setTimeout(() => setShowBubble(false), BUBBLE_DURATION);
+      return () => clearTimeout(timer);
     };
     fetchUserName();
   }, []);
@@ -164,8 +169,31 @@ export const InfoChatBot = () => {
     }
   };
 
+  const handleOpen = () => {
+    setShowBubble(false);
+    setIsOpen(true);
+  };
+
   return (
     <>
+      {/* Bubble flutuante de boas-vindas */}
+      <AnimatePresence>
+        {showBubble && !isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
+            className="fixed bottom-24 right-6 z-50 max-w-[260px] bg-card border border-border/30 rounded-2xl rounded-br-sm px-4 py-3 shadow-2xl cursor-pointer"
+            onClick={handleOpen}
+          >
+            <p className="text-sm text-foreground leading-relaxed">{bubbleText}</p>
+            <div className="absolute -bottom-2 right-5 w-3 h-3 bg-card border-r border-b border-border/30 rotate-45" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Botão flutuante */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
@@ -175,7 +203,7 @@ export const InfoChatBot = () => {
             className="fixed bottom-6 right-6 z-50"
           >
             <Button
-              onClick={() => setIsOpen(true)}
+              onClick={handleOpen}
               className="w-14 h-14 rounded-full glow-primary shadow-2xl animate-glow-pulse"
               size="icon"
             >
@@ -185,6 +213,7 @@ export const InfoChatBot = () => {
         )}
       </AnimatePresence>
 
+      {/* Chat */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -201,7 +230,7 @@ export const InfoChatBot = () => {
                   <Brain className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <p className="font-bold text-sm text-foreground">Guia Elite AI</p>
+                  <p className="font-bold text-sm text-foreground">Agente Elite Hub</p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Online • IA Ativa
