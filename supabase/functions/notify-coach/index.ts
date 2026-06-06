@@ -20,6 +20,13 @@ function escapeHtml(s: string) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+const PHOTO_LABELS: Record<string, string> = {
+  frente: "Frente",
+  lateral_dir: "Lateral Direita",
+  lateral_esq: "Lateral Esquerda",
+  costas: "Costas",
+};
+
 function renderHtml(body: NotifyBody): string {
   const title =
     body.kind === "anamnesis" ? "Nova Anamnese" :
@@ -34,21 +41,38 @@ function renderHtml(body: NotifyBody): string {
   let dataBlock = "";
   if (body.data && Object.keys(body.data).length) {
     const rows = Object.entries(body.data)
-      .filter(([, v]) => v !== undefined && v !== null && v !== "")
+      .filter(([k, v]) => v !== undefined && v !== null && v !== "" && k !== "fotos")
       .map(([k, v]) =>
-        `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:600;color:#444;vertical-align:top;white-space:nowrap">${escapeHtml(k)}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#222">${escapeHtml(typeof v === "object" ? JSON.stringify(v) : String(v))}</td></tr>`
+        `<tr>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:600;color:#444;vertical-align:top;white-space:nowrap">${escapeHtml(k)}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;color:#222">${escapeHtml(typeof v === "object" ? JSON.stringify(v) : String(v))}</td>
+        </tr>`
       ).join("");
-    dataBlock = `<table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:13px">${rows}</table>`;
+    if (rows) dataBlock = `<table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:13px">${rows}</table>`;
   }
 
   let photosBlock = "";
   if (body.photos && Object.keys(body.photos).length) {
-    const items = Object.entries(body.photos)
-      .filter(([, url]) => !!url)
-      .map(([k, url]) =>
-        `<li style="margin-bottom:4px"><strong>${escapeHtml(k)}:</strong> <a href="${escapeHtml(url)}">${escapeHtml(url)}</a></li>`
-      ).join("");
-    if (items) photosBlock = `<h3 style="margin:18px 0 6px 0;font-size:14px">Fotos</h3><ul style="padding-left:18px;margin:0">${items}</ul>`;
+    const validPhotos = Object.entries(body.photos).filter(([, url]) => !!url);
+    if (validPhotos.length) {
+      const grid = validPhotos.map(([k, url]) => `
+        <td style="padding:8px;text-align:center;vertical-align:top;width:25%">
+          <a href="${escapeHtml(url)}" target="_blank" style="text-decoration:none">
+            <img src="${escapeHtml(url)}" alt="${escapeHtml(PHOTO_LABELS[k] ?? k)}"
+              style="width:140px;height:180px;object-fit:cover;border-radius:8px;border:1px solid #eee;display:block;margin:0 auto" />
+            <span style="display:block;margin-top:6px;font-size:12px;color:#555;font-weight:600">
+              ${escapeHtml(PHOTO_LABELS[k] ?? k)}
+            </span>
+            <span style="display:block;font-size:10px;color:#888">clique para ampliar</span>
+          </a>
+        </td>`).join("");
+
+      photosBlock = `
+        <div style="margin-top:24px">
+          <h3 style="margin:0 0 12px 0;font-size:15px;color:#0F172A;border-bottom:1px solid #eee;padding-bottom:8px">📸 Fotos do Aluno</h3>
+          <table style="width:100%;border-collapse:collapse"><tr>${grid}</tr></table>
+        </div>`;
+    }
   }
 
   const summaryBlock = body.summary
@@ -56,11 +80,15 @@ function renderHtml(body: NotifyBody): string {
 
   return `<!doctype html>
 <html><body style="margin:0;padding:0;background:#f6f7f9;font-family:Inter,Arial,sans-serif;color:#111">
-  <div style="max-width:640px;margin:0 auto;padding:24px">
-    <div style="background:#fff;border-radius:14px;padding:24px;border:1px solid #eaeaea">
-      <h1 style="margin:0 0 12px 0;font-size:20px;color:#0F172A">Elite Lab <span style="color:#E11D48">Hub</span> — ${title}</h1>
+  <div style="max-width:680px;margin:0 auto;padding:24px">
+    <div style="background:#fff;border-radius:14px;padding:28px;border:1px solid #eaeaea">
+      <h1 style="margin:0 0 16px 0;font-size:20px;color:#0F172A">
+        Elite Lab <span style="color:#E11D48">Hub</span> — ${title}
+      </h1>
       ${studentLine}${emailLine}${summaryBlock}${dataBlock}${photosBlock}
-      <p style="margin-top:24px;color:#888;font-size:12px">Mensagem automática — acesse o painel para responder.</p>
+      <p style="margin-top:28px;color:#888;font-size:12px;border-top:1px solid #f0f0f0;padding-top:16px">
+        Mensagem automática — acesse o painel para responder.
+      </p>
     </div>
   </div>
 </body></html>`;
@@ -90,8 +118,6 @@ serve(async (req) => {
       `Nova Dúvida — ${body.studentName ?? "Aluno"}`
     );
 
-    const html = renderHtml(body);
-
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -103,7 +129,7 @@ serve(async (req) => {
         to: [body.coachEmail],
         reply_to: body.studentEmail || undefined,
         subject,
-        html,
+        html: renderHtml(body),
       }),
     });
 
