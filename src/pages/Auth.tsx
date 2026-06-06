@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowLeft, Lock, Mail, Zap } from "lucide-react";
+import { ArrowLeft, Lock, Mail, Zap, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Auth = () => {
@@ -97,7 +97,7 @@ const Auth = () => {
               </div>
             </div>
             <Button type="submit" className="w-full rounded-xl h-11 glow-primary mt-4" disabled={isLoading}>
-              {isLoading ? "Entrando..." : "Entrar"}
+              {isLoading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Entrando...</>) : "Entrar"}
             </Button>
           </form>
         </div>
