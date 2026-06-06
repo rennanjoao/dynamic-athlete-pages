@@ -46,29 +46,15 @@ export const FitnessChatBot = ({ athleteContext }: FitnessChatBotProps) => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
-    if (athleteContext?.name && messages.length === 1 && messages[0].id === "welcome") {
-      const firstName = athleteContext.name.split(" ")[0];
-      const isCoach = athleteContext.isCoach;
-      
-      const content = isCoach
-        ? `Olá, Coach **${firstName}**! Como posso ajudar?`
-        : `Olá, **${firstName}**! Dúvida sobre treino ou nutrição?`;
-
-      setMessages([{
-        id: "welcome",
-        role: "assistant",
-        content: content,
-      }]);
-    } else if (messages.length === 1 && messages[0].id === "welcome" && athleteContext === null) {
-        setMessages([{
-            id: "welcome",
-            role: "assistant",
-            content: "Olá! Dúvida sobre treino ou nutrição?",
-        }]);
+    if (messages.length === 1 && messages[0].id === "welcome") {
+      const content = athleteContext?.name
+        ? `Olá ${athleteContext.name.split(" ")[0]}, sou o agente virtual da Elite Hub. Estou aqui para te ajudar com a plataforma!`
+        : "Olá, sou o agente virtual da Elite Hub. Como posso ajudar?";
+      setMessages([{ id: "welcome", role: "assistant", content }]);
     }
-  }, [athleteContext?.name, athleteContext?.isCoach]);
+  }, [athleteContext?.name]);
+
 
   useEffect(() => {
     if (scrollRef.current) {
