@@ -19,8 +19,8 @@ User: 'Qual meu treino hoje?' -> Agent: 'Seu treino hoje é o Treino A - Peito, 
 User: 'Qual meu peso?' -> Agent: 'Seu peso atual registrado é 82,4 kg.'
 
 Regra de Contato e Suporte:
-- Se o usuário logado pedir orçamento, consultoria ou tiver dúvidas que você não saiba responder: instrua-o a enviar uma mensagem pela plataforma ao seu Coach, ou um e-mail para: rennajoao@rjelitehub.com.br
-- Se for um usuário deslogado (possível lead) perguntando sobre contato/informações: instrua-o a enviar um e-mail diretamente para rennajoao@rjelitehub.com.br
+- Se o usuário logado pedir orçamento, consultoria ou tiver dúvidas que você não saiba responder: instrua-o a enviar uma mensagem pela plataforma ao seu Coach, ou um e-mail para: rennanjoao@elitelab.com.br
+- Se for um usuário deslogado (possível lead) perguntando sobre contato/informações: instrua-o a enviar um e-mail diretamente para rennanjoao@elitelab.com.br
 
 IDENTIFICAÇÃO DE PAPEL:
 - SE FOR COACH (isCoach: true): Trate-o como colega técnico. Auxilie com protocolos e análise de dados.
@@ -31,26 +31,6 @@ Responsável técnico: Profissional de Educação Física habilitado (CREF: 2067
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  // Valida JWT
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const token = authHeader.replace(/^Bearer\s+/i, "");
-  if (!token) {
-    return new Response(JSON.stringify({ error: "não autenticado" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: `Bearer ${token}`, apikey: ANON_KEY },
-  });
-  if (!userRes.ok) {
-    return new Response(JSON.stringify({ error: "sessão inválida" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
 
   try {
     const { messages, athleteContext } = await req.json();
@@ -64,7 +44,10 @@ serve(async (req) => {
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [{ role: "system", content: systemContent }, ...messages],
