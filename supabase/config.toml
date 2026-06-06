@@ -11,3 +11,7 @@ verify_jwt = false
 
 [functions.info-chat]
 verify_jwt = false
+
+[functions.link-coach-student]
+verify_jwt = false
+

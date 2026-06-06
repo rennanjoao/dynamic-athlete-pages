@@ -217,36 +217,13 @@ const Anamnesis = () => {
         await (supabase.from("anamnesis") as any).insert(anamnesisRow);
       }
 
-      // Regra: um aluno só pode ter UM coach ativo por vez.
-      // Ao criar/reativar vínculo com um coach, desativa quaisquer vínculos
-      // ativos anteriores com outros coaches (mantém o mais recente).
+      // Vincula aluno→coach via edge function com service_role
+      // (a RLS de coach_students não permite o aluno fazer INSERT direto).
       if (coachIdOrNull) {
-        await supabase
-          .from("coach_students")
-          .update({ status: "inactive" })
-          .eq("student_id", studentId)
-          .eq("status", "active")
-          .neq("coach_id", coachIdOrNull);
-
-        const { data: existingLink } = await supabase
-          .from("coach_students")
-          .select("id, status")
-          .eq("coach_id", coachIdOrNull)
-          .eq("student_id", studentId)
-          .maybeSingle();
-
-        if (!existingLink) {
-          await supabase.from("coach_students").insert({
-            coach_id: coachIdOrNull,
-            student_id: studentId,
-            status: "active",
-          });
-        } else if (existingLink.status !== "active") {
-          await supabase
-            .from("coach_students")
-            .update({ status: "active" })
-            .eq("id", existingLink.id);
-        }
+        const { error: linkErr } = await supabase.functions.invoke("link-coach-student", {
+          body: { coachId: coachIdOrNull },
+        });
+        if (linkErr) console.warn("link-coach-student falhou", linkErr);
       }
 
       if (coach.email) {
