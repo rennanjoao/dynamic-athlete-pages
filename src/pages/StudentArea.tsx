@@ -13,6 +13,8 @@ import {
   Apple, Dumbbell, Pill, TrendingUp, CheckCircle2, 
   Loader2, User, AlertCircle, Copy, Check, X, LogOut, Sparkles
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import ProtocolQuestionButton from "@/components/student/ProtocolQuestionButton";
 
 export default function StudentArea() {
   const navigate = useNavigate();
@@ -135,15 +137,18 @@ export default function StudentArea() {
     navigate("/auth");
   };
 
-  const modules = [
-    { title: "Dieta", description: "Plano alimentar, substituições e macros.", icon: Apple, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20", route: "/routine" },
-    { title: "Treino", description: "Séries, cadência e diretrizes biomecânicas.", icon: Dumbbell, color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20", route: "/workout-plan" },
-    { title: "Suplementação", description: "Fármacos, vitaminas e horários de uso.", icon: Pill, color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/20", route: "/supplements" },
-    { title: "Evolução", description: "Fotos de progresso, gráficos e anamnese.", icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20", route: "/evolution" },
-    { title: "Check-in", description: "Envie seu feedback periódico para o treinador.", icon: CheckCircle2, color: "text-rose-500", bg: "bg-rose-500/10", border: "border-rose-500/20", route: "/check-in" },
+  const modules: Array<{
+    title: string; description: string; icon: typeof Apple; color: string; bg: string; border: string; route: string;
+    questionContext: "meal" | "exercise" | "supplement" | "general";
+  }> = [
+    { title: "Dieta", description: "Plano alimentar, substituições e macros.", icon: Apple, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20", route: "/routine", questionContext: "meal" },
+    { title: "Treino", description: "Séries, cadência e diretrizes biomecânicas.", icon: Dumbbell, color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20", route: "/workout-plan", questionContext: "exercise" },
+    { title: "Suplementação", description: "Fármacos, vitaminas e horários de uso.", icon: Pill, color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/20", route: "/supplements", questionContext: "supplement" },
+    { title: "Evolução", description: "Fotos de progresso, gráficos e anamnese.", icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20", route: "/evolution", questionContext: "general" },
+    { title: "Check-in", description: "Envie seu feedback periódico para o treinador.", icon: CheckCircle2, color: "text-rose-500", bg: "bg-rose-500/10", border: "border-rose-500/20", route: "/check-in", questionContext: "general" },
   ];
 
-  if (profileLoading) {
+  if (!userId || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -165,10 +170,13 @@ export default function StudentArea() {
             </div>
           </div>
           
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive h-9">
-            <LogOut className="w-4 h-4 sm:mr-1.5" /> 
-            <span className="hidden sm:inline">Sair</span>
-          </Button>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive h-9">
+              <LogOut className="w-4 h-4 sm:mr-1.5" /> 
+              <span className="hidden sm:inline">Sair</span>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -245,19 +253,21 @@ export default function StudentArea() {
           {modules.map((mod) => (
             <Card 
               key={mod.title} 
-              className={`cursor-pointer hover:shadow-md transition-all hover:-translate-y-1 bg-card/60 border ${mod.border}`}
-              onClick={() => navigate(mod.route)}
+              className={`hover:shadow-md transition-all bg-card/60 border ${mod.border}`}
             >
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${mod.bg}`}>
-                  <mod.icon className={`w-6 h-6 ${mod.color}`} />
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate(mod.route)}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${mod.bg}`}>
+                    <mod.icon className={`w-6 h-6 ${mod.color}`} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-foreground">{mod.title}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      {mod.description}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-foreground">{mod.title}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    {mod.description}
-                  </p>
-                </div>
+                <ProtocolQuestionButton context={mod.questionContext} studentName={profile?.full_name} variant="full" />
               </CardContent>
             </Card>
           ))}
@@ -265,7 +275,7 @@ export default function StudentArea() {
 
         <div className="mt-8 p-4 bg-muted/30 border border-border/50 rounded-xl text-center">
           <p className="text-xs text-muted-foreground">
-            Precisa de ajuda? Acesse o chat da Inteligência Artificial no canto da tela ou envie uma dúvida diretamente dentro do módulo específico.
+            Precisa de ajuda? Acesse o chat da Inteligência Artificial no canto da tela.
           </p>
         </div>
       </main>
