@@ -40,6 +40,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const AnamnesisViewer = lazy(() => import("@/components/anamnesis/AnamnesisViewer"));
 const ProtocolBuilder = lazy(() => import("@/components/coach/ProtocolBuilder"));
@@ -638,6 +639,7 @@ export default function CoachDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <CoachNotificationBell />
+            <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive h-9">
               <LogOut className="w-4 h-4 mr-1.5" /> Sair
             </Button>

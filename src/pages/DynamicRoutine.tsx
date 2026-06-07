@@ -102,9 +102,6 @@ export default function DynamicRoutine() {
           <h1 className="text-lg font-bold text-foreground">Plano Alimentar</h1>
           <p className="text-xs text-muted-foreground">Estratégia Nutricional</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <ProtocolQuestionButton context="meal" variant="icon" />
-        </div>
       </header>
 
       {/* Conteúdo Principal (100% de largura no mobile, restrito no PC) */}

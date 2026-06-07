@@ -66,7 +66,7 @@ export default function Supplements() {
           <h1 className="text-lg font-bold text-foreground">Diretrizes & Suplementação</h1>
           <p className="text-xs text-muted-foreground">Orientações do seu coach</p>
         </div>
-        <ProtocolQuestionButton context="supplement" variant="icon" />
+        
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
