@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import {
   MessageCircle, X, Send, Brain, Zap,
   Droplets, Moon, TrendingUp, Heart,
-  Users, Activity, Dumbbell
+  Users, Activity, Dumbbell, Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -18,7 +18,6 @@ interface Message {
   content: string;
 }
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/info-chat`;
 const BUBBLE_DURATION = 6000;
 
 const QUICK_ACTIONS = [
@@ -37,11 +36,7 @@ const NAV_LINKS = [
 
 const DEFAULT_WELCOME = "Olá, sou o agente virtual da Elite Hub. Como posso ajudar?";
 
-const INITIAL_MESSAGE: Message = {
-  id: "welcome",
-  role: "assistant",
-  content: DEFAULT_WELCOME,
-};
+const INITIAL_MESSAGE: Message = { id: "welcome", role: "assistant", content: DEFAULT_WELCOME };
 
 export const InfoChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -54,7 +49,8 @@ export const InfoChatBot = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUserName = async () => {
+    let cancelled = false;
+    (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       let text = DEFAULT_WELCOME;
       if (session?.user?.id) {
@@ -62,89 +58,24 @@ export const InfoChatBot = () => {
           .from("profiles")
           .select("full_name")
           .eq("user_id", session.user.id)
-          .single();
+          .maybeSingle();
         if (data?.full_name) {
           const firstName = data.full_name.split(" ")[0];
           text = `Olá ${firstName}, sou o agente virtual da Elite Hub. Estou aqui para te ajudar com a plataforma!`;
         }
       }
+      if (cancelled) return;
       setBubbleText(text);
       setMessages([{ id: "welcome", role: "assistant", content: text }]);
       setShowBubble(true);
-      const timer = setTimeout(() => setShowBubble(false), BUBBLE_DURATION);
-      return () => clearTimeout(timer);
-    };
-    fetchUserName();
+      setTimeout(() => { if (!cancelled) setShowBubble(false); }, BUBBLE_DURATION);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
-
-  const streamChat = async (allMessages: { role: string; content: string }[]) => {
-    const resp = await fetch(CHAT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ messages: allMessages }),
-    });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ error: "Erro de conexão" }));
-      if (resp.status === 429) toast.error("Limite de requisições excedido. Aguarde.");
-      else if (resp.status === 402) toast.error("Créditos de IA esgotados.");
-      else toast.error(err.error || "Erro ao conectar com IA");
-      throw new Error(err.error);
-    }
-
-    if (!resp.body) throw new Error("No stream body");
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let textBuffer = "";
-    let assistantSoFar = "";
-    let streamDone = false;
-
-    while (!streamDone) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      textBuffer += decoder.decode(value, { stream: true });
-
-      let newlineIndex: number;
-      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-        let line = textBuffer.slice(0, newlineIndex);
-        textBuffer = textBuffer.slice(newlineIndex + 1);
-
-        if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (line.startsWith(":") || line.trim() === "") continue;
-        if (!line.startsWith("data: ")) continue;
-
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === "[DONE]") { streamDone = true; break; }
-
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) {
-            assistantSoFar += content;
-            setMessages(prev => {
-              const last = prev[prev.length - 1];
-              if (last?.role === "assistant" && last.id !== "welcome") {
-                return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
-              }
-              return [...prev, { id: Date.now().toString(), role: "assistant", content: assistantSoFar }];
-            });
-          }
-        } catch {
-          // chunk malformed, skip
-        }
-      }
-    }
-  };
 
   const handleSend = async (text?: string) => {
     const msg = text || input.trim();
@@ -160,22 +91,25 @@ export const InfoChatBot = () => {
     }));
 
     try {
-      await streamChat(history);
-    } catch {
-      // error already toasted
+      const { data, error } = await supabase.functions.invoke("info-chat", {
+        body: { messages: history },
+      });
+      if (error) throw error;
+      const reply = (data as { text?: string; error?: string })?.text;
+      if (!reply) throw new Error((data as { error?: string })?.error || "Resposta vazia");
+      setMessages(prev => [...prev, { id: Date.now().toString() + "_a", role: "assistant", content: reply }]);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao conectar com a IA";
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleOpen = () => {
-    setShowBubble(false);
-    setIsOpen(true);
-  };
+  const handleOpen = () => { setShowBubble(false); setIsOpen(true); };
 
   return (
     <>
-      {/* Bubble flutuante de boas-vindas */}
       <AnimatePresence>
         {showBubble && !isOpen && (
           <motion.div
@@ -192,7 +126,6 @@ export const InfoChatBot = () => {
         )}
       </AnimatePresence>
 
-      {/* Botão flutuante */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
@@ -201,18 +134,13 @@ export const InfoChatBot = () => {
             exit={{ scale: 0, opacity: 0 }}
             className="fixed bottom-6 right-6 z-50"
           >
-            <Button
-              onClick={handleOpen}
-              className="w-14 h-14 rounded-full glow-primary shadow-2xl animate-glow-pulse"
-              size="icon"
-            >
+            <Button onClick={handleOpen} className="w-14 h-14 rounded-full glow-primary shadow-2xl animate-glow-pulse" size="icon">
               <MessageCircle className="w-6 h-6" />
             </Button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Chat */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -222,7 +150,6 @@ export const InfoChatBot = () => {
             transition={{ duration: 0.2 }}
             className="fixed bottom-6 right-6 z-50 w-[420px] max-w-[calc(100vw-3rem)] h-[600px] flex flex-col glass-strong rounded-2xl overflow-hidden shadow-2xl border border-border/20"
           >
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/20 bg-card/80">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center glow-primary">
@@ -241,7 +168,6 @@ export const InfoChatBot = () => {
               </Button>
             </div>
 
-            {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -263,7 +189,7 @@ export const InfoChatBot = () => {
                 </div>
               ))}
 
-              {isLoading && messages[messages.length - 1]?.role === "user" && (
+              {isLoading && (
                 <div className="flex justify-start">
                   <div className="bg-secondary/60 px-4 py-3 rounded-2xl rounded-bl-md flex gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -273,7 +199,6 @@ export const InfoChatBot = () => {
                 </div>
               )}
 
-              {/* Quick Actions & Nav */}
               {messages.length <= 1 && (
                 <div className="space-y-3 pt-2">
                   <div className="flex flex-wrap gap-2">
@@ -313,12 +238,8 @@ export const InfoChatBot = () => {
               )}
             </div>
 
-            {/* Input */}
             <div className="p-3 border-t border-border/20">
-              <form
-                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-                className="flex gap-2"
-              >
+              <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -326,13 +247,8 @@ export const InfoChatBot = () => {
                   className="rounded-xl bg-secondary/30 border-border/20 text-sm"
                   disabled={isLoading}
                 />
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="rounded-xl shrink-0 glow-primary"
-                  disabled={!input.trim() || isLoading}
-                >
-                  <Send className="w-4 h-4" />
+                <Button type="submit" size="icon" className="rounded-xl shrink-0 glow-primary" disabled={!input.trim() || isLoading}>
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </Button>
               </form>
             </div>

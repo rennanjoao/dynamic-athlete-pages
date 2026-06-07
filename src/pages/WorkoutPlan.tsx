@@ -52,7 +52,7 @@ export default function WorkoutPlan() {
           <h1 className="text-lg font-bold text-foreground">Plano de Treino</h1>
           <p className="text-xs text-muted-foreground">Biomecânica e Periodização</p>
         </div>
-        <ProtocolQuestionButton context="exercise" variant="icon" />
+        
       </header>
 
 

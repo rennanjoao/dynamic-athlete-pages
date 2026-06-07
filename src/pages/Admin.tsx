@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { TrainerManagement } from "@/components/admin/TrainerManagement";
 import { StudentLinksManagement } from "@/components/admin/StudentLinksManagement";
@@ -26,15 +27,17 @@ const Admin = () => {
           Voltar
         </Link>
 
-        {/* Botão de Sair */}
-        <Button
-          variant="ghost"
-          onClick={handleLogout}
-          className="absolute right-6 top-6 flex items-center gap-2 text-white/90 hover:text-white hover:bg-white/10"
-        >
-          <LogOut className="w-5 h-5" />
-          Sair
-        </Button>
+        <div className="absolute right-6 top-6 flex items-center gap-1">
+          <ThemeToggle className="text-white/90 hover:text-white hover:bg-white/10" />
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-white/90 hover:text-white hover:bg-white/10"
+          >
+            <LogOut className="w-5 h-5" />
+            Sair
+          </Button>
+        </div>
 
         <h1 className="text-3xl md:text-4xl font-bold mb-1">
           Painel Admin
