@@ -114,7 +114,9 @@ export default function DynamicRoutine() {
 
         {/* O COMPONENTE MÁGICO (Abas e Refeições) */}
         <StructuredMealsViewer payload={safePayload} />
-        
+
+        <ProtocolQuestionButton context="meal" variant="full" />
+
         <div className="h-10" />
       </main>
     </div>
