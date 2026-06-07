@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import ProtocolQuestionButton from "@/components/student/ProtocolQuestionButton";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 // ─── GRÁFICO OTIMIZADO ───
@@ -172,10 +174,13 @@ export default function StudentDashboard() {
           <h1 className="text-lg font-bold text-foreground">Meu Dia</h1>
           <p className="text-xs text-muted-foreground">Seu progresso diário</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive h-9">
-          <LogOut className="w-4 h-4 sm:mr-1.5" /> 
-          <span className="hidden sm:inline text-xs">Sair</span>
-        </Button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive h-9">
+            <LogOut className="w-4 h-4 sm:mr-1.5" /> 
+            <span className="hidden sm:inline text-xs">Sair</span>
+          </Button>
+        </div>
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
@@ -244,6 +249,8 @@ export default function StudentDashboard() {
               onCheckedChange={(v) => updateDaily.mutate({ water_ok: v })} 
             />
           </div>
+
+          <ProtocolQuestionButton context="general" variant="full" />
         </div>
 
         {/* METAS E MACROS (Com base no Plano do Coach) */}
