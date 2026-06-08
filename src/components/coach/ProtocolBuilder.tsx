@@ -50,6 +50,7 @@ import ProtocolImportExport from "./ProtocolImportExport";
 
 // FIX: importa o array correto (TACO_FOODS) e adiciona campo `id` virtual
 import { TACO_FOODS } from "@/data/tacoFoods";
+import { tacoGroupToKind } from "@/lib/macroCalc";
 const TACO_DATA = TACO_FOODS.map((t, i) => ({ ...t, id: String(i), cookFactor: t.cookFactor ?? 1 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
