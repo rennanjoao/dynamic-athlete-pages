@@ -181,6 +181,15 @@ export default function WorkoutPlan() {
           </div>
         )}
       </main>
+
+      {showWorkoutMode && (
+        <WorkoutMode
+          workouts={workouts}
+          userId={userId}
+          coachName={(coachProfile as any)?.full_name ?? undefined}
+          onClose={() => setShowWorkoutMode(false)}
+        />
+      )}
     </div>
   );
 }
