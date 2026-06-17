@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Dumbbell, AlertTriangle, Activity } from "lucide-react";
+import { ArrowLeft, Loader2, Dumbbell, AlertTriangle, Activity, Play, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ProtocolPayloadSchema } from "@/lib/protocolSchema";
 import ProtocolQuestionButton from "@/components/student/ProtocolQuestionButton";
+import WorkoutMode from "@/components/student/WorkoutMode";
 
 const WEEKDAYS_LABEL: Record<string, string> = {
   seg: "Segunda", ter: "Terça", qua: "Quarta",
@@ -18,6 +19,7 @@ const WEEKDAYS_LABEL: Record<string, string> = {
 export default function WorkoutPlan() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState("");
+  const [showWorkoutMode, setShowWorkoutMode] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -30,7 +32,17 @@ export default function WorkoutPlan() {
     queryKey: ["student-workout-json", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase.from("coach_plans").select("workout_periodization_json").eq("student_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const { data } = await supabase.from("coach_plans").select("workout_periodization_json, coach_id").eq("student_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      return data ?? null;
+    },
+  });
+
+  const { data: coachProfile } = useQuery({
+    queryKey: ["coach-profile-name", (planData as any)?.coach_id],
+    enabled: !!(planData as any)?.coach_id,
+    queryFn: async () => {
+      const coachId = (planData as any).coach_id as string;
+      const { data } = await supabase.from("profiles").select("full_name").eq("id", coachId).maybeSingle();
       return data ?? null;
     },
   });
