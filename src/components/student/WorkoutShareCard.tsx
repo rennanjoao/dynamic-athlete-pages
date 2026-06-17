@@ -56,9 +56,9 @@ export default function WorkoutShareCard({
       const blob = await generateBlob();
       if (!blob) throw new Error("falha");
       const file = new File([blob], "treino-elite.png", { type: "image/png" });
-      // @ts-expect-error - canShare with files not in default lib
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: "Treino destruído!" });
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+      if (nav.canShare && nav.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Treino destruído!" } as ShareData);
       } else {
         // fallback download
         const url = URL.createObjectURL(blob);
