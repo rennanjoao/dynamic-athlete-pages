@@ -69,6 +69,27 @@ export default function WorkoutPlan() {
 
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        {/* INICIAR MODO TREINO */}
+        {workouts.length > 0 && (
+          <button
+            onClick={() => setShowWorkoutMode(true)}
+            style={{ backgroundColor: "#111827" }}
+            className="w-full rounded-xl p-4 flex items-center gap-4 text-left hover:brightness-110 transition-all shadow-lg"
+          >
+            <div
+              style={{ backgroundColor: "#e94560" }}
+              className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+            >
+              <Play className="w-5 h-5 text-white fill-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-white">Iniciar modo treino</p>
+              <p className="text-xs text-white/60">Timer · séries · progresso</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-white/60" />
+          </button>
+        )}
+
         {/* DIRETRIZES DE TREINO EM EVIDÊNCIA */}
         {trainingGuideline && (
           <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl shadow-sm">
