@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { ProtocolPayloadSchema, type ProtocolPayload } from "./protocolSchema";
+import { withoutHiddenKinds } from "./mealVisibility";
 
 export class ProtocolXlsxError extends Error {
   details: string[];
@@ -17,7 +18,8 @@ function basePayload(): ProtocolPayload {
 }
 
 function getOpt(meal: any, kind: "carb" | "protein" | "fat", idx: number) {
-  const opts = (meal.options ?? []).filter((o: any) => o?.kind === kind);
+  // Tipo removido/oculto não é exportado.
+  const opts = (withoutHiddenKinds(meal).options ?? []).filter((o: any) => o?.kind === kind);
   return opts[idx] ?? { title: "", items: [] };
 }
 

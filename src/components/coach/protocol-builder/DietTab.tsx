@@ -25,6 +25,10 @@ import {
   Wand2, GripVertical, MoreHorizontal,
 } from "lucide-react";
 import { toIndependentMeal } from "@/lib/mealCopy";
+import {
+  withoutHiddenKinds, removeKindPatch, restoreKindPatch, getHiddenKinds, blankFoodItem,
+  type MacroKind,
+} from "@/lib/mealVisibility";
 import { DietTemplateQuickPicker } from "@/components/coach/DietTemplateQuickPicker";
 import {
   ProtocolPayload, makeEmptyMeal, MEAL_NAME_PRESETS, SUPPLEMENT_OBJECTIVES, genItemId,
@@ -137,20 +141,26 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
     const next = [...payload.meals];
     [next[index], next[target]] = [next[target], next[index]];
     setPayload({ ...payload, meals: next });
-    // O estado de colapso é indexado por posição — troca junto pra o card
-    // continuar visualmente no mesmo estado após o swap.
-    setCollapsedMeals((prev) => ({ ...prev, [index]: !!prev[target], [target]: !!prev[index] }));
+    // Estado de colapso é indexado por __id da refeição (não por posição) —
+    // acompanha o card sozinho em mover/arrastar/duplicar/excluir.
   }
 
   const [saveTplFor, setSaveTplFor] = useState<{ idx: number; name: string; kind: string } | null>(null);
   const [loadTplOpen, setLoadTplOpen] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
-  const [collapsedMeals, setCollapsedMeals] = useState<Record<number, boolean>>({});
-  // Controla quais grupos de macros estão minimizados: key = "mealIdx:kind"
+  // Colapso indexado pelo __id da refeição (estável) — antes era pela posição e
+  // "pulava" para a refeição errada ao excluir/duplicar/arrastar.
+  const [collapsedMeals, setCollapsedMeals] = useState<Record<string, boolean>>({});
+  // Controla quais grupos de macros estão minimizados: key = "mealId:kind"
   const [collapsedKinds, setCollapsedKinds] = useState<Record<string, boolean>>({});
-  const toggleKind = (mealIdx: number, kind: string) =>
-    setCollapsedKinds((prev) => ({ ...prev, [`${mealIdx}:${kind}`]: !prev[`${mealIdx}:${kind}`] }));
-  const isKindCollapsed = (mealIdx: number, kind: string) => !!collapsedKinds[`${mealIdx}:${kind}`];
+  const toggleKind = (mealId: string, kind: string) =>
+    setCollapsedKinds((prev) => ({ ...prev, [`${mealId}:${kind}`]: !prev[`${mealId}:${kind}`] }));
+  const isKindCollapsed = (mealId: string, kind: string) => !!collapsedKinds[`${mealId}:${kind}`];
+
+  // Sempre aponta para o payload mais recente (usado pelo "Desfazer" do toast,
+  // que roda depois de outras edições e não pode usar o payload "congelado").
+  const payloadRef = useRef(payload);
+  payloadRef.current = payload;
 
   async function reloadTemplates() {
     if (!coachId) return;
@@ -176,7 +186,7 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
 
   function attachTemplate(tpl: any) {
     try {
-      const meal = toIndependentMeal(tpl.meal_data);
+      const meal: any = { ...toIndependentMeal(tpl.meal_data), __id: genItemId("meal") };
       meal.name = meal.name || tpl.name;
       setPayload({ ...payload, meals: [...payload.meals, meal] });
       toast.success("Modelo adicionado");
@@ -186,7 +196,9 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
 
   function duplicateMeal(mealIdx: number) {
     const orig = payload.meals[mealIdx];
-    const copy = toIndependentMeal(orig, { name: `${orig.name || "Refeição"} (cópia)` });
+    // __id novo garantido: a cópia precisa de identidade própria (drag-and-drop,
+    // key do React e estado de colapso dependem dele).
+    const copy: any = { ...toIndependentMeal(orig, { name: `${orig.name || "Refeição"} (cópia)` }), __id: genItemId("meal") };
     const next = [...payload.meals];
     next.splice(mealIdx + 1, 0, copy);
     setPayload({ ...payload, meals: next });
@@ -224,7 +236,12 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
   }
 
   const dayMacros = useMemo(
-    () => calcDayMacros(payload.meals.filter((meal) => !(meal as any).excludeFromDayTotal)),
+    () => calcDayMacros(
+      payload.meals
+        .filter((meal) => !(meal as any).excludeFromDayTotal)
+        // Tipo removido/oculto nunca entra na soma (protege protocolos antigos).
+        .map((meal) => withoutHiddenKinds(meal)),
+    ),
     [payload.meals],
   );
   const goals = payload.macros;
@@ -248,6 +265,39 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
     const filtered = all.filter((o: any) => o?.kind === kind);
     if (filtered.length === 0) filtered.push({ kind, title: "Opção 1", notes: "", items: [{ name: "", baseName: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }] });
     return filtered.slice(0, 3);
+  }
+
+  const KIND_NAME: Record<MacroKind, string> = { carb: "Carboidrato", protein: "Proteína", fat: "Gordura" };
+
+  // "Remover" apaga DE VERDADE os alimentos do tipo (e marca como oculto). Antes só
+  // escondia o bloco e os alimentos continuavam somando nos macros.
+  function removeKind(mealIdx: number, kind: MacroKind) {
+    const meal = payload.meals[mealIdx] as any;
+    if (!meal) return;
+    const { patch, removedOptions, removedItemCount } = removeKindPatch(meal, kind);
+    updMealField(mealIdx, patch as any);
+    if (removedItemCount > 0) {
+      const mealId: string | undefined = meal.__id;
+      toast(`${KIND_NAME[kind]} removido (${removedItemCount} alimento${removedItemCount > 1 ? "s" : ""})`, {
+        duration: 8000,
+        action: { label: "Desfazer", onClick: () => undoRemoveKind(mealId, mealIdx, kind, removedOptions) },
+      });
+    }
+  }
+
+  function undoRemoveKind(mealId: string | undefined, mealIdx: number, kind: MacroKind, saved: any[]) {
+    const cur = payloadRef.current;
+    const idx = mealId ? cur.meals.findIndex((mm: any) => mm.__id === mealId) : mealIdx;
+    if (idx < 0 || !cur.meals[idx]) { toast.error("Não foi possível desfazer: a refeição mudou."); return; }
+    const next = [...cur.meals];
+    next[idx] = { ...cur.meals[idx], ...restoreKindPatch(cur.meals[idx] as any, kind, saved) } as any;
+    setPayload({ ...cur, meals: next });
+  }
+
+  function restoreKind(mealIdx: number, kind: MacroKind) {
+    const meal = payload.meals[mealIdx] as any;
+    if (!meal) return;
+    updMealField(mealIdx, restoreKindPatch(meal, kind) as any);
   }
 
   function updOption(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: number, patch: any) {
@@ -296,7 +346,11 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
     const all = [...(meal.options as any[])];
     const count = all.filter((o: any) => o?.kind === kind).length;
     if (count >= 3) return;
-    all.push({ kind, title: `Opção ${count + 1}`, notes: "", items: [{ name: "", baseName: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false }] });
+    // Sem opção real, a tela mostra um placeholder "Opção 1". Ao clicar "+ opção"
+    // o usuário espera a Opção 2 — então materializa a 1 e cria a 2.
+    if (count === 0) all.push({ kind, title: "Opção 1", notes: "", items: [blankFoodItem()] });
+    const base = count === 0 ? 1 : count;
+    all.push({ kind, title: `Opção ${base + 1}`, notes: "", items: [blankFoodItem()] });
     updMealField(mealIdx, { options: all as any });
   }
 
@@ -409,9 +463,9 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
         strategy={verticalListSortingStrategy}
       >
       {payload.meals.map((m, mealIdx) => {
-        const isCollapsed = !!collapsedMeals[mealIdx];
-        const mealM = calcMealMacros(m);
         const mealId = (m as any).__id ?? `meal-${mealIdx}`;
+        const isCollapsed = !!collapsedMeals[mealId];
+        const mealM = calcMealMacros(withoutHiddenKinds(m));
         const deleteMeal = () => {
                 const target = payload.meals[mealIdx] as any;
                 const targetPairId = typeof target?.pairId === "string" ? target.pairId : null;
@@ -555,7 +609,7 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
 
             <button
               type="button"
-              onClick={() => setCollapsedMeals((prev) => ({ ...prev, [mealIdx]: !isCollapsed }))}
+              onClick={() => setCollapsedMeals((prev) => ({ ...prev, [mealId]: !isCollapsed }))}
               className="text-muted-foreground hover:text-primary p-1.5 shrink-0"
               title={isCollapsed ? "Expandir refeição" : "Minimizar refeição"}
             >
@@ -588,16 +642,16 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
           <div className="p-4 space-y-3">
             {(["carb", "protein", "fat"] as const).map((kind) => {
               const cfg = KIND[kind];
-              const hidden = Array.isArray((m as any).hiddenKinds) && (m as any).hiddenKinds.includes(kind);
+              const hidden = getHiddenKinds(m as any).includes(kind);
               if (hidden) return null;
               const opts = getOptsForKind(m, kind);
-              const kindCollapsed = isKindCollapsed(mealIdx, kind);
+              const kindCollapsed = isKindCollapsed(mealId, kind);
               return (
                 <div key={kind} className={`rounded-xl border ${cfg.border} ${cfg.bg} p-3`}>
                   <div className="flex items-center justify-between mb-2.5">
                     <button
                       type="button"
-                      onClick={() => toggleKind(mealIdx, kind)}
+                      onClick={() => toggleKind(mealId, kind)}
                       className={`flex items-center gap-1.5 text-[11px] uppercase tracking-widest font-bold ${cfg.color} hover:opacity-80`}
                     >
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${kindCollapsed ? "-rotate-90" : ""}`} />
@@ -612,11 +666,7 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
                       <button
                         type="button"
                         title="Remover este macro desta refeição"
-                        onClick={() => {
-                          const cur = Array.isArray((m as any).hiddenKinds) ? [...(m as any).hiddenKinds] : [];
-                          if (!cur.includes(kind)) cur.push(kind);
-                          updMealField(mealIdx, { hiddenKinds: cur } as any);
-                        }}
+                        onClick={() => removeKind(mealIdx, kind)}
                         className="text-[10px] flex items-center gap-1 text-muted-foreground hover:text-destructive opacity-70 hover:opacity-100"
                       >
                         <Trash2 className="w-3 h-3" /> remover
@@ -802,17 +852,14 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
               );
             })}
 
-            {Array.isArray((m as any).hiddenKinds) && (m as any).hiddenKinds.length > 0 && (
+            {getHiddenKinds(m as any).length > 0 && (
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Macros ocultos:</span>
-                {((m as any).hiddenKinds as Array<"carb"|"protein"|"fat">).map((k) => (
+                {getHiddenKinds(m as any).map((k) => (
                   <button
                     key={k}
                     type="button"
-                    onClick={() => {
-                      const cur = ((m as any).hiddenKinds as string[]).filter((x) => x !== k);
-                      updMealField(mealIdx, { hiddenKinds: cur } as any);
-                    }}
+                    onClick={() => restoreKind(mealIdx, k)}
                     className="text-[10px] px-2 py-1 rounded border border-dashed border-border/60 text-muted-foreground hover:text-primary hover:border-primary inline-flex items-center gap-1"
                   >
                     <Plus className="w-3 h-3" /> {k === "carb" ? "Carbo" : k === "protein" ? "Proteína" : "Gordura"}
@@ -885,7 +932,7 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
           ) : (
             <div className="space-y-2 py-2">
               {templates.map((t) => {
-                const mm = calcMealMacros(t.meal_data);
+                const mm = calcMealMacros(withoutHiddenKinds(t.meal_data));
                 return (
                   <button key={t.id} onClick={() => attachTemplate(t)}
                     className="w-full text-left bg-card border border-border rounded-lg p-3 hover:border-primary/50 transition-colors">

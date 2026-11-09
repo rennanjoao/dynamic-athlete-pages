@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Clock, TrendingUp, TrendingDown, Minus, Scale, Flame, Dna, Wheat, Droplets, Salad } from "lucide-react";
 import { type CarbMode } from "@/components/student/CarbCycleSelector";
+import { withoutHiddenKinds } from "@/lib/mealVisibility";
 
 // ─── Math engine ──────────────────────────────────────────────────────────────
 // Conversão real cru → cozido (multiplicadores baseados em tabela TACO/USDA)
@@ -192,7 +193,10 @@ function MealCard({ meal, index, mode, highPct, lowPct }: {
 }) {
   const [open, setOpen] = useState(index === 0);
   const [isCooked, setIsCooked] = useState(false);
-  const allOptions: any[] = Array.isArray(meal.options) ? meal.options : [];
+  // Macro removido/oculto pelo coach nunca aparece para o aluno (protocolos antigos ainda podem ter
+  // alimentos guardados num tipo oculto).
+  const visibleMeal = withoutHiddenKinds(meal);
+  const allOptions: any[] = Array.isArray(visibleMeal.options) ? visibleMeal.options : [];
 
   // Strict per-kind grouping — never mix
   const carbOpts    = allOptions.filter((o: any) => o?.kind === "carb");
