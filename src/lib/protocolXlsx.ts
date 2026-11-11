@@ -1,6 +1,14 @@
 import * as XLSX from "xlsx";
 import { ProtocolPayloadSchema, type ProtocolPayload } from "./protocolSchema";
-import { withoutHiddenKinds } from "./mealVisibility";
+
+// Macro removido/oculto pelo coach não aparece para o aluno (protocolos antigos ainda podem guardar alimentos nele).
+function withoutHiddenKinds<T>(meal: T): T {
+  const m = meal as any;
+  const hidden: string[] = Array.isArray(m?.hiddenKinds) ? m.hiddenKinds : [];
+  if (!m || hidden.length === 0) return meal;
+  const options: any[] = Array.isArray(m.options) ? m.options : [];
+  return { ...m, options: options.filter((o) => !hidden.includes(o?.kind)) } as T;
+}
 
 export class ProtocolXlsxError extends Error {
   details: string[];

@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { Clock, TrendingUp, TrendingDown, Minus, Scale, Flame, Dna, Wheat, Droplets, Salad } from "lucide-react";
 import { type CarbMode } from "@/components/student/CarbCycleSelector";
-import { withoutHiddenKinds } from "@/lib/mealVisibility";
+
+// Macro removido/oculto pelo coach não aparece para o aluno (protocolos antigos ainda podem guardar alimentos nele).
+function withoutHiddenKinds<T>(meal: T): T {
+  const m = meal as any;
+  const hidden: string[] = Array.isArray(m?.hiddenKinds) ? m.hiddenKinds : [];
+  if (!m || hidden.length === 0) return meal;
+  const options: any[] = Array.isArray(m.options) ? m.options : [];
+  return { ...m, options: options.filter((o) => !hidden.includes(o?.kind)) } as T;
+}
 
 // ─── Math engine ──────────────────────────────────────────────────────────────
 // Conversão real cru → cozido (multiplicadores baseados em tabela TACO/USDA)

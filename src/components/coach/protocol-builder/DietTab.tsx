@@ -25,10 +25,6 @@ import {
   Wand2, GripVertical, MoreHorizontal,
 } from "lucide-react";
 import { toIndependentMeal } from "@/lib/mealCopy";
-import {
-  withoutHiddenKinds, removeKindPatch, restoreKindPatch, getHiddenKinds, blankFoodItem,
-  type MacroKind,
-} from "@/lib/mealVisibility";
 import { DietTemplateQuickPicker } from "@/components/coach/DietTemplateQuickPicker";
 import {
   ProtocolPayload, makeEmptyMeal, MEAL_NAME_PRESETS, SUPPLEMENT_OBJECTIVES, genItemId,
@@ -50,6 +46,119 @@ import {
 import { searchFoods, type FoodHit } from "@/lib/foodSearch";
 import { TACO_FOODS } from "@/data/tacoFoods";
 import { ENRICHED_FOODS } from "@/data/enrichedFoods";
+
+// ─── Regras de "macro removido/oculto" (embutidas neste arquivo para ele funcionar sozinho) ───
+// Remover um macro apaga os alimentos do tipo e marca o tipo como oculto; tipo oculto nunca entra na conta.
+type MacroKind = "carb" | "protein" | "fat";
+
+const VALID_KINDS: readonly MacroKind[] = ["carb", "protein", "fat"];
+
+type AnyMeal = { options?: any; hiddenKinds?: any } & Record<string, any>;
+
+/** Item de alimento vazio, no mesmo formato que o DietTab usa. */
+function blankFoodItem() {
+  return { name: "", baseName: "", weight: "", rawWeight: 0, cookFactor: 1, isTaco: false };
+}
+
+/** Tipos ocultos da refeição (só valores válidos, sem repetição). */
+function getHiddenKinds(meal: AnyMeal | null | undefined): MacroKind[] {
+  const raw = meal?.hiddenKinds;
+  if (!Array.isArray(raw)) return [];
+  const out: MacroKind[] = [];
+  for (const k of raw) {
+    if ((VALID_KINDS as readonly string[]).includes(k) && !out.includes(k)) out.push(k);
+  }
+  return out;
+}
+
+function isKindHidden(meal: AnyMeal | null | undefined, kind: MacroKind): boolean {
+  return getHiddenKinds(meal).includes(kind);
+}
+
+/**
+ * Devolve a refeição "como o aluno/os cálculos devem enxergar": sem as opções dos
+ * tipos ocultos. Não muta o original. Se não há tipo oculto, devolve a MESMA
+ * referência (barato e seguro para useMemo).
+ */
+function withoutHiddenKinds<T>(meal: T): T {
+  const m = meal as unknown as AnyMeal | null | undefined;
+  const hidden = getHiddenKinds(m);
+  if (!m || hidden.length === 0) return meal;
+  const options: any[] = Array.isArray(m.options) ? m.options : [];
+  return { ...m, options: options.filter((o) => !hidden.includes(o?.kind)) } as unknown as T;
+}
+
+/** Um alimento conta como "preenchido" se tem nome, peso ou peso cru. */
+function isFilledItem(it: any): boolean {
+  if (!it) return false;
+  return (
+    String(it.name ?? "").trim() !== "" ||
+    String(it.weight ?? "").trim() !== "" ||
+    Number(it.rawWeight) > 0
+  );
+}
+
+function countFilledItems(options: any[] | null | undefined): number {
+  if (!Array.isArray(options)) return 0;
+  let n = 0;
+  for (const o of options) {
+    if (Array.isArray(o?.items)) n += o.items.filter(isFilledItem).length;
+  }
+  return n;
+}
+
+interface RemoveKindResult {
+  /** Campos a mesclar na refeição (`{ ...meal, ...patch }`). */
+  patch: { hiddenKinds: MacroKind[]; options: any[] };
+  /** Opções apagadas — guardadas para "Desfazer". */
+  removedOptions: any[];
+  /** Quantos alimentos preenchidos foram apagados (0 = bloco estava vazio). */
+  removedItemCount: number;
+}
+
+/** Remove DE VERDADE um tipo: apaga as opções do tipo e marca o tipo como oculto. */
+function removeKindPatch(meal: AnyMeal, kind: MacroKind): RemoveKindResult {
+  const options: any[] = Array.isArray(meal?.options) ? meal.options : [];
+  const removedOptions = options.filter((o) => o?.kind === kind);
+  const keptOptions = options.filter((o) => o?.kind !== kind);
+  const hiddenKinds = getHiddenKinds(meal);
+  if (!hiddenKinds.includes(kind)) hiddenKinds.push(kind);
+  return {
+    patch: { hiddenKinds, options: keptOptions },
+    removedOptions,
+    removedItemCount: countFilledItems(removedOptions),
+  };
+}
+
+/**
+ * Restaura um tipo oculto. Ordem de preferência para o conteúdo do tipo:
+ *  1. o que já existe na refeição COM alimentos (protocolo antigo oculto com itens,
+ *     ou bloco que o usuário já preencheu de novo);
+ *  2. `savedOptions` (usado pelo "Desfazer") — também substitui opções do tipo que
+ *     estejam só vazias (ex.: restaurou pelo chip e depois clicou em Desfazer);
+ *  3. uma "Opção 1" vazia já materializada (evita o placeholder fantasma do editor).
+ */
+function restoreKindPatch(
+  meal: AnyMeal,
+  kind: MacroKind,
+  savedOptions: any[] = [],
+): { hiddenKinds: MacroKind[]; options: any[] } {
+  const options: any[] = Array.isArray(meal?.options) ? meal.options : [];
+  const existing = options.filter((o) => o?.kind === kind);
+  const hiddenKinds = getHiddenKinds(meal).filter((k) => k !== kind);
+  const hasSaved = savedOptions.length > 0;
+  if (existing.length > 0 && !(hasSaved && countFilledItems(existing) === 0)) {
+    return { hiddenKinds, options };
+  }
+
+  const restored = hasSaved
+    ? savedOptions
+    : [{ kind, title: "Opção 1", notes: "", items: [blankFoodItem()] }];
+  // descarta opções vazias do tipo (placeholder) antes de devolver o conteúdo
+  const kept = options.filter((o) => o?.kind !== kind);
+  return { hiddenKinds, options: [...kept, ...restored] };
+}
+
 
 const FOOD_CATALOG = [...ENRICHED_FOODS, ...TACO_FOODS];
 const CUT_VARIANT_PAIRS = [
@@ -161,6 +270,21 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
   // que roda depois de outras edições e não pode usar o payload "congelado").
   const payloadRef = useRef(payload);
   payloadRef.current = payload;
+
+  // O payload é compartilhado entre as abas e esta aba desmonta ao trocar de aba.
+  // Depois disso o payloadRef fica velho: um "Desfazer" tardio regravaria o snapshot
+  // antigo e apagaria edições feitas em outras abas. Então: descarta os toasts de
+  // Desfazer ao sair da aba e o Desfazer não faz nada se já desmontou.
+  const mountedRef = useRef(true);
+  const undoToastIds = useRef<Array<string | number>>([]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      undoToastIds.current.forEach((id) => toast.dismiss(id));
+      undoToastIds.current = [];
+    };
+  }, []);
 
   async function reloadTemplates() {
     if (!coachId) return;
@@ -278,19 +402,24 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
     updMealField(mealIdx, patch as any);
     if (removedItemCount > 0) {
       const mealId: string | undefined = meal.__id;
-      toast(`${KIND_NAME[kind]} removido (${removedItemCount} alimento${removedItemCount > 1 ? "s" : ""})`, {
+      const toastId = toast(`${KIND_NAME[kind]} removido (${removedItemCount} alimento${removedItemCount > 1 ? "s" : ""})`, {
         duration: 8000,
         action: { label: "Desfazer", onClick: () => undoRemoveKind(mealId, mealIdx, kind, removedOptions) },
       });
+      undoToastIds.current.push(toastId);
     }
   }
 
   function undoRemoveKind(mealId: string | undefined, mealIdx: number, kind: MacroKind, saved: any[]) {
+    if (!mountedRef.current) return; // saiu da aba Dieta: payloadRef está velho
     const cur = payloadRef.current;
     const idx = mealId ? cur.meals.findIndex((mm: any) => mm.__id === mealId) : mealIdx;
     if (idx < 0 || !cur.meals[idx]) { toast.error("Não foi possível desfazer: a refeição mudou."); return; }
+    const curMeal: any = cur.meals[idx];
+    const already = (curMeal.options || []).filter((o: any) => o?.kind === kind);
+    if (countFilledItems(already) > 0) { toast.info("Esse macro já foi preenchido de novo — Desfazer cancelado."); return; }
     const next = [...cur.meals];
-    next[idx] = { ...cur.meals[idx], ...restoreKindPatch(cur.meals[idx] as any, kind, saved) } as any;
+    next[idx] = { ...curMeal, ...restoreKindPatch(curMeal, kind, saved) } as any;
     setPayload({ ...cur, meals: next });
   }
 
@@ -364,11 +493,13 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
   function updItem(mealIdx: number, kind: "carb" | "protein" | "fat", optIdx: number, itemIdx: number, patch: any) {
     const opts = getOptsForKind(payload.meals[mealIdx], kind);
     const items = [...(opts[optIdx].items as any[])];
+    const wasTaco = items[itemIdx]?.isTaco === true;
     items[itemIdx] = { ...items[itemIdx], ...patch };
     if (patch.substitution === undefined && "substitution" in patch) delete items[itemIdx].substitution;
     if (patch.isTaco === true) {
       items[itemIdx].name = items[itemIdx].baseName || items[itemIdx].name || "";
-      items[itemIdx].weight = "";
+      // Escolha NOVA de alimento limpa a quantidade; troca de versão/corte (TACO → TACO) mantém o que foi digitado.
+      if (!wasTaco) { items[itemIdx].weight = ""; items[itemIdx].rawWeight = 0; }
     }
     updOption(mealIdx, kind, optIdx, { items });
   }
@@ -732,13 +863,21 @@ export function DietTab({ payload, setPayload, onOpenTemplateLibrary }: { payloa
                                       // NÃO retorna — permite a inserção normalmente
                                     }
                                     const isInd = taco.source === "industrial";
-                                    updItem(mealIdx, kind, optIdx, ii, {
+                                    const picked: any = {
                                       baseName: taco.name,
                                       name: taco.name,
                                       isTaco: !isInd,
                                       isIndustrial: isInd,
                                       cookFactor: taco.cookFactor ?? 1,
-                                    });
+                                    };
+                                    // Quantidade que continua no campo (industrializado, ou troca de corte TACO → TACO)
+                                    // precisa virar gramas do alimento NOVO — senão o total fica com o rawWeight velho (ou 0).
+                                    const keptText = String((it as any).weight ?? "").trim();
+                                    if (keptText && (isInd || (it as any).isTaco === true)) {
+                                      const { grams } = resolveQuantity({ ...(it as any), ...picked }, keptText);
+                                      picked.rawWeight = isFinite(grams) && grams > 0 ? grams : 0;
+                                    }
+                                    updItem(mealIdx, kind, optIdx, ii, picked);
                                   }}
                                   onChangeName={(name) => updItem(mealIdx, kind, optIdx, ii, { name, baseName: name, isTaco: false, isIndustrial: false, cookFactor: 1, rawWeight: 0 })}
                                   onChangeWeight={(w) => {
